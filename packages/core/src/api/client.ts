@@ -4,7 +4,11 @@ import type {
   CurrentAccount,
   GrantedRole,
   Friend,
+  KhalaInbox,
+  KhalaStatus,
   Label,
+  MCPToken,
+  MCPTokenIssued,
   Meeting,
   PresignResult,
   RecordingSession,
@@ -63,6 +67,47 @@ export class ApiClient {
   }
 
   /** 기본 전사 언어. `null` 이면 자동(브라우저 언어)으로 되돌린다. */
+  // ── 칼라 연동 ──────────────────────────────────────────
+
+  khalaStatus(): Promise<KhalaStatus> {
+    return this.#request("GET", "/api/khala");
+  }
+
+  khalaInboxes(): Promise<{ inboxes: KhalaInbox[] }> {
+    return this.#request("GET", "/api/khala/inboxes");
+  }
+
+  khalaDisconnect(): Promise<void> {
+    return this.#request("DELETE", "/api/khala");
+  }
+
+  /** 회의를 칼라 인박스로 보낸다. Reviewer 만 할 수 있다 — 서버가 다시 판정한다. */
+  sendMeetingToKhala(
+    meetingId: string,
+    body: { recipient_inbox_code: string; attach_transcript?: boolean },
+  ): Promise<{ sent: boolean }> {
+    return this.#request(
+      "POST",
+      `/api/meetings/${encodeURIComponent(meetingId)}/khala`,
+      body,
+    );
+  }
+
+  // ── MCP 읽기 토큰 ──────────────────────────────────────
+
+  mcpTokens(): Promise<{ tokens: MCPToken[] }> {
+    return this.#request("GET", "/api/mcp-tokens");
+  }
+
+  /** 평문 토큰은 **이 응답에만** 들어 있다. */
+  createMCPToken(body: { name: string }): Promise<MCPTokenIssued> {
+    return this.#request("POST", "/api/mcp-tokens", body);
+  }
+
+  revokeMCPToken(id: string): Promise<void> {
+    return this.#request("DELETE", `/api/mcp-tokens/${encodeURIComponent(id)}`);
+  }
+
   updateTranscribeLanguage(language: string | null): Promise<CurrentAccount> {
     return this.#request("PATCH", "/api/me/transcribe-language", {
       transcribe_language: language,

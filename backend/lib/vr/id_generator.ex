@@ -41,7 +41,9 @@ defmodule VR.IdGenerator do
     credit_lot: "clot",
     credit_ledger_entry: "cled",
     credit_conversion_setting: "ccnv",
-    billing_audit_log: "balg"
+    billing_audit_log: "balg",
+    khala_connection: "khcn",
+    mcp_token: "mcpt"
   }
 
   @random_bytes 12

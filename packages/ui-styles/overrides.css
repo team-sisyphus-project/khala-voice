@@ -1665,3 +1665,40 @@ a.mobile-top-app-bar__icon-button { text-decoration: none; }
   background-image: none;
   border-image: none;
 }
+
+/* 발급 직후에만 보이는 평문 토큰. 고를 수 있어야 복사한다. */
+.vr-token-plain {
+  display: block;
+  margin: var(--mobile-space-2) 0;
+  padding: var(--mobile-space-3);
+  border-radius: var(--mobile-radius-xs);
+  background: var(--mobile-surface-inset);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: var(--mobile-font-size-caption);
+  word-break: break-all;
+  user-select: all;
+}
+
+/* 체크박스 줄 — 시트 안에서 옵션 하나를 켜고 끈다 */
+.vr-check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mobile-space-3);
+  width: 100%;
+  padding: var(--mobile-space-3) 0;
+  border: 0;
+  background: none;
+  color: var(--mobile-fg);
+  font-family: inherit;
+  font-size: var(--mobile-font-size-body);
+  text-align: left;
+  cursor: pointer;
+}
+
+.vr-check-row > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vr-check-row .mobile-icon { flex: 0 0 auto; color: var(--mobile-accent); }

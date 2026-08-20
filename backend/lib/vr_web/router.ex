@@ -89,6 +89,38 @@ defmodule VRWeb.Router do
     get "/confirm/:token", ConfirmationController, :confirm
   end
 
+  # ── 우리 MCP 서버 (외부가 아카이브를 읽는다) ────────────────
+  # 인증은 Bearer 토큰(`mcp_`). CSRF 가 없는 `:api` 파이프라인을 쓴다 —
+  # 브라우저가 아니라 프로그램이 부른다.
+  pipeline :mcp do
+    plug :accepts, ["json"]
+    plug VRWeb.MCPAuth
+  end
+
+  scope "/", VRWeb do
+    pipe_through :mcp
+
+    post "/mcp", MCPController, :handle
+  end
+
+  # 메타데이터는 인증 없이 읽을 수 있어야 한다 — 401 을 받은 클라이언트가
+  # "어떻게 인증하나"를 알아내는 문서다.
+  scope "/", VRWeb do
+    pipe_through :api
+
+    get "/.well-known/oauth-protected-resource", MCPMetadataController, :show
+    get "/.well-known/oauth-protected-resource/mcp", MCPMetadataController, :show
+  end
+
+  # ── 칼라 연동 (로그인 필요) ────────────────────────────────
+  # OAuth 왕복만 여기 있다. 토큰을 쓰는 일은 `VR.Khala` 가 한다.
+  scope "/khala", VRWeb do
+    pipe_through [:browser, :require_auth]
+
+    get "/connect", KhalaController, :connect
+    get "/callback", KhalaController, :callback
+  end
+
   # ── 공유 링크 화면 (로그인 없이 열린다) ────────────────────
   # 같은 index.html 을 준다. 실제 판정은 `/api/public` 이 한다 —
   # 이 화면 자체에는 회의 내용이 없다.
@@ -150,6 +182,15 @@ defmodule VRWeb.Router do
     get "/me/push", PushController, :show
     post "/me/push", PushController, :subscribe
     delete "/me/push", PushController, :unsubscribe
+
+    get "/mcp-tokens", MCPTokenController, :index
+    post "/mcp-tokens", MCPTokenController, :create
+    delete "/mcp-tokens/:id", MCPTokenController, :delete
+
+    get "/khala", KhalaController, :show
+    get "/khala/inboxes", KhalaController, :inboxes
+    delete "/khala", KhalaController, :disconnect
+    post "/meetings/:meeting_id/khala", KhalaController, :send_meeting
 
     get "/meetings", MeetingController, :index
     post "/meetings", MeetingController, :create

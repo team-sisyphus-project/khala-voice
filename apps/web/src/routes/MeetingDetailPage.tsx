@@ -11,6 +11,7 @@ import { SummaryView } from "@/components/SummaryView";
 import { ShareDialog } from "@/components/ShareDialog";
 import { MeetingInfoTab } from "@/components/MeetingInfoTab";
 import { MeetingTitleSheet } from "@/components/MeetingTitleSheet";
+import { KhalaSendSheet } from "@/components/KhalaSendSheet";
 import { useAudioPlayer } from "@/hooks/useAudioPlayer";
 import { Button, EmptyState, Icon, Notice, Row, SegmentedControl, Section, StatusChip } from "@/ui";
 import type {
@@ -52,6 +53,17 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
   const [summarizing, setSummarizing] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [sendingKhala, setSendingKhala] = useState(false);
+
+  // 칼라가 꺼져 있거나 연결 전이면 버튼을 아예 두지 않는다 — 눌러도 안 되는 것을 두지 않는다
+  const [khalaReady, setKhalaReady] = useState(false);
+
+  useEffect(() => {
+    void api
+      .khalaStatus()
+      .then((s) => setKhalaReady(s.enabled && s.connected))
+      .catch(() => setKhalaReady(false));
+  }, []);
   const waitingFrom = useRef<{ stamp: string | null; errorAt: string | null } | null>(null);
 
   const load = useCallback(async () => {
@@ -239,6 +251,20 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
               <Icon name="share" />
             </button>
           )}
+
+          {/* 칼라 연동이 켜져 있고 연결됐을 때만 보인다.
+              서버가 발송 시 권한을 다시 판정한다 — 이 버튼은 편의일 뿐이다. */}
+          {canShare && khalaReady && (
+            <button
+              className="mobile-top-app-bar__icon-button"
+              onClick={() => setSendingKhala(true)}
+              aria-label="칼라로 보내기"
+              title="칼라로 보내기"
+              type="button"
+            >
+              <Icon name="send" />
+            </button>
+          )}
         </>
       }
     >
@@ -376,6 +402,10 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
           onSaved={setMeeting}
           onError={setError}
         />
+      )}
+
+      {sendingKhala && meeting && (
+        <KhalaSendSheet meeting={meeting} onClose={() => setSendingKhala(false)} />
       )}
 
       {sharing && (

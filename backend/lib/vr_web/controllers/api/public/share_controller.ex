@@ -24,6 +24,7 @@ defmodule VRWeb.API.Public.ShareController do
 
   use VRWeb, :controller
 
+  alias VR.Meetings.Redact
   alias VR.{Meetings, Sharing}
   alias VRWeb.API.JSONView
 
@@ -84,7 +85,9 @@ defmodule VRWeb.API.Public.ShareController do
           sessions: sessions,
           taxonomy: VR.Taxonomy.resolve_for([meeting])
         )
-        |> strip_internal()
+        # 게스트·MCP 가 **같은 함수**를 쓴다 (`VR.Meetings.Redact`).
+        # 오디오는 게스트 전용 경로로 바꿔 준다 — 계정 경로를 그대로 주면 401 만 난다.
+        |> Redact.meeting(audio: {:rewrite, &"/api/public/guest/sessions/#{&1}/audio"})
 
       json(conn, payload)
     end
@@ -136,48 +139,6 @@ defmodule VRWeb.API.Public.ShareController do
   #
   # `speaker_map` 을 빠뜨리기 쉽다 — 화자마다 `account_id` 가 붙어 있어서
   # 전사만 넘겨도 참여자 계정 id 가 통째로 새어 나간다.
-  defp strip_internal(payload) do
-    payload
-    |> Map.drop([
-      :owner_id,
-      :reviewer_id,
-      :contributor_ids,
-      :permissions,
-      # 실패 원문에 내부 예외가 그대로 들어 있다
-      :last_summary_error,
-      # 과금 정보는 회의 소유자의 것이다
-      :total_credits_charged
-    ])
-    |> Map.update(:recording_sessions, nil, &strip_sessions/1)
-  end
-
-  defp strip_sessions(nil), do: nil
-
-  defp strip_sessions(sessions) when is_list(sessions) do
-    Enum.map(sessions, fn session ->
-      session
-      |> Map.drop([:credits_charged, :error_message])
-      |> Map.update(:speaker_map, %{}, &strip_speaker_accounts/1)
-      # 계정 전용 경로를 그대로 주면 게스트가 눌러도 401 만 난다
-      |> rewrite_audio_href()
-    end)
-  end
-
-  defp rewrite_audio_href(%{audio_href: _} = session) do
-    Map.put(session, :audio_href, "/api/public/guest/sessions/#{session.id}/audio")
-  end
-
-  defp rewrite_audio_href(session), do: session
-
-  # 이름은 남기고 계정 id 만 지운다. 화면은 이름만 쓴다.
-  defp strip_speaker_accounts(speaker_map) when is_map(speaker_map) do
-    Map.new(speaker_map, fn
-      {key, %{} = entry} -> {key, Map.drop(entry, ["account_id", :account_id])}
-      {key, value} -> {key, value}
-    end)
-  end
-
-  defp strip_speaker_accounts(other), do: other
 
   # `X-Forwarded-For` 는 **설정으로 켰을 때만** 믿는다.
   #

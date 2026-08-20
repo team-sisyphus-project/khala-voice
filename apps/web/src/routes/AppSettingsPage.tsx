@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { AppShell } from "@/components/AppShell";
 import { NotificationSetting } from "@/components/NotificationSetting";
+import { IntegrationsSection } from "@/components/IntegrationsSection";
 import { RecordingPrefsSheet } from "@/components/RecordingPrefsSheet";
 import { Notice } from "@/components/ui";
 import { usePrefs } from "@/hooks/usePrefs";
@@ -92,6 +93,8 @@ export function AppSettingsPage() {
           <Icon name="chevron_right" />
         </Link>
       </Section>
+
+      <IntegrationsSection />
 
       <Section card>
         <a className="vr-nav-row" href={routes.account}>

@@ -274,3 +274,40 @@ export interface Friend {
   name: string | null;
   email: string;
 }
+
+
+// ── 칼라 연동 · MCP ──────────────────────────────────────
+//
+// 방향이 반대인 두 가지다 (`docs/15-mcp-khala.md`):
+//
+//   KhalaStatus  우리 → 칼라   우리가 남의 인박스로 보낸다
+//   MCPToken     남 → 우리     외부가 우리 아카이브를 읽는다
+
+export interface KhalaInbox {
+  code: string | null;
+  name: string | null;
+  tagline?: string | null;
+}
+
+export interface KhalaStatus {
+  /** 서버가 연동 기능을 켰는가. 끄면 화면에서 아예 사라진다 */
+  enabled: boolean;
+  connected: boolean;
+  /** 칼라에 만든 **우리** 인박스 — 보내는 쪽이다 */
+  inbox: KhalaInbox | null;
+}
+
+export interface MCPToken {
+  id: string;
+  name: string;
+  /** 앞자리만. 뒤는 복원할 수 없다 */
+  token_prefix: string;
+  last_used_at: string | null;
+  expires_at: string | null;
+  inserted_at: string;
+}
+
+/** 발급 응답에만 `token` 이 들어 있다. **이때만 볼 수 있다.** */
+export interface MCPTokenIssued extends MCPToken {
+  token: string;
+}

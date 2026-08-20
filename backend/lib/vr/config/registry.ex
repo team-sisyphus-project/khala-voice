@@ -27,7 +27,8 @@ defmodule VR.Config.Registry do
     mail: %{label: "메일 발송", icon: "hero-envelope"},
     push: %{label: "웹 푸시", icon: "hero-bell"},
     policy: %{label: "정책", icon: "hero-adjustments-horizontal"},
-    app: %{label: "앱", icon: "hero-globe-alt"}
+    app: %{label: "앱", icon: "hero-globe-alt"},
+    khala: %{label: "칼라 연동", icon: "hero-paper-airplane"}
   ]
 
   @entries [
@@ -332,6 +333,32 @@ defmodule VR.Config.Registry do
       required: true,
       feature: :mail,
       help: "메일에 들어가는 링크의 기준 주소. 예: https://voice.example.com"
+    },
+
+    # ── 칼라 연동 ───────────────────────────────────────────
+    # 시크릿이 없다. 칼라는 공개 클라이언트라(PKCE) client_secret 을 쓰지 않고,
+    # client_id 는 동적 등록으로 받는다 (`docs/15-mcp-khala.md`).
+    %{
+      key: "khala.enabled",
+      group: :khala,
+      label: "칼라 연동 사용",
+      env: "KHALA_ENABLED",
+      type: :boolean,
+      secret: false,
+      required: false,
+      feature: :khala,
+      help: "끄면 설정·회의 화면에서 칼라 연동이 아예 사라진다"
+    },
+    %{
+      key: "khala.mcp_url",
+      group: :khala,
+      label: "칼라 MCP 주소",
+      env: "KHALA_MCP_URL",
+      type: :string,
+      secret: false,
+      required: false,
+      feature: :khala,
+      help: "예: https://mcp.khala.to/mcp — OAuth 엔드포인트는 이 주소에서 자동으로 찾는다"
     }
   ]
 

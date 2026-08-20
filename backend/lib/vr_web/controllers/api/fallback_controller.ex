@@ -40,6 +40,15 @@ defmodule VRWeb.API.FallbackController do
   def call(conn, {:error, :invalid_request}),
     do: error(conn, 422, "invalid_request", "요청 형식이 올바르지 않습니다")
 
+  def call(conn, {:error, :khala_not_connected}),
+    do: error(conn, 409, "khala_not_connected", "칼라에 연결되어 있지 않습니다")
+
+  def call(conn, {:error, :khala_reconnect_required}),
+    do: error(conn, 409, "khala_reconnect_required", "칼라 연결이 만료되었습니다. 다시 연결해 주세요")
+
+  def call(conn, {:error, :bad_request}),
+    do: error(conn, 400, "bad_request", "요청 형식이 올바르지 않습니다")
+
   def call(conn, {:error, :already_uploaded}),
     do: error(conn, 422, "already_uploaded", "이미 업로드가 끝난 세션입니다")
 
