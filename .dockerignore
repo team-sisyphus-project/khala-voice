@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+.git
+.charlie*
+**/_build
+**/deps
+**/node_modules
+**/cover
+**/dist
+**/.vite
+**/erl_crash.dump
+**/tmp
