@@ -1,0 +1,253 @@
+/* ============================================================================
+   모바일 게임 스킨 — 데스크톱 assets/css/themes/game.css의 선 문법을
+   모바일 컴포넌트 어휘로 옮긴 것. 색 토큰만으로는 "픽셀"이 되지 않는다 —
+   모서리·선·그림자가 형태를 만든다.
+
+   ── 선 문법 (데스크톱과 동일) ──────────────────────────────────────────
+   선은 **어느 층인가**를, 채움은 **무슨 일을 하나**를 말한다.
+   빨강   = 최상위 계층의 구분. 탑앱바 아래선 · 시트/드로어/독 · FAB 테두리 ·
+            오브 모니터 프레임. 본문 위에 얹히면 빨강이다.
+   초록   = 그 안의 오브젝트·위젯. 버튼 · 카드 · 행.
+   선 없음 = 그냥 내용. 화면·섹션 컨테이너.
+   앰버   = 채움. 프라이머리 · FAB.
+   그림자 = 없음(2026-08-17 판정). 깊이는 표면 밝기 차이로만.
+
+   ── 토큰 ─────────────────────────────────────────────────────────────
+   **이 파일에는 색·치수 리터럴이 없다.** 전부 tokens.css의
+   `[data-theme="game"]` 블록(--mobile-game-* 및 공용 --mobile-*)을 참조한다.
+   값을 바꾸려면 거기 한 곳만 고친다.
+
+   ── 격리 ─────────────────────────────────────────────────────────────
+   **모든 규칙이 [data-theme="game"] 안에 있다.** 이 파일이 다른 테마의
+   픽셀 하나도 건드리지 않는 것이 조건이다(사용자 2026-08-17).
+   모바일엔 data-surface 태깅이 없어 컴포넌트 클래스를 직접 겨냥한다
+   (media-skin.css와 같은 방식). 특이도는 :not(#_)로 올린다 — 컴포넌트
+   규칙이 3클래스인 곳이 있어 동점이면 뒤에 오는 쪽이 이긴다.
+   ========================================================================== */
+
+/* 도트 글꼴. mobile/public/fonts에서 자기 오리진으로 받는다(스프라이트와 달리
+   Phoenix static이 아니다). font-display: swap이라 이 테마를 켠 사람만
+   내려받는다 — 다른 테마 사용자는 요청조차 하지 않는다. */
+@font-face {
+  font-family: "DungGeunMo";
+  src: url("/fonts/DungGeunMo.woff") format("woff");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+[data-theme="game"],
+[data-theme="game"] * {
+  font-family: var(--mobile-game-font);
+}
+
+/* CRT 주사선 — 화면 위 한 겹. 데스크톱과 같은 규격(2px 주기). */
+[data-theme="game"]::after {
+  content: var(--mobile-game-overlay-content);
+  position: var(--mobile-game-overlay-position);
+  inset: var(--mobile-game-overlay-inset);
+  pointer-events: var(--mobile-game-overlay-pointer-events);
+  background: repeating-linear-gradient(
+    var(--mobile-game-scanline-angle),
+    var(--mobile-game-scanline-clear),
+    var(--mobile-game-scanline-clear) var(--mobile-game-hairline),
+    var(--mobile-game-scanline) var(--mobile-game-hairline),
+    var(--mobile-game-scanline) var(--mobile-game-scanline-pitch)
+  );
+  opacity: var(--mobile-game-scanline-opacity);
+  z-index: var(--mobile-game-overlay-z);
+}
+
+/* =============================================================
+   빨강 = 최상위 계층의 구분
+   ============================================================= */
+[data-theme="game"]:not(#_) .mobile-top-app-bar {
+  border-bottom: var(--mobile-game-border-width) solid var(--mobile-game-red);
+  background: var(--mobile-surface-canvas);
+  backdrop-filter: var(--mobile-game-backdrop-filter);
+}
+
+/* 떠 있는 것도 최상위 계층이다 — 시트·드로어·독처럼 본문 위에 얹히면 빨강. */
+[data-theme="game"]:not(#_)
+  :is(.mobile-context-sheet, .mobile-drawer, .mobile-action-dock) {
+  border: var(--mobile-game-border-width) solid var(--mobile-game-red);
+  border-radius: var(--mobile-radius-md);
+  background: var(--mobile-surface-1);
+  backdrop-filter: var(--mobile-game-backdrop-filter);
+  box-shadow: var(--mobile-game-shadow);
+}
+
+/* =============================================================
+   초록 = 그 안의 오브젝트·위젯
+   ============================================================= */
+[data-theme="game"]:not(#_)
+  :is(
+    .mobile-row,
+    .mobile-issue-card-row,
+    .mobile-seed-card,
+    .mobile-chat-session,
+    .mobile-theme-card,
+    .mobile-notification-row,
+    .mobile-member-row,
+    .mobile-profile-card
+  ) {
+  background: var(--mobile-surface-1);
+  border: var(--mobile-game-border-width) solid var(--mobile-game-green-dim);
+  border-radius: var(--mobile-radius-md);
+  box-shadow: var(--mobile-game-shadow);
+}
+
+/* 구역에는 선을 긋지 않는다 — 안에 또 다른 표면을 품은 것은 '물건'이 아니라
+   '구역'이다(헤더 바·탭 그룹·푸터·섹션 래퍼). 여기에 선을 그으면 안쪽 물건의
+   선과 나란히 붙어 겹선이 되고 화면이 격자로 읽힌다. 데스크톱 game.css의
+   같은 규칙과 짝이다. 자식 두 단계까지만 본다 — 무한 깊이로 잡으면 버튼 하나를
+   품은 카드까지 선을 잃는다. */
+[data-theme="game"]:not(#_)
+  :is(
+    .mobile-row,
+    .mobile-issue-card-row,
+    .mobile-seed-card,
+    .mobile-chat-session,
+    .mobile-theme-card,
+    .mobile-notification-row,
+    .mobile-member-row,
+    .mobile-profile-card,
+    .mobile-context-sheet,
+    .mobile-drawer,
+    .mobile-action-dock
+  ):has(> .mobile-row, > .mobile-button, > * > .mobile-row, > * > .mobile-button) {
+  border-color: var(--mobile-game-border-clear);
+  box-shadow: var(--mobile-game-shadow);
+}
+
+[data-theme="game"]:not(#_) .mobile-button {
+  background: var(--mobile-surface-2);
+  border: var(--mobile-game-border-width) solid var(--mobile-game-green-dim);
+  border-radius: var(--mobile-radius-md);
+  color: var(--mobile-fg-default);
+  box-shadow: var(--mobile-game-shadow);
+  /* 도트 매체라 부드러운 보간 대신 2단 계단으로 갈아탄다 */
+  transition:
+    background-color var(--mobile-game-step) var(--mobile-game-steps),
+    border-color var(--mobile-game-step) var(--mobile-game-steps),
+    color var(--mobile-game-step) var(--mobile-game-steps);
+}
+
+[data-theme="game"]:not(#_) .mobile-button:hover {
+  background: var(--mobile-surface-3);
+  border-color: var(--mobile-game-green-bright);
+  color: var(--mobile-game-green-bright);
+}
+
+/* 누름 = **아래로 2px**. 대각선으로 밀지 않는다(데스크톱과 같은 규칙).
+   시스템 누름(press.css)은 `transform: scale()` + brightness인데, 배율·밝기는
+   토큰을 1로 눌러 껐고 여기서 transform 자체를 내림으로 갈아 끼운다.
+   `translate` 속성으로는 scale이 남아 함께 걸리므로 반드시 transform이다.
+   상태 표식은 press.ts가 다는 [data-pressed] — 터치에서 :active보다 정확하다.
+   (:active는 키보드 활성화 대비로 같이 둔다.) */
+[data-theme="game"]:not(#_) :is([data-pressed], .mobile-button:active) {
+  transform: translateY(var(--mobile-game-press-shift));
+  filter: var(--mobile-game-press-filter);
+}
+
+/* 고스트 = 선 없음 */
+[data-theme="game"]:not(#_) .mobile-button--ghost {
+  background: var(--mobile-game-background-clear);
+  border-color: var(--mobile-game-border-clear);
+}
+
+/* =============================================================
+   앰버 = 채움 (프라이머리 · FAB)
+   ============================================================= */
+[data-theme="game"]:not(#_) :is(.mobile-button--primary, .mobile-fab) {
+  background: var(--mobile-game-amber);
+  border: var(--mobile-game-border-width) solid var(--mobile-game-amber);
+  border-radius: var(--mobile-radius-md);
+  color: var(--mobile-game-on-fill);
+  box-shadow: var(--mobile-game-shadow);
+}
+
+/* FAB는 떠 있으므로 채움은 앰버로 두고 **테두리만** 최상위 계층 색으로 */
+[data-theme="game"]:not(#_) .mobile-fab {
+  border-color: var(--mobile-game-red);
+}
+
+[data-theme="game"]:not(#_) :is(.mobile-button--primary, .mobile-fab):hover {
+  background: var(--mobile-game-amber-bright);
+  border-color: var(--mobile-game-amber-bright);
+  color: var(--mobile-game-on-fill);
+}
+
+/* 위험 = 빨강 채움 — 틀의 빨강과 같은 색이지만 여기선 선이 아니라 면이다 */
+[data-theme="game"]:not(#_) .mobile-button--danger {
+  background: var(--mobile-game-red);
+  border-color: var(--mobile-game-red);
+  color: var(--mobile-game-on-fill);
+}
+
+/* =============================================================
+   입력 = 밑줄 한 줄
+   ============================================================= */
+[data-theme="game"]:not(#_)
+  :is(
+    .mobile-field,
+    .mobile-manage-field,
+    .mobile-choice-field,
+    .mobile-chat-input,
+    .mobile-chat-composer-box
+  ) {
+  background: var(--mobile-game-background-clear);
+  border: var(--mobile-game-border-none);
+  border-bottom: var(--mobile-game-border-width) solid var(--mobile-game-green-dim);
+  border-radius: var(--mobile-game-radius-none);
+  box-shadow: var(--mobile-game-shadow);
+  backdrop-filter: var(--mobile-game-backdrop-filter);
+  color: var(--mobile-fg-default);
+}
+
+[data-theme="game"]:not(#_)
+  :is(.mobile-field, .mobile-manage-field, .mobile-chat-input):focus,
+[data-theme="game"]:not(#_) .mobile-chat-composer-box:focus-within {
+  outline: var(--mobile-game-outline);
+  border-bottom-color: var(--mobile-game-green-bright);
+  box-shadow: var(--mobile-game-shadow);
+}
+
+[data-theme="game"]:not(#_) ::placeholder {
+  color: var(--mobile-fg-subtle);
+}
+
+/* =============================================================
+   선 없음 = 그냥 내용
+   ============================================================= */
+[data-theme="game"]:not(#_)
+  :is(.mobile-screen, .mobile-section, .mobile-issue-card-grid) {
+  border: var(--mobile-game-border-none);
+  box-shadow: var(--mobile-game-shadow);
+}
+
+/* =============================================================
+   오브 = 모니터
+
+   데스크톱 game.css '오브 = 모니터'와 같은 규격: 검은 화면 + 빨간 프레임 +
+   안쪽 인광. 시트 주소·프레임 수(19)·속도는 BrandBlob이 orbStyle.ts를 통해
+   꽂는다 — 여기서는 액자만 그린다.
+   ============================================================= */
+[data-theme="game"]:not(#_) .mobile-orb-sprite {
+  background-color: var(--mobile-game-screen);
+  border: var(--mobile-game-border-width) solid var(--mobile-game-red);
+  border-radius: var(--mobile-game-orb-radius);
+  box-sizing: var(--mobile-game-orb-box-sizing);
+  overflow: var(--mobile-game-orb-overflow);
+  /* 켜져 있는 브라운관. 주사선은 위 전역 오버레이가 이미 오브 위까지
+     덮으므로 여기서 또 긋지 않는다(겹치면 모아레). */
+  box-shadow: var(--mobile-game-orb-inner-glow);
+  image-rendering: var(--mobile-game-orb-rendering);
+}
+
+/* 칩(≤48px) — 프레임이 얇아야 화면이 남고, 24px 곡률은 30px 상자에서
+   거의 원이 되므로 같이 줄인다 */
+[data-theme="game"]:not(#_) .mobile-orb-sprite--chip {
+  border-width: var(--mobile-game-border-width-chip);
+  border-radius: var(--mobile-game-orb-radius-chip);
+}

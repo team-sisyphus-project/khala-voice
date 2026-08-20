@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  secrets:
+    name: 시크릿 스캔
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # 히스토리 전체를 훑는다
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          config-path: .gitleaks.toml
+
+  backend:
+    name: 백엔드
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+        ports: ["5432:5432"]
+    env:
+      MIX_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/vr_test
+      # 테스트 전용 키. 실제 배포와 무관하다.
+      CLOAK_KEY: dGVzdC1vbmx5LWtleS0zMi1ieXRlcy1sb25nISEhIQ==
+      SECRET_KEY_BASE: ${{ secrets.CI_SECRET_KEY_BASE || 'ZmFrZS1jaS1zZWNyZXQta2V5LWJhc2UtZm9yLXRlc3RzLW9ubHktbm90LXVzZWQtaW4tcHJvZHVjdGlvbi0xMjM0NTY3ODkw' }}
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.19"
+          otp-version: "28"
+      - name: FFmpeg 설치
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - uses: actions/cache@v4
+        with:
+          path: |
+            backend/deps
+            backend/_build
+          key: ${{ runner.os }}-mix-${{ hashFiles('backend/mix.lock') }}
+          restore-keys: ${{ runner.os }}-mix-
+      - run: mix deps.get
+      - name: 포맷 검사
+        run: mix format --check-formatted
+      - name: 컴파일 (경고는 실패)
+        run: mix compile --warnings-as-errors
+      - name: 테스트
+        run: mix test
+
+  frontend:
+    name: 프론트엔드
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: core 설치
+        working-directory: packages/core
+        run: npm ci || npm install
+      - name: core 타입 검사
+        working-directory: packages/core
+        run: npm run typecheck
+      - name: core 테스트
+        working-directory: packages/core
+        run: npm test
+      - name: web 설치
+        working-directory: apps/web
+        run: npm ci || npm install
+      - name: web 빌드 (타입 검사 포함)
+        working-directory: apps/web
+        run: npm run build

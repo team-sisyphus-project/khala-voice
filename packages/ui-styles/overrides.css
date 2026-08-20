@@ -1,0 +1,1597 @@
+/**
+ * 이 앱에만 있는 것.
+ *
+ * devkanban 에 없는 화면(녹음·전사·플레이어)의 스타일만 여기 둔다.
+ * **devkanban 위젯의 표현을 여기서 고치지 않는다** — 고쳐야 한다면 그건
+ * 위젯을 잘못 쓰고 있다는 뜻이다.
+ */
+
+/* ── 녹음 ────────────────────────────────────────────────
+   화면 세로를 꽉 채운다. 타이머·파형·버튼이 한 화면에 들어오고
+   아래에 빈 공간이 남지 않아야 "지금 녹음하는 화면" 으로 읽힌다. */
+
+.vr-recorder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* 타이머는 위, 파형은 가운데를 넓게, 컨트롤은 아래. 가운데 정렬로 뭉치면
+     파형이 작아지고 녹음 버튼이 화면 한가운데에 떠서 탭바와 겹쳐 보인다. */
+  justify-content: space-between;
+  gap: var(--mobile-space-5);
+  /* 높이는 부모가 준다 (`.mobile-app.is-fill` 사슬). 뷰포트(100dvh) 기준으로
+     잡으면 스크롤 컨테이너 안이라 상단바·탭바만큼 넘친다. */
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+/* 타이머는 헤더에서 한 뼘 떨어뜨린다. 붙어 있으면 제목 줄의 연장으로 읽힌다. */
+.vr-recorder__head { padding-top: var(--mobile-space-8); }
+
+.vr-recorder__timer {
+  font-size: clamp(44px, 14vw, 72px);
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--mobile-fg);
+  line-height: 1;
+}
+
+/* 파형이 남는 높이를 다 가져간다 — 이 화면에서 제일 큰 면이어야 한다. */
+.vr-recorder__wave {
+  width: 100%;
+  max-width: 520px;
+  flex: 1 1 auto;
+  min-height: 120px;
+  height: auto;
+  border-radius: var(--mobile-radius-lg);
+  background: var(--mobile-accent-soft);
+  display: block;
+  transition: opacity var(--mobile-transition);
+}
+
+/* 쉬는 동안에는 옅게. 사라지지는 않는다 — 이 자리가 "파형이 설 자리"로
+   읽혀야 녹음을 눌렀을 때 무엇이 살아났는지 보인다. */
+.vr-recorder__wave[data-idle] { opacity: 0.45; }
+
+.vr-recorder__controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mobile-space-4);
+}
+
+/* 녹음 버튼 묶음은 탭바에서 한 뼘 띄운다 — 유리 탭바 바로 위에 붙으면
+   누르려다 탭을 누른다. */
+.vr-recorder__foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mobile-space-4);
+  padding-bottom: var(--mobile-space-7);
+}
+
+/* 녹음 버튼은 이 앱의 주 동작이다. devkanban 에 대응하는 것이 없어 여기서 정의한다. */
+.vr-rec-button {
+  width: 76px;
+  height: 76px;
+  border: 0;
+  border-radius: var(--mobile-radius-full);
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--mobile-accent);
+  box-shadow: var(--mobile-shadow-fab);
+  cursor: pointer;
+}
+
+.vr-rec-button .mobile-icon { width: 32px; height: 32px; }
+.vr-rec-button:disabled { background: var(--mobile-fg-subtle); cursor: not-allowed; }
+.vr-rec-button--stop { background: var(--mobile-danger); }
+
+/* ── 전사 ────────────────────────────────────────────────
+   말풍선이 아니라 대본이다. 화자 이름과 시각이 줄머리에 오고 본문이 이어진다. */
+
+.vr-msg {
+  padding: var(--mobile-space-3) 0;
+  border-bottom: var(--mobile-border-width) var(--mobile-border-style) var(--mobile-border);
+}
+
+.vr-msg:last-child { border-bottom: 0; }
+
+.vr-msg__head {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  margin-bottom: var(--mobile-space-1);
+}
+
+.vr-msg__text {
+  font-size: var(--mobile-font-size-body);
+  line-height: 1.65;
+  color: var(--mobile-fg);
+}
+
+.vr-msg[data-active="true"] {
+  background: var(--mobile-accent-soft);
+  border-radius: var(--mobile-radius-md);
+  padding-inline: var(--mobile-space-3);
+}
+
+/* 화자 색은 이름과 **함께** 쓴다. 색만으로 구분하지 않는다. */
+.vr-speaker-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--mobile-radius-full);
+  flex-shrink: 0;
+}
+
+/* ── 오디오 플레이어 ─────────────────────────────────────
+   하단 탭바 위에 얹힌다. 탭바를 가리면 이동할 수 없게 된다. */
+
+.vr-player {
+  position: fixed;
+  right: var(--mobile-content-inline-padding);
+  left: var(--mobile-content-inline-padding);
+  bottom: calc(var(--mobile-bottom-nav-height) + var(--mobile-bottom-nav-offset) + var(--mobile-space-2));
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-3);
+  padding: var(--mobile-space-3);
+  border-radius: var(--mobile-radius-lg);
+  border: var(--mobile-border-width) var(--mobile-border-style) var(--mobile-border);
+  background: var(--mobile-nav-bg);
+  box-shadow: var(--mobile-shadow-nav);
+  -webkit-backdrop-filter: var(--mobile-blur-strong);
+  backdrop-filter: var(--mobile-blur-strong);
+}
+
+.vr-player__bar {
+  flex: 1;
+  height: 4px;
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-surface-inset);
+  cursor: pointer;
+}
+
+.vr-player__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--mobile-accent);
+}
+
+.vr-player__time {
+  font-size: var(--mobile-font-size-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--mobile-fg-muted);
+}
+
+/* 스크린리더 전용 */
+.vr-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── 알림 띠 색 ───────────────────────────────────────────
+   devkanban 의 `mobile-inline-failure` 는 오류 하나만 다룬다.
+   이 앱은 같은 자리에서 경고·안내·완료도 말해야 해서 tone 으로 나눈다.
+   **색은 devkanban 토큰을 그대로 쓴다** — 새 색을 만들지 않는다. */
+
+.mobile-inline-failure {
+  align-items: flex-start;
+}
+
+.mobile-inline-failure__icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: var(--mobile-danger);
+}
+
+.mobile-inline-failure__actions { flex-shrink: 0; }
+
+.mobile-inline-failure[data-tone="info"] {
+  background: var(--mobile-accent-soft);
+}
+.mobile-inline-failure[data-tone="info"] .mobile-inline-failure__icon,
+.mobile-inline-failure[data-tone="info"] .mobile-inline-failure__title {
+  color: var(--mobile-accent-strong);
+}
+
+.mobile-inline-failure[data-tone="warn"] {
+  background: var(--mobile-warning-soft, var(--mobile-accent-soft));
+}
+.mobile-inline-failure[data-tone="warn"] .mobile-inline-failure__icon,
+.mobile-inline-failure[data-tone="warn"] .mobile-inline-failure__title {
+  color: var(--mobile-warning, var(--mobile-accent-strong));
+}
+
+.mobile-inline-failure[data-tone="ok"] {
+  background: var(--mobile-success-soft, var(--mobile-accent-soft));
+}
+.mobile-inline-failure[data-tone="ok"] .mobile-inline-failure__icon,
+.mobile-inline-failure[data-tone="ok"] .mobile-inline-failure__title {
+  color: var(--mobile-success, var(--mobile-accent-strong));
+}
+
+/* 녹음 탭은 남은 세로를 전부 쓴다.
+   짧은 카드로 두면 아래에 빈 공간이 남아 "지금 녹음하는 화면" 으로 읽히지 않는다.
+   `:has()` 로 그 화면일 때만 늘린다 — 다른 탭의 레이아웃은 건드리지 않는다. */
+
+/* ── 분류 칩 (토픽 · 라벨) ────────────────────────────────
+   색은 팔레트 키로 받는다. 자유 HEX 를 쓰면 테마가 바뀔 때 대비가 무너진다. */
+
+.vr-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--mobile-radius-full);
+  font-size: var(--mobile-font-size-caption);
+  font-weight: var(--mobile-font-weight-semibold);
+  line-height: 1.4;
+  white-space: nowrap;
+  border: 0;
+  cursor: default;
+  background: var(--tag-bg, var(--mobile-surface-inset));
+  color: var(--tag-fg, var(--mobile-fg-muted));
+}
+
+.vr-tag::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: var(--mobile-radius-full);
+  background: currentColor;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.vr-tag--topic { font-weight: var(--mobile-font-weight-bold); }
+.vr-tag[data-deleted="true"] { opacity: 0.55; text-decoration: line-through; }
+
+/* 고르지 않은 것은 흐리게. 켜진 것이 무엇인지 한눈에 보여야 한다. */
+button.vr-tag { cursor: pointer; opacity: 0.65; }
+button.vr-tag[aria-pressed="true"] {
+  opacity: 1;
+  box-shadow: inset 0 0 0 1.5px currentColor;
+}
+
+.vr-tag[data-color="red"]    { --tag-bg: color-mix(in srgb, oklch(60% 0.2 25) 14%, transparent); --tag-fg: oklch(52% 0.2 25); }
+.vr-tag[data-color="orange"] { --tag-bg: color-mix(in srgb, oklch(70% 0.17 60) 16%, transparent); --tag-fg: oklch(55% 0.17 60); }
+.vr-tag[data-color="yellow"] { --tag-bg: color-mix(in srgb, oklch(85% 0.15 95) 20%, transparent); --tag-fg: oklch(58% 0.13 95); }
+.vr-tag[data-color="green"]  { --tag-bg: color-mix(in srgb, oklch(72% 0.17 150) 16%, transparent); --tag-fg: oklch(52% 0.16 150); }
+.vr-tag[data-color="teal"]   { --tag-bg: color-mix(in srgb, oklch(70% 0.12 190) 16%, transparent); --tag-fg: oklch(50% 0.11 190); }
+.vr-tag[data-color="blue"]   { --tag-bg: color-mix(in srgb, oklch(62% 0.17 250) 14%, transparent); --tag-fg: oklch(50% 0.17 250); }
+.vr-tag[data-color="indigo"] { --tag-bg: color-mix(in srgb, oklch(55% 0.18 275) 14%, transparent); --tag-fg: oklch(47% 0.18 275); }
+.vr-tag[data-color="violet"] { --tag-bg: color-mix(in srgb, oklch(60% 0.2 295) 14%, transparent); --tag-fg: oklch(50% 0.2 295); }
+.vr-tag[data-color="purple"] { --tag-bg: color-mix(in srgb, oklch(58% 0.2 315) 14%, transparent); --tag-fg: oklch(48% 0.2 315); }
+.vr-tag[data-color="gray"]   { --tag-bg: var(--mobile-surface-inset); --tag-fg: var(--mobile-fg-muted); }
+
+/* ── 필터 줄 ─────────────────────────────────────────────── */
+
+.vr-filter { display: flex; flex-direction: column; gap: var(--mobile-space-3); }
+
+.vr-filter__row {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  flex-wrap: wrap;
+}
+
+.vr-filter__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mobile-space-3);
+  flex-wrap: wrap;
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-muted);
+}
+
+/* ── 요약 ─────────────────────────────────────────────────
+   근거를 누르면 그 지점이 재생된다. 이 제품의 핵심 동작이라 눈에 띄어야 한다. */
+
+.vr-summary__title {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  margin: 0 0 var(--mobile-space-2);
+  font-size: var(--mobile-font-size-label);
+  font-weight: var(--mobile-font-weight-bold);
+  color: var(--mobile-fg-muted);
+}
+
+.vr-summary__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-2);
+}
+
+.vr-summary__item {
+  padding: var(--mobile-space-3) var(--mobile-space-4);
+  border-radius: var(--mobile-radius-sm);
+  background: var(--mobile-surface-item);
+}
+
+.vr-summary__body {
+  font-size: var(--mobile-font-size-body);
+  line-height: var(--mobile-line-height-base);
+  color: var(--mobile-fg);
+}
+
+.vr-summary__source {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  flex-wrap: wrap;
+  margin-top: var(--mobile-space-2);
+}
+
+.vr-summary__jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 10px 3px 6px;
+  border: 0;
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-accent-soft);
+  color: var(--mobile-accent-strong);
+  font-family: inherit;
+  font-size: var(--mobile-font-size-caption);
+  font-weight: var(--mobile-font-weight-bold);
+  cursor: pointer;
+}
+
+.vr-summary__jump .mobile-icon { width: 16px; height: 16px; }
+
+.vr-summary__quote-toggle {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.vr-summary__quote {
+  flex-basis: 100%;
+  margin: var(--mobile-space-2) 0 0;
+  padding: var(--mobile-space-3) var(--mobile-space-4);
+  border-left: 2px solid var(--mobile-border-strong, var(--mobile-border));
+  background: var(--mobile-surface-inset);
+  border-radius: 0 var(--mobile-radius-sm) var(--mobile-radius-sm) 0;
+  font-size: var(--mobile-font-size-label);
+  line-height: var(--mobile-line-height-base);
+  color: var(--mobile-fg-muted);
+}
+
+/* ── 화자 칩 ─────────────────────────────────────────────── */
+
+.vr-speakers { display: flex; gap: var(--mobile-space-2); flex-wrap: wrap; align-items: center; }
+
+.vr-speaker-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-surface-inset);
+  color: var(--mobile-fg);
+  font-family: inherit;
+  font-size: var(--mobile-font-size-caption);
+  font-weight: var(--mobile-font-weight-semibold);
+  cursor: pointer;
+}
+
+/* 색은 이름과 **함께** 쓴다. 색만으로 사람을 구분하지 않는다. */
+.vr-speaker-chip::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: var(--mobile-radius-full);
+  background: var(--speaker-color, var(--mobile-fg-muted));
+  flex-shrink: 0;
+}
+
+.vr-speaker-chip[data-speaker="1"]  { --speaker-color: oklch(62% 0.2 25); }
+.vr-speaker-chip[data-speaker="2"]  { --speaker-color: oklch(62% 0.17 250); }
+.vr-speaker-chip[data-speaker="3"]  { --speaker-color: oklch(65% 0.17 150); }
+.vr-speaker-chip[data-speaker="4"]  { --speaker-color: oklch(70% 0.17 60); }
+.vr-speaker-chip[data-speaker="5"]  { --speaker-color: oklch(60% 0.2 295); }
+.vr-speaker-chip[data-speaker="6"]  { --speaker-color: oklch(65% 0.12 190); }
+.vr-speaker-chip[data-speaker="7"]  { --speaker-color: oklch(58% 0.2 315); }
+.vr-speaker-chip[data-speaker="8"]  { --speaker-color: oklch(72% 0.14 95); }
+.vr-speaker-chip[data-speaker="9"]  { --speaker-color: oklch(55% 0.18 275); }
+.vr-speaker-chip[data-speaker="10"] { --speaker-color: oklch(60% 0.06 77); }
+
+/* ── 드롭다운 메뉴 ───────────────────────────────────────── */
+
+.vr-menu__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: var(--mobile-scrim, rgb(0 0 0 / 0.35));
+}
+
+.vr-menu {
+  position: absolute;
+  z-index: 21;
+  min-width: 190px;
+  padding: var(--mobile-space-2);
+  border-radius: var(--mobile-radius-md);
+  border: var(--mobile-border-width) var(--mobile-border-style) var(--mobile-border);
+  background: var(--mobile-glass-strong, var(--mobile-surface-raised));
+  -webkit-backdrop-filter: var(--mobile-blur);
+  backdrop-filter: var(--mobile-blur);
+  box-shadow: var(--mobile-shadow-nav);
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-1);
+}
+
+.vr-menu--inline { top: 34px; left: 0; }
+
+.vr-menu__title {
+  font-size: var(--mobile-font-size-caption);
+  font-weight: var(--mobile-font-weight-bold);
+  color: var(--mobile-fg-muted);
+  padding: 2px var(--mobile-space-2);
+}
+
+.vr-menu__list { max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; }
+
+.vr-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  width: 100%;
+  padding: var(--mobile-space-2) var(--mobile-space-3);
+  border: 0;
+  border-radius: var(--mobile-radius-xs);
+  background: transparent;
+  color: var(--mobile-fg);
+  font-family: inherit;
+  font-size: var(--mobile-font-size-label);
+  text-align: left;
+  cursor: pointer;
+}
+
+.vr-menu__item[data-active="true"] {
+  background: var(--mobile-accent-soft);
+  color: var(--mobile-accent-strong);
+  font-weight: var(--mobile-font-weight-bold);
+}
+
+/* ── 공개 범위 · 토큰 · 사용 내역 ─────────────────────────── */
+
+.vr-scope { display: flex; flex-direction: column; gap: var(--mobile-space-2); }
+
+.vr-scope__option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mobile-space-3);
+  width: 100%;
+  padding: var(--mobile-space-3) var(--mobile-space-4);
+  border-radius: var(--mobile-radius-sm);
+  border: var(--mobile-border-width) var(--mobile-border-style) var(--mobile-border);
+  background: var(--mobile-surface-item);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.vr-scope__option[data-active="true"] {
+  border-color: var(--mobile-accent);
+  background: var(--mobile-accent-soft);
+}
+
+.vr-scope__option:disabled { opacity: 0.5; cursor: not-allowed; }
+.vr-scope__icon { color: var(--mobile-fg-muted); flex-shrink: 0; }
+.vr-scope__option[data-active="true"] .vr-scope__icon { color: var(--mobile-accent); }
+.vr-scope__meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.vr-scope__name { display: flex; align-items: center; font-weight: var(--mobile-font-weight-semibold); color: var(--mobile-fg); }
+.vr-scope__hint { font-size: var(--mobile-font-size-caption); color: var(--mobile-fg-muted); }
+.vr-scope__check { color: var(--mobile-accent); flex-shrink: 0; }
+
+.vr-tokens { display: flex; flex-wrap: wrap; gap: var(--mobile-space-2); }
+
+.vr-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px 3px 10px;
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-surface-inset);
+  color: var(--mobile-fg-muted);
+  font-size: var(--mobile-font-size-caption);
+  font-weight: var(--mobile-font-weight-semibold);
+}
+
+.vr-token[data-unknown] { opacity: 0.7; font-style: italic; }
+
+.vr-token__x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--mobile-radius-full);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.vr-token__x .mobile-icon { width: 14px; height: 14px; }
+
+.vr-usage {
+  margin: var(--mobile-space-2) 0 0;
+  padding: var(--mobile-space-3) var(--mobile-space-4);
+  border-radius: var(--mobile-radius-sm);
+  background: var(--mobile-surface-inset);
+  font-size: var(--mobile-font-size-caption);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vr-usage > div { display: flex; gap: var(--mobile-space-3); }
+.vr-usage dt { color: var(--mobile-fg-muted); min-width: 48px; }
+.vr-usage dd { margin: 0; color: var(--mobile-fg); font-variant-numeric: tabular-nums; }
+
+/* ── 공유 다이얼로그 · 설치 안내 ─────────────────────────── */
+
+.vr-share__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+  padding: var(--mobile-space-4);
+  border-radius: var(--mobile-radius-sm);
+  background: var(--mobile-surface-inset);
+}
+
+.vr-share__row {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  padding: var(--mobile-space-3) 0;
+  border-bottom: var(--mobile-border-width) var(--mobile-border-style) var(--mobile-border);
+  flex-wrap: wrap;
+}
+
+.vr-share__row:last-child { border-bottom: 0; }
+
+.vr-install {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-3);
+  padding: var(--mobile-space-3) var(--mobile-space-4);
+  border-radius: var(--mobile-radius-sm);
+  background: var(--mobile-accent-soft);
+  color: var(--mobile-accent-strong);
+}
+
+/* ── 글래스 패널 ──────────────────────────────────────────
+   devkanban 은 화면 전체를 한 흐름으로 쓰지만, 이 앱은 한 화면에
+   검색 조건 · 결과 · 참여자처럼 **성격이 다른 덩어리**가 같이 선다.
+   그래서 섹션을 카드로 끊는다. 재료(글래스·블러·테두리·그림자)는
+   devkanban 의 `.mobile-pwa-card` · `.mobile-context-sheet__panel` 과 같다. */
+
+.mobile-section--card {
+  padding: var(--mobile-space-7);
+  border-radius: var(--mobile-radius-md);
+  border: var(--mobile-border-width) var(--mobile-border-style) var(--mobile-border);
+  /* `--mobile-glass-strong` 은 캔버스와 1% 차이라 카드 경계가 안 읽힌다.
+     더 불투명한 `--mobile-glass-bg` 에 위쪽 하이라이트 한 줄을 얹어
+     "유리 판이 떠 있다"를 만든다. 재료는 그대로 devkanban 토큰이다. */
+  background: var(--mobile-glass-bg);
+  -webkit-backdrop-filter: var(--mobile-blur);
+  backdrop-filter: var(--mobile-blur);
+  box-shadow:
+    inset 0 1px 0 var(--mobile-glass-edge, oklch(100% 0 0 / 0.5)),
+    var(--mobile-shadow-card),
+    0 1px 2px oklch(0% 0 0 / 0.04);
+}
+
+/* 어두운 테마에서 위쪽 하이라이트가 흰 선으로 튄다. 옅게 낮춘다. */
+:root[data-theme="dark"],
+:root[data-theme="dark-cool"],
+:root[data-theme$="-dark"] {
+  --mobile-glass-edge: oklch(100% 0 0 / 0.08);
+}
+
+/* 유리는 뒤에 무언가 있어야 유리로 읽힌다. 캔버스에 한 겹 더 깐다 —
+   devkanban body 의 우상단 액센트 그라디언트와 같은 문법. */
+.mobile-app::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(90% 55% at 8% 100%, var(--mobile-info-soft), transparent 60%),
+    radial-gradient(70% 45% at 100% 42%, var(--mobile-accent-soft), transparent 62%);
+}
+
+/* 머리 ↔ 본문 8px */
+.mobile-section { gap: var(--mobile-space-3); }
+.mobile-section__body { gap: var(--mobile-space-3); }
+
+/* 제목 바로 아래 설명은 제목에 붙는다 — 이 둘이 한 덩어리(머리)다. */
+.mobile-section__title + .vr-note,
+.mobile-section__title + p { margin-top: 2px; }
+
+/* 카드 안에서는 행이 카드를 한 번 더 그리지 않는다. 테두리가 두 겹이 되면
+   어디까지가 한 덩어리인지 읽히지 않는다. */
+.mobile-section--card > .mobile-section__body > .mobile-row {
+  background: transparent;
+  border: 0;
+  padding-inline: 0;
+}
+
+.mobile-section--card > .mobile-section__body > .mobile-row + .mobile-row {
+  border-top: var(--mobile-border-width) var(--mobile-border-style) var(--mobile-border);
+  border-radius: 0;
+}
+
+/* 목록 카드 — 누르면 열리는 결과 한 건 */
+.vr-card-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  border-radius: var(--mobile-radius-md);
+}
+
+.vr-card-link:focus-visible {
+  outline: 2px solid var(--mobile-accent);
+  outline-offset: 2px;
+}
+
+/* ── 필터 ────────────────────────────────────────────────
+   라벨은 칩 **위**에 둔다. 같은 줄에 두면 칩이 줄바꿈할 때
+   라벨과 겹쳐 읽힌다(2026-08-20 실기기에서 확인). */
+
+.vr-filter { display: flex; flex-direction: column; gap: var(--mobile-space-4); }
+
+.vr-filter__group { display: flex; flex-direction: column; gap: var(--mobile-space-2); }
+
+.vr-filter__label {
+  font-size: var(--mobile-font-size-caption);
+  font-weight: var(--mobile-font-weight-semibold);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--mobile-fg-subtle);
+}
+
+.vr-filter__chips {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  flex-wrap: wrap;
+}
+
+/* 기간은 두 칸이 화면을 반씩 나눠 가진다. 폭을 auto 로 두면 넘친다. */
+.vr-filter__range {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--mobile-space-2);
+}
+
+.vr-filter__range input { min-width: 0; width: 100%; }
+
+.vr-filter__row {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  flex-wrap: wrap;
+}
+
+.vr-filter__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mobile-space-3);
+  flex-wrap: wrap;
+  padding-top: var(--mobile-space-3);
+  border-top: var(--mobile-border-width) var(--mobile-border-style) var(--mobile-border);
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-muted);
+}
+
+/* ── 결과 한 건 ──────────────────────────────────────────── */
+
+.vr-result { display: flex; flex-direction: column; gap: var(--mobile-space-2); }
+
+.vr-result__title {
+  font-size: var(--mobile-font-size-body-strong);
+  font-weight: var(--mobile-font-weight-bold);
+  color: var(--mobile-fg);
+  line-height: 1.35;
+}
+
+.vr-result__meta {
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-muted);
+}
+
+.vr-result__summary {
+  margin: 0;
+  font-size: var(--mobile-font-size-label);
+  line-height: var(--mobile-line-height-base);
+  color: var(--mobile-fg-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 라벨 묶음 방식(AND/OR) 전환 — 라벨 줄 안에 있는 작은 글자 스위치.
+   버튼으로 세우면 칩과 같은 무게로 보여서, 칩을 고르는 줄이 흐려진다. */
+.vr-filter__mode {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: var(--mobile-accent-strong);
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* 카드 안의 "가라앉은" 면은 캔버스가 아니라 **카드**를 기준으로 잡는다.
+   devkanban 의 inset(87%)은 캔버스(94%) 위에서 7% 차이지만, 유리 카드(≈97%)
+   위에 그대로 얹으면 10% 차이라 회색 판때기로 읽힌다. 토큰을 카드 범위에서
+   다시 정의해 두면 인풋·아이콘 자리·칩까지 한 번에 맞는다. */
+.mobile-app {
+  --mobile-surface-inset-base: var(--mobile-surface-inset);
+}
+
+.mobile-section--card {
+  --mobile-surface-inset: color-mix(
+    in oklch,
+    var(--mobile-surface-inset-base) 60%,
+    var(--mobile-surface-item)
+  );
+}
+
+/* 스크롤하면 뜨는 제목 캡슐. devkanban 의 `--mobile-glass-strong` 은 캔버스와
+   1~2% 차이라, 그 아래로 지나가는 칩·글자가 캡슐을 뚫고 비친다. 카드와 같은
+   기준으로 한 단계 불투명하게 올린다. */
+.mobile-top-app-bar.is-scrolled .mobile-top-app-bar__titles {
+  background: var(--mobile-glass-bg);
+  box-shadow:
+    inset 0 1px 0 var(--mobile-glass-edge, oklch(100% 0 0 / 0.5)),
+    var(--mobile-shadow-card);
+}
+
+/* 버튼 모양의 링크는 밑줄을 긋지 않는다. `<Link className="mobile-button">` 이
+   여러 화면에 있어서 앵커 기본 밑줄이 버튼 위에 그대로 남았다. */
+a.mobile-button,
+a.mobile-row,
+a.vr-card-link { text-decoration: none; }
+
+/* 글 안에 섞인 아이콘 — svg 는 display:block 이라 문장 중간에서 줄을 끊는다. */
+p .mobile-icon,
+li .mobile-icon,
+label .mobile-icon { display: inline-block; vertical-align: -4px; }
+
+/* 흐린 본문. devkanban 의 `.mobile-row__meta` 는 **한 줄짜리 행 전용**이라
+   ellipsis + nowrap 이 걸려 있다. 설명 문단에 그대로 쓰면 잘린다. */
+.vr-note {
+  margin: 0;
+  font-size: var(--mobile-font-size-label);
+  line-height: var(--mobile-line-height-base);
+  color: var(--mobile-fg-muted);
+}
+
+.vr-note--small { font-size: var(--mobile-font-size-caption); }
+
+/* ── 간격 ────────────────────────────────────────────────
+   devkanban 은 한 화면에 섹션이 두세 개라 36px 간격 · 24px 좌우 여백이
+   여유로 읽힌다. 이 앱은 한 화면에 카드가 대여섯 개 서기 때문에 같은 값이
+   "떠 있는 조각들"이 된다. 카드 경계가 생겼으니 간격은 좁혀도 구분된다. */
+
+/* ── 간격 규약 (2026-08-20 확정) ──────────────────────────
+   화면 어디서나 같은 값을 쓴다. 카드마다 다르면 목록이 들쭉날쭉해 보인다.
+
+     카드 안쪽 여백   16px  (`--mobile-space-7`)
+     머리 ↔ 본문      8px   (`--mobile-space-3`)
+     본문 항목 사이   8px
+     카드 ↔ 카드      6px   (`--mobile-space-2`)
+
+   카드 사이를 좁히는 대신 안쪽을 넉넉히 준다 — 경계가 뚜렷해서 간격이 좁아도
+   덩어리는 갈라져 읽히고, 안쪽이 좁으면 글자가 테두리에 붙어 답답해진다. */
+
+.mobile-app {
+  --mobile-section-gap: var(--mobile-space-2);
+  --mobile-content-inline-padding: var(--mobile-space-7);
+}
+
+.mobile-screen__inner {
+  padding: var(--mobile-space-4) var(--mobile-space-7) 0;
+}
+
+/* ── 하단 탭 ─────────────────────────────────────────────
+   더 동글게, 더 낮게. 아이콘과 글자는 붙인다. */
+
+.bottom-nav {
+  height: 58px;
+  padding: var(--mobile-space-1);
+  border-radius: var(--mobile-radius-xl);
+}
+
+.bottom-nav button {
+  /* 아이콘과 글자를 붙인다. 원본 gap(4px)에 아이콘 상자의 여백까지 더해지면
+     둘이 따로 노는 두 덩어리로 보인다. */
+  gap: 0;
+  border-radius: var(--mobile-radius-lg);
+  line-height: 1;
+}
+
+.bottom-nav .mobile-icon {
+  font-size: 21px;
+  width: 21px;
+  height: 21px;
+  /* 글리프 위아래에 남는 폰트 여백을 걷어낸다 — 이게 "멀어 보이는" 진짜 원인이다. */
+  display: block;
+  margin-bottom: -2px;
+}
+
+/* 켜져 있는 상단 액션 — 필터가 걸린 상태를 상단에서 알린다. */
+.mobile-top-app-bar__icon-button[data-active="true"] {
+  background: var(--mobile-accent);
+  border-color: transparent;
+  color: var(--mobile-on-accent);
+}
+
+/* 칩 안에 점을 찍지 않는다. 색은 칩 자체가 이미 들고 있다. */
+.vr-tag::before { content: none; }
+
+/* 목록 위의 요약 줄 — 카드 밖에 서니 위쪽 구분선은 필요 없다. */
+.vr-filter__summary--bare { padding-top: 0; border-top: 0; }
+
+.vr-filter__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  padding-top: var(--mobile-space-2);
+}
+
+/* 결과 카드 머리 — 제목과 상태 칩이 한 줄에 선다. */
+.vr-result__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--mobile-space-3);
+}
+
+.vr-result__head .vr-result__title { flex: 1 1 auto; min-width: 0; }
+
+/* 상단 액션이 둘일 때 원형 버튼끼리 붙지 않게 */
+.mobile-top-app-bar__action { gap: var(--mobile-space-2); }
+
+/* 링크로 만든 원형 상단 버튼도 버튼과 같은 정렬을 받는다 */
+a.mobile-top-app-bar__icon-button { text-decoration: none; }
+
+/* ── 키 색은 빨강 ────────────────────────────────────────
+   devkanban 토큰은 액센트가 웜 오렌지(hue 45)다. 이 서비스의 키 색은
+   **빨강**이라 라이트·다크 두 테마의 액센트만 hue 25 로 옮긴다.
+   명도·채도 구조는 원본 그대로 둔다 — 대비 검증을 다시 하지 않아도 된다.
+
+   `pencil-warm`·`game` 은 그 자체가 다른 껍데기라 건드리지 않는다. */
+
+:root,
+[data-theme="light"] {
+  --mobile-accent: oklch(58% 0.20 25);
+  --mobile-accent-hover: oklch(53% 0.22 23);
+  --mobile-accent-strong: oklch(61% 0.18 27);
+  --mobile-accent-soft: oklch(58% 0.20 25 / 0.12);
+  --mobile-accent-glass: oklch(58% 0.20 25 / 0.88);
+  --mobile-on-accent: oklch(100% 0 0);
+}
+
+[data-theme="dark"] {
+  --mobile-accent: oklch(66% 0.19 25);
+  --mobile-accent-hover: oklch(61% 0.21 23);
+  --mobile-accent-strong: oklch(70% 0.17 27);
+  --mobile-accent-soft: oklch(66% 0.19 25 / 0.16);
+  --mobile-accent-glass: oklch(66% 0.19 25 / 0.88);
+  --mobile-on-accent: oklch(100% 0 0);
+}
+
+/* ── 최상위 탭 화면 ──────────────────────────────────────
+   뒤로가기가 없으니 상단바가 자리를 잡을 이유도 없다. 제목이 맨 위에 붙고,
+   상단바는 스크롤 뒤 제목 캡슐만 띄우는 오버레이로만 남는다. */
+
+.mobile-app.is-tabs > .mobile-screen {
+  padding-top: calc(var(--mobile-safe-top) + var(--mobile-space-4));
+}
+
+.mobile-app.is-tabs > .mobile-top-app-bar {
+  /* 캡슐이 뜨기 전에는 이 자리에 아무것도 없어야 한다 */
+  pointer-events: none;
+}
+
+/* 액션 버튼은 제목과 같은 줄. 원형 글래스 버튼 그대로다. */
+/* ── 페이지 헤더 (iOS large title) ──────────────────────
+   네 탭(새 회의 · 아카이브 · 친구 · 설정)이 **똑같이** 생겨야 한다.
+   화면마다 제목 크기나 아래 여백이 다르면 탭을 옮길 때 화면이 튄다.
+
+     제목        large title, 굵게, 왼쪽
+     부제        바로 아래 2px, 흐린 색
+     액션        제목과 같은 줄, 오른쪽 (원형 아이콘 버튼)
+     아래 여백   12px — 첫 카드와의 거리 */
+
+.mobile-page-header {
+  gap: 2px;
+  padding-bottom: var(--mobile-space-5);
+}
+
+.mobile-page-header--row {
+  /* 제목이 두 줄이 돼도 액션은 첫 줄 높이에 맞춰 위에 붙는다 */
+  align-items: flex-start;
+}
+
+.mobile-page-header--row .vr-page-actions { padding-top: 2px; }
+
+.mobile-page-header__subtitle {
+  font-size: var(--mobile-font-size-label);
+  line-height: 1.4;
+}
+
+.vr-page-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  flex: 0 0 auto;
+}
+
+/* ── 하단 탭 ─────────────────────────────────────────────
+   탭바는 카드보다 조금 넓게 — 콘텐츠 위에 떠 있는 별개의 층이라는 뜻이다. */
+.bottom-nav {
+  right: calc(var(--mobile-content-inline-padding) - var(--mobile-space-3));
+  left: calc(var(--mobile-content-inline-padding) - var(--mobile-space-3));
+}
+
+/* ── 인트로 ──────────────────────────────────────────────
+   **출처: khala** `.kh-intro` — 단계와 타이밍을 그대로 옮기고 색만 테마에 맡겼다. */
+
+.vr-intro-host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  height: 100%;
+}
+
+/* 숨길 때 display:none 을 쓰면 레이아웃이 계산되지 않아, 인트로가 끝난 뒤
+   iOS 사파리 PWA 의 dvh 가 틀어진다 (khala 원본 주석). visibility 로 숨긴다. */
+.vr-intro-host[data-hidden] {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.vr-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mobile-surface-canvas);
+  opacity: 1;
+  transition: opacity 420ms ease;
+}
+
+.vr-intro--exit { opacity: 0; pointer-events: none; }
+
+.vr-intro__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mobile-space-6, 14px);
+  animation: vr-intro-in 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.vr-intro__icon {
+  width: min(38vw, 148px);
+  height: min(38vw, 148px);
+  border-radius: var(--mobile-radius-lg);
+  object-fit: contain;
+}
+
+.vr-intro__wordmark {
+  margin: 0;
+  font-size: var(--mobile-font-size-body-strong);
+  font-weight: var(--mobile-font-weight-bold);
+  letter-spacing: 0.22em;
+  text-indent: 0.22em;
+  color: var(--mobile-fg-strong);
+}
+
+@keyframes vr-intro-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vr-intro__brand { animation: none; }
+}
+
+/* LiveView 쪽 탭은 `<a>` 다 (React 는 `<button>`). devkanban CSS 는 button 만
+   보고 있어서 앵커로 그리면 아이콘과 글자가 옆으로 눕는다. 같은 규칙을 앵커에도 준다. */
+.bottom-nav a {
+  min-width: 0;
+  border-radius: var(--mobile-radius-lg);
+  display: grid;
+  place-items: center;
+  gap: 0;
+  line-height: 1;
+  color: var(--mobile-fg-muted);
+  background: transparent;
+  font-size: var(--mobile-font-size-caption);
+  font-weight: var(--mobile-font-weight-semibold);
+  text-decoration: none;
+  transition: color 140ms ease, background 140ms ease;
+}
+
+.bottom-nav a[aria-current="page"] {
+  color: var(--mobile-accent);
+  background: var(--mobile-accent-soft);
+  font-weight: var(--mobile-font-weight-bold);
+  box-shadow: var(--mobile-shadow-soft);
+}
+
+/* LiveView 화면도 카드 안에서는 카드를 기준으로 가라앉는다 (React 와 같은 규칙).
+
+   `--surface-input` 도 여기서 다시 잡는다. 커스텀 속성의 `var()` 는 **선언한
+   자리**에서 풀리기 때문에, `:root` 에 `--surface-input: var(--mobile-surface-inset)`
+   만 두면 카드 안에서 바꾼 값이 반영되지 않는다. */
+.vr-card,
+.mobile-section--card,
+.mobile-context-sheet__panel {
+  --mobile-surface-inset: color-mix(
+    in oklch,
+    var(--mobile-surface-inset-base) 60%,
+    var(--mobile-surface-item)
+  );
+  --surface-input: var(--mobile-surface-inset);
+  --surface-inset: var(--mobile-surface-inset);
+  --surface-input-hover: var(--mobile-surface-inset);
+}
+
+/* `.mobile-app` 밖(LiveView 로그인·어드민)에서도 기준값이 있어야 한다 */
+:root { --mobile-surface-inset-base: var(--mobile-surface-inset); }
+
+/* 뎁스 화면의 제목 캡슐은 **처음부터 보인다.**
+
+   devkanban 은 뎁스에서도 스크롤 전까지 캡슐을 숨긴다(`opacity: 0`). 그쪽은
+   본문 첫 줄이 곧 제목 역할을 하는 화면들이라 괜찮지만, 이 앱의 뎁스 화면은
+   본문에 제목을 두지 않는다(제목이 두 벌로 보이면 안 되므로). 그러면 뒤로가기
+   버튼 하나만 떠 있고 "여기가 어디인지"가 어디에도 없다. */
+.mobile-top-app-bar--detail .mobile-top-app-bar__titles {
+  opacity: 1;
+  pointer-events: auto;
+  background: var(--mobile-glass-bg);
+  -webkit-backdrop-filter: var(--mobile-blur);
+  backdrop-filter: var(--mobile-blur);
+  border: var(--mobile-border-width) var(--mobile-border-style) var(--mobile-border);
+  box-shadow:
+    inset 0 1px 0 var(--mobile-glass-edge, oklch(100% 0 0 / 0.5)),
+    var(--mobile-shadow-card);
+}
+
+/* 로그인·가입 화면의 브랜드 마크 */
+.vr-auth__mark {
+  display: block;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto var(--mobile-space-5);
+  border-radius: var(--mobile-radius-md);
+  box-shadow: var(--mobile-shadow-card);
+}
+
+/* ── 녹음 화면의 제목 줄 ─────────────────────────────────
+   큰 헤더가 "새 회의" 라서 제목이 갈 자리가 없다. 헤더 바로 아래 작은 줄로
+   두고 **누르면 모달**이 열린다. 입력칸을 그대로 두지 않는 이유: 이 화면의
+   주인공은 녹음 버튼이고, 폼이 끼면 지금 뭘 해야 하는지가 흐려진다. */
+
+.vr-meeting-title {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  width: 100%;
+  /* 헤더의 부제 자리에 앉는다 — 네 탭의 헤더 높이가 같아야 탭을 옮길 때 안 튄다 */
+  margin-top: calc(var(--mobile-space-5) * -1);
+  padding: 0 0 var(--mobile-space-5);
+  border: 0;
+  background: none;
+  color: var(--mobile-fg-muted);
+  font-family: inherit;
+  font-size: var(--mobile-font-size-label);
+  text-align: left;
+  cursor: pointer;
+}
+
+.vr-meeting-title:disabled { cursor: default; }
+
+.vr-meeting-title__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vr-meeting-title .mobile-icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+  opacity: 0.7;
+}
+
+/* ── 토픽 그룹 (아코디언) ────────────────────────────────
+   아카이브는 토픽으로 묶어 보여준다. 머리를 누르면 접힌다 —
+   토픽이 여럿이면 한 화면에 다 펼쳐진 목록은 훑을 수 없다. */
+
+.vr-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-2);
+}
+
+.vr-group__head {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  width: 100%;
+  padding: var(--mobile-space-2) var(--mobile-space-1);
+  border: 0;
+  background: none;
+  color: var(--mobile-fg-muted);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.vr-group__head .mobile-icon {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+}
+
+.vr-group__none {
+  font-size: var(--mobile-font-size-label);
+  font-weight: var(--mobile-font-weight-semibold);
+  color: var(--mobile-fg-subtle);
+}
+
+.vr-group__count {
+  margin-left: auto;
+  font-size: var(--mobile-font-size-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--mobile-fg-subtle);
+}
+
+.vr-group__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-section-gap);
+}
+
+/* ── 세그먼티드 컨트롤 ─────────────────────────────────── */
+
+/* 폭은 devkanban 원본대로 꽉 채우고 **높이만** 낮춘다. 항목 글자가 짧아서
+   원본 높이(36px)면 덩어리가 무겁게 읽힌다. */
+.mobile-segmented__item {
+  min-height: 30px;
+  white-space: nowrap;
+}
+
+/* ── 입력 레벨 미터 ──────────────────────────────────────
+   무음으로 한 시간을 녹음하고 끝나서야 아는 일을 막는다. */
+
+.vr-level {
+  width: min(72%, 320px);
+  height: 6px;
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-surface-inset);
+  overflow: hidden;
+}
+
+.vr-level__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--mobile-accent);
+  transition: width 90ms linear;
+}
+
+/* ── 마이크 고르기 줄 ───────────────────────────────────
+   녹음 전에만 보인다. 도중에 바꾸면 스트림을 다시 열어야 해서 그 지점이 잘린다. */
+
+.vr-mic-row {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  padding: var(--mobile-space-2) var(--mobile-space-4);
+  border: var(--mobile-border-width) var(--mobile-border-style) var(--mobile-border);
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-surface-item);
+  color: var(--mobile-fg-muted);
+  font-family: inherit;
+  font-size: var(--mobile-font-size-caption);
+  cursor: pointer;
+}
+
+.vr-mic-row .mobile-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+
+/* ── 분류 드롭다운 ───────────────────────────────────────
+   칩을 전부 펼쳐 두면 토픽이 서른 개가 되는 순간 화면이 칩으로 뒤덮인다.
+   트리거에는 **고른 것만** 보이고, 고를 때만 목록을 연다. */
+
+.vr-select {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  width: 100%;
+  min-height: var(--mobile-field-height);
+  padding: var(--mobile-space-2) var(--mobile-space-4);
+  border: var(--mobile-border-width) var(--mobile-border-style) var(--mobile-border);
+  border-radius: var(--mobile-field-radius);
+  background: var(--mobile-surface-inset);
+  color: var(--mobile-fg-strong);
+  font-family: inherit;
+  font-size: var(--mobile-font-size-body);
+  text-align: left;
+  cursor: pointer;
+}
+
+.vr-select:focus-visible {
+  border-color: var(--mobile-accent);
+  box-shadow: var(--mobile-focus-ring);
+}
+
+.vr-select__value {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.vr-select__value[data-empty] { color: var(--mobile-fg-subtle); }
+
+.vr-select > .mobile-icon {
+  flex: 0 0 auto;
+  color: var(--mobile-fg-muted);
+}
+
+/* ── 고르는 목록 ─────────────────────────────────────────
+   길어질 것을 전제로 한다 — 안에서 스크롤하고 검색으로 좁힌다. */
+
+.vr-options {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 46vh;
+  overflow-y: auto;
+  margin: 0 calc(var(--mobile-space-2) * -1);
+  padding: 0 var(--mobile-space-2);
+}
+
+.vr-options__item {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--mobile-space-2) var(--mobile-space-3);
+  border: 0;
+  border-radius: var(--mobile-radius-xs);
+  background: transparent;
+  color: var(--mobile-fg);
+  font-family: inherit;
+  font-size: var(--mobile-font-size-body);
+  text-align: left;
+  cursor: pointer;
+}
+
+.vr-options__item[data-active="true"] { background: var(--mobile-accent-soft); }
+.vr-options__item .mobile-icon:last-child { margin-left: auto; color: var(--mobile-accent); }
+.vr-options__name { flex: 1 1 auto; min-width: 0; }
+
+/* ── 설정 묶음 (iOS 설정 앱 문법) ────────────────────────
+   묶음마다 작은 제목이 붙고 그 아래 카드 하나에 행이 쌓인다. */
+
+.vr-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--mobile-space-2);
+}
+
+.vr-theme {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  min-height: 44px;
+  padding: 0 var(--mobile-space-4);
+  border: var(--mobile-border-width) var(--mobile-border-style) var(--mobile-border);
+  border-radius: var(--mobile-radius-sm);
+  background: var(--mobile-surface-item);
+  color: var(--mobile-fg);
+  font-family: inherit;
+  font-size: var(--mobile-font-size-label);
+  font-weight: var(--mobile-font-weight-semibold);
+  cursor: pointer;
+}
+
+.vr-theme[data-active="true"] {
+  border-color: transparent;
+  background: var(--mobile-accent);
+  color: var(--mobile-on-accent);
+}
+
+/* 다음 화면으로 넘어가는 행. `Row` 는 버튼이라 링크에는 이걸 쓴다. */
+.vr-nav-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0 var(--mobile-space-3);
+  min-height: 44px;
+  text-decoration: none;
+  color: var(--mobile-fg);
+}
+
+.vr-nav-row__title {
+  grid-column: 1;
+  font-size: var(--mobile-font-size-body-strong);
+  font-weight: var(--mobile-font-weight-semibold);
+}
+
+.vr-nav-row__meta {
+  grid-column: 1;
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-muted);
+}
+
+.vr-nav-row > .mobile-icon {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  color: var(--mobile-fg-subtle);
+}
+
+/* ── 녹음 설정 줄 ────────────────────────────────────────
+   칩이나 버튼으로 세우지 않는다 — 이 화면에서 누를 것은 녹음 버튼 하나여야 한다. */
+
+.vr-rec-prefs {
+  border: 0;
+  padding: var(--mobile-space-2) var(--mobile-space-3);
+  background: none;
+  color: var(--mobile-fg-muted);
+  font-family: inherit;
+  font-size: var(--mobile-font-size-caption);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--mobile-border-strong, var(--mobile-fg-subtle));
+}
+
+/* 녹음 버튼의 글리프는 크게 — 이 화면의 주 동작이다. */
+.vr-rec-button .mobile-icon {
+  width: 34px;
+  height: 34px;
+  font-size: 34px;
+}
+
+/* ── 한 화면에 딱 맞추는 화면 (녹음) ────────────────────
+   타이머 · 파형 · 녹음 버튼이 스크롤 아래로 밀리면 녹음 중에 버튼을 찾아
+   내려야 한다. `is-fill` 이 붙은 화면은 스크롤하지 않고 높이를 나눠 쓴다. */
+
+.mobile-app.is-fill > .mobile-screen {
+  overflow: hidden;
+  /* 스크롤하는 화면은 마지막 항목이 유리 탭바 **위로 완전히 올라오도록**
+     96px 여유(`--mobile-content-clearance`)를 더 준다. 스크롤이 없으면 그 여유가
+     그냥 빈 공간이 된다 — 탭바 높이 + 한 뼘만 비운다. */
+  padding-bottom: calc(
+    var(--mobile-floating-bottom-offset) + var(--mobile-bottom-nav-height) + var(--mobile-space-5)
+  );
+}
+
+.mobile-app.is-fill .mobile-screen__inner {
+  height: 100%;
+  min-height: 0;
+}
+
+/* 마지막 섹션(= 탭 내용)이 남는 높이를 가져간다 */
+.mobile-app.is-fill .mobile-screen__inner > .mobile-section:last-of-type,
+.mobile-app.is-fill .mobile-section:last-of-type > .mobile-section__body,
+.mobile-app.is-fill .vr-recorder-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* 켬/끔 스위치가 붙은 행 — 왼쪽 설명, 오른쪽 버튼 */
+.vr-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-4);
+  flex-wrap: wrap;
+}
+
+.vr-toggle-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.vr-toggle-row__title {
+  font-size: var(--mobile-font-size-body-strong);
+  font-weight: var(--mobile-font-weight-semibold);
+  color: var(--mobile-fg-strong);
+}
+
+/* ── 아이콘 폰트는 테마가 바꾸지 않는다 ──────────────────
+   게임 스킨은 `[data-theme="game"] *` 로 **모든 요소**의 글꼴을 도트 폰트로
+   바꾼다. devkanban 은 아이콘이 인라인 SVG 라 걸리지 않았는데, 이 앱은
+   Material Symbols(합자 폰트)를 쓰기 때문에 아이콘 이름이 **글자 그대로**
+   찍힌다 — `mic` · `chevron_right` 가 화면에 그대로 보인다.
+
+   글꼴만 되돌린다. 색·크기는 테마가 계속 정한다. */
+[data-theme] .material-symbols-rounded,
+[data-theme] .material-symbols-rounded * {
+  font-family: "Material Symbols Rounded";
+  font-weight: normal;
+  font-style: normal;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: "liga";
+  font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+  /* 합자가 해석되기 전 한 프레임 동안 이름이 보이는 것을 막는다 */
+  font-variant-ligatures: common-ligatures;
+}
+
+/* 게임 테마는 모서리를 각지게(radius 6px) 만든다. 아이콘 상자가 정사각이라
+   글리프가 넘치면 잘린다 — 넘치게 두지 않는다. */
+[data-theme="game"] .mobile-icon { overflow: visible; }
+
+/* 2단계 인증 등록 — 비밀키를 보여주고 복사시킨다.
+   QR 라이브러리를 들이지 않는다: 인증기 앱은 대부분 키 직접 입력을 지원하고,
+   그것만으로 등록이 끝난다. */
+.vr-enroll-secret {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-3);
+  padding: var(--mobile-space-4);
+  border-radius: var(--mobile-radius-sm);
+  background: var(--mobile-surface-inset);
+}
+
+.vr-enroll-secret code {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: var(--mobile-font-size-label);
+  letter-spacing: 0.06em;
+  word-break: break-all;
+  color: var(--mobile-fg-strong);
+}
+
+/* ── 아이콘 크기 ─────────────────────────────────────────
+   Material Symbols 는 **글꼴**이다. 상자를 픽셀로 못 박고 글자 크기를 따로 주면
+   글리프와 상자가 어긋나 찌그러져 보인다. 상자를 `1em` 으로 두면 글자 크기 하나만
+   바꿔도 늘 정사각이고 비율이 유지된다.
+
+   `opsz`(광학 크기)도 실제 크기를 따라가게 한다. 20 으로 고정해 두고 34px 로
+   키우면 20px 용으로 그린 획을 늘린 것이라 굵기가 어긋난다. */
+.material-symbols-rounded {
+  width: 1em;
+  height: 1em;
+  line-height: 1;
+  font-size: 22px;
+  font-variation-settings: "opsz" 24, "wght" 400, "FILL" 0, "GRAD" 0;
+}
+
+/* 녹음 버튼의 마이크는 **꽉 찬 글리프**(FILL 1)로 그린다.
+   빨간 원 안에 외곽선 마이크를 넣으면 획이 가늘어 비어 보이고, 원과 획이
+   같은 굵기 대비를 갖지 못해 비율이 어긋나 보인다.
+   `opsz` 는 실제로 그리는 크기와 맞춘다 — 40 으로 두고 34px 로 그리면
+   40px 용으로 그린 획을 줄인 것이라 가늘어진다. */
+.vr-rec-button .mobile-icon {
+  width: 1em;
+  height: 1em;
+  font-size: 36px;
+  font-variation-settings: "opsz" 36, "wght" 500, "FILL" 1, "GRAD" 0;
+}
+
+.bottom-nav .mobile-icon { width: 1em; height: 1em; font-size: 21px; }
+.vr-mic-row .mobile-icon,
+.vr-meeting-title .mobile-icon { width: 1em; height: 1em; }
+
+/* ── 연필 스킨을 이 앱의 상자에도 입힌다 ────────────────
+   devkanban 의 `media-skin.css` 는 그쪽 마크업(`.mobile-row` · `.mobile-button` ·
+   `.mobile-field__input` …)만 겨냥한다. 이 앱이 새로 만든 상자
+   (`.mobile-section--card` · `.vr-*`)는 스킨이 모르는 이름이라 연필 테마에서
+   혼자 매끈한 사각형으로 남았다 — 한 화면에 두 매체가 섞여 보였다.
+
+   **`devkanban/` 파일은 손대지 않는다.** 같은 재료(`--pc-stroke` · `--pc-ink`)를
+   빌려 우리 이름에 다시 건다. 특이도는 원본과 같은 `:not(#_)` 문법으로 맞춘다. */
+
+:is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_)
+  :is(.mobile-section--card, .vr-card, .vr-select, .vr-options__item, .vr-theme, .vr-enroll-secret, .vr-mic-row, .vr-recorder__wave) {
+  background-color: transparent;
+  background-image: none;
+  border: 1px solid transparent;
+  border-image: var(--pc-stroke) 46 / 13px / 5.4px round;
+  border-radius: 0;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* 획이 한 종류면 화면의 모든 상자가 같은 선이 된다. 원본과 같은 순번 배분. */
+:is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_):not(#_)
+  .mobile-section--card:nth-of-type(2n) { border-image-source: var(--pc-stroke2); }
+:is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_):not(#_)
+  .mobile-section--card:nth-of-type(3n+1) { border-image-source: var(--pc-stroke3); }
+:is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_):not(#_)
+  .mobile-section--card:nth-of-type(5n+4) { border-image-source: var(--pc-stroke5); }
+
+/* 고른 상태는 해칭으로 — 연필의 명암법이다 (원본 `.mobile-button--primary` 와 같은 문법) */
+:is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_)
+  :is(.vr-theme[data-active="true"], .vr-options__item[data-active="true"], .vr-tag[aria-pressed="true"]) {
+  background-image: repeating-linear-gradient(
+    52deg,
+    rgb(var(--pc-ink) / 0.3) 0 2px,
+    transparent 2px 5px
+  );
+  color: var(--mobile-fg-default);
+}
+
+/* 하단 탭·상단 원형 버튼·세그먼트는 **떠 있는 컨트롤**이다.
+   원본이 딤·오버레이를 매체 밖으로 둔 것과 같은 이유로 획을 입히지 않는다 —
+   화면 위를 덮는 것에 자산이 늘어나면 얼룩이 된다. 유리만 종이로 바꾼다. */
+:is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_)
+  :is(.bottom-nav, .mobile-top-app-bar__icon-button, .mobile-top-app-bar__titles, .mobile-segmented) {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background-color: var(--mobile-surface-item);
+}
+
+/* 파형은 종이 위의 선이다 — 면으로 칠하지 않는다 */
+:is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_)
+  .vr-recorder__wave { background-color: transparent; }

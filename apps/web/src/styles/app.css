@@ -1,0 +1,7 @@
+/**
+ * 앱 스타일 진입점.
+ *
+ * 실제 내용은 `packages/ui-styles/` 에 있다 — LiveView 쪽(`backend/assets/css/app.css`)이
+ * **같은 파일**을 읽는다. 여기에 규칙을 직접 쓰지 않는다.
+ */
+@import "../../../../packages/ui-styles/index.css";

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" />
+
+    <!-- Material Symbols Rounded — LiveView(root.html.heex)와 같은 세트 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0"
+    />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png" />
+    <!-- iOS 는 manifest 의 display 를 무시한다. 이 메타가 있어야 전체화면으로 뜬다 -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="KHALA VOICE" />
+    <title>KHALA VOICE</title>
+
+    <script>
+      // 테마를 첫 페인트 전에 반영한다.
+      //
+      // LiveView 쪽은 서버가 html[data-theme] 를 찍어주지만 여기는 정적
+      // index.html 이라 그럴 수 없다. localStorage 캐시로 먼저 칠하고,
+      // 앱이 뜨면 /api/me 값으로 정정한다.
+      //
+      // devkanban 토큰은 :root 기본값이 **라이트**다. 기본 테마는 다크라서
+      // 이 스크립트가 없으면 다크 사용자에게 흰 화면이 한 프레임 번쩍인다.
+      (() => {
+        const root = document.documentElement;
+
+        for (const key of ["reduce-motion", "reduce-blur"]) {
+          if (localStorage.getItem("vr:" + key) === "true") {
+            root.setAttribute("data-" + key, "true");
+          }
+        }
+
+        // 테마는 전부 번들 안에 있다 (`packages/ui-styles`). 따로 받지 않는다.
+        root.setAttribute("data-theme", localStorage.getItem("vr:theme") || "dark");
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

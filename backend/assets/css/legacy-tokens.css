@@ -1,0 +1,98 @@
+/**
+ * 옛 토큰 → devkanban 토큰 다리.
+ *
+ * 디자인 시스템을 `packages/ui-styles/` 로 옮기기 전, LiveView 화면과 일부
+ * React 화면이 `--text-primary` · `--surface-canvas` 같은 이름을 쓰고 있었다.
+ * 그 이름들을 devkanban 토큰에 **연결만** 한다 — 값을 새로 정하지 않는다.
+ * 그래야 테마를 바꿔도 두 이름이 같이 움직인다.
+ *
+ * 화면을 옮길 때마다 여기 항목이 줄어야 정상이다. 새 화면은 devkanban 이름을 직접 쓴다.
+ */
+:root {
+  /* 면 */
+  --surface-canvas: var(--mobile-surface-canvas);
+  --surface-0: var(--mobile-surface-canvas);
+  --surface-1: var(--mobile-surface-item);
+  --surface-2: var(--mobile-surface-raised, var(--mobile-surface-item));
+  --surface-3: var(--mobile-surface-raised, var(--mobile-surface-item));
+  --surface-item: var(--mobile-surface-item);
+  --surface-item-hover: var(--mobile-surface-inset);
+  --surface-item-subtle: var(--mobile-surface-inset);
+  --surface-item-subtle-hover: var(--mobile-surface-inset);
+  --surface-inset: var(--mobile-surface-inset);
+  --surface-hover: var(--mobile-surface-inset);
+  --surface-input: var(--mobile-surface-inset);
+  --surface-input-hover: var(--mobile-surface-inset);
+  --surface-input-disabled: var(--mobile-surface-inset);
+  --surface-input-on-overlay: var(--mobile-surface-inset);
+
+  /* 글자 */
+  --text-primary: var(--mobile-fg-strong);
+  --text-secondary: var(--mobile-fg-default);
+  --text-tertiary: var(--mobile-fg-muted);
+  --text-faint: var(--mobile-fg-subtle);
+
+  /* 선 */
+  --border-subtle: var(--mobile-border);
+  --border-default: var(--mobile-border);
+  --border-strong: var(--mobile-border);
+  --divider: var(--mobile-border);
+  --hairline-width: var(--mobile-border-width);
+
+  /* 액센트 */
+  --accent: var(--mobile-accent);
+  --accent-hover: var(--mobile-accent-hover);
+  --accent-soft: var(--mobile-accent-soft);
+  --accent-strong: var(--mobile-accent-strong);
+  --accent-text: var(--mobile-on-accent);
+  --interaction-ring: var(--mobile-accent);
+  --interaction-border: var(--mobile-accent);
+  --interaction-ring-width: 3px;
+
+  /* 상태 */
+  --status-success: var(--mobile-success);
+  --status-success-soft: var(--mobile-success-soft);
+  --status-info: var(--mobile-info);
+  --status-info-soft: var(--mobile-info-soft);
+  --status-warning: var(--mobile-warning);
+  --status-warning-soft: var(--mobile-warning-soft);
+  --status-attention: var(--mobile-warning);
+  --status-attention-soft: var(--mobile-warning-soft);
+  --status-error: var(--mobile-danger);
+  --status-error-soft: var(--mobile-danger-soft);
+
+  /* 모서리 */
+  --radius-xs: var(--mobile-radius-xs);
+  --radius-sm: var(--mobile-radius-sm);
+  --radius-md: var(--mobile-radius-md);
+  --radius-lg: var(--mobile-radius-lg);
+  --radius-xl: var(--mobile-radius-xl);
+  --radius-full: var(--mobile-radius-full);
+
+  /* 그림자 */
+  --elev-1: var(--mobile-shadow-soft);
+  --elev-2: var(--mobile-shadow-card);
+  --elev-3: var(--mobile-shadow-nav);
+  --elev-overlay: var(--mobile-shadow-nav);
+
+  /* 폼 */
+  --control-height: var(--mobile-touch-target);
+  --field-border-color: var(--mobile-border);
+  --field-border-style: var(--mobile-border-style);
+  --field-border-width: var(--mobile-border-width);
+  --btn-border-color: var(--mobile-border);
+  --btn-border-style: var(--mobile-border-style);
+  --btn-border-width: var(--mobile-border-width);
+
+  /* 글꼴 */
+  --font-sans: var(--mobile-font-family);
+  --font-display: var(--mobile-font-family);
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
+  /* 녹음 상태 */
+  --rec-idle: var(--mobile-fg-muted);
+  --rec-recording: var(--mobile-danger);
+  --rec-paused: var(--mobile-warning);
+  --rec-processing: var(--mobile-info);
+  --rec-wave-bg: var(--mobile-accent-soft);
+}

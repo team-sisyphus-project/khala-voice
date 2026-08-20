@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme={theme(assigns)}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="csrf-token" content={get_csrf_token()} />
+    <meta name="theme-color" content="#ffffff" />
+
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png" />
+    <%!-- iOS 는 manifest 의 display 를 무시한다. 이 메타가 있어야 전체화면으로 뜬다 --%>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="KHALA VOICE" />
+
+    <.live_title default="KHALA VOICE" suffix=" · KHALA VOICE">
+      {assigns[:page_title]}
+    </.live_title>
+
+    <%!-- Material Symbols Rounded — sisyphus와 같은 아이콘 세트 --%>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0"
+    />
+
+    <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
+    <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
+    </script>
+
+    <script>
+      // 테마와 접근성 설정을 첫 페인트 전에 반영한다 (깜빡임 방지).
+      //
+      // 서버가 계정의 테마를 html[data-theme] 로 이미 찍어줬다.
+      // 로그인 전이거나 서버 값이 없으면 localStorage 캐시를 쓴다.
+      //
+      // 네 테마 모두 번들 안에 있다 (`packages/ui-styles`) — 따로 받지 않는다.
+      (() => {
+        const root = document.documentElement;
+
+        for (const key of ["reduce-motion", "reduce-blur"]) {
+          if (localStorage.getItem("vr:" + key) === "true") {
+            root.setAttribute("data-" + key, "true");
+          }
+        }
+
+        const server = root.getAttribute("data-theme");
+        const cached = localStorage.getItem("vr:theme");
+        const theme = server || cached || "dark";
+
+        root.setAttribute("data-theme", theme);
+        if (server) localStorage.setItem("vr:theme", server);
+      })();
+    </script>
+  </head>
+  <body>
+    {@inner_content}
+  </body>
+</html>

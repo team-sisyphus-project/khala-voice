@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Voice Recording">
+  <!--
+    앱 아이콘. 마이크 하나.
+
+    Phoenix 기본 로고(logo.svg)를 그대로 쓰지 않는다 — 이 앱의 것이 아니다.
+    색은 라이트 테마의 키 색상(빨강)을 따른다. sisyphus 와 같은 계열이다.
+    아이콘은 테마를 따라가지 않는다 — 홈 화면에 박히면 바꿀 수 없기 때문이다.
+  -->
+  <rect width="512" height="512" rx="112" fill="#E5484D"/>
+  <g fill="#fff">
+    <rect x="216" y="112" width="80" height="176" rx="40"/>
+    <path d="M168 240a12 12 0 0 1 24 0 64 64 0 0 0 128 0 12 12 0 0 1 24 0 88 88 0 0 1-76 87.2V368h40a12 12 0 0 1 0 24H204a12 12 0 0 1 0-24h40v-40.8A88 88 0 0 1 168 240z"/>
+  </g>
+</svg>

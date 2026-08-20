@@ -1,0 +1,212 @@
+/* ============================================================
+   Press — 누르는 동안의 반응 (mobile/src/styles/press.css)
+   ------------------------------------------------------------
+   iOS Liquid Glass의 누름 문법을 앱 전체에 하나로 적용한다:
+   **손가락 아래에서 커지고 밝아진다.**
+
+   웹의 관성("누르면 작아진다")과 반대 방향인 것이 핵심이다. 컨트롤은
+   손가락에 가려지므로, 줄어들면 무엇을 누르고 있는지 더 안 보인다. 부풀면
+   가장자리가 손가락 밖으로 삐져나와 스스로를 드러낸다.
+
+   상태를 켜고 끄는 것은 `src/press.ts`(포인터 추적 → `data-pressed`)이고,
+   여기서는 **어떻게 보이는가**만 정한다. 대상은 선택자 하나로 정해지므로
+   컴포넌트는 세기(`--press-scale`)만 고르면 된다.
+
+   두 밝기 기법을 **섞지 않는다**:
+     · 불투명 컨트롤 → `filter: brightness()` (배경 종류를 안 가린다)
+     · 글래스 컨트롤 → `background`를 직접 갈아 끼우고 filter는 1로 끈다
+   글래스에 filter까지 걸면 뒤가 비치는 유리가 통째로 물들어 탁해진다.
+   ============================================================ */
+
+/* iOS가 그리는 회색 탭 하이라이트를 끈다 — 우리 연출 위에 한 겹 더 깔린다. */
+:where(button, [role="button"], a[href], summary, [data-press]) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 되돌아오는 전이. **누르지 않은 상태에 있어야** 손을 뗄 때도 이어진다.
+   `:not(#_)`는 존재할 수 없는 id로 특이도만 한 단 올리는 장치다 — 이 선택자는
+   요소 이름(0,0,1)이라, 이것 없이는 컴포넌트 클래스(0,1,0)가 이미 갖고 있는
+   `transition` 선언에 밀려 filter·배경이 전이 없이 툭 끊긴다. 누름 타이밍은
+   컴포넌트가 아니라 시스템이 정하는 값이라 여기서 이긴다.
+   기존 선언이 animate하던 속성(opacity 등)도 목록에 함께 싣는다 —
+   이 규칙이 그 선언을 통째로 대체하기 때문이다. */
+:is(button, [role="button"], a[href], summary, [data-press]):not(#_) {
+  transition:
+    transform var(--mobile-press-out) var(--mobile-press-ease),
+    filter var(--mobile-press-out) var(--mobile-press-ease),
+    background-color var(--mobile-press-out) var(--mobile-press-ease),
+    border-color var(--mobile-press-out) var(--mobile-press-ease),
+    box-shadow var(--mobile-press-out) var(--mobile-press-ease),
+    opacity var(--mobile-press-out) var(--mobile-press-ease),
+    color var(--mobile-press-out) var(--mobile-press-ease);
+}
+
+/* 누르는 순간은 빠르게(즉각 반응), 놓을 때는 위 규칙의 느린 값으로 풀린다.
+   같은 시간을 쓰면 놓는 순간이 뚝 끊겨 기계적으로 읽힌다. */
+[data-pressed]:not(#_) {
+  transform: scale(var(--press-scale, var(--mobile-press-scale-surface)));
+  filter: brightness(var(--press-brightness, var(--mobile-press-brightness)));
+  transition-duration: var(--mobile-press-in);
+}
+
+/* ---- 세기 1: 떠 있는 원형·알약 컨트롤 ----------------------------------
+   콘텐츠 위에 떠 있어 이웃과 부딪히지 않으므로 가장 크게 부푼다. 화면
+   좌상단 메뉴 버튼처럼 "눌렀다"가 멀리서도 보여야 하는 것들이다. */
+:is(
+  .mobile-top-app-bar__icon-button,
+  .mobile-fab,
+  .mobile-drawer__icon-button,
+  .mobile-drawer__home,
+  .mobile-drawer__new-chat,
+  .mobile-drawer__close,
+  .mobile-chat-icon-btn,
+  .mobile-chat-send,
+  .mobile-chat-mic,
+  .mobile-chat-searching__close,
+  .mobile-chat-inspector__icon-button,
+  .mobile-chat-inspector__session-toggle,
+  .mobile-home-chat__context-chip,
+  .mobile-logic-model__chip,
+  .mobile-action-dock__chip,
+  .mobile-scope-banner__button,
+  .mobile-context-sheet__head-button,
+  .mobile-workbench-meta__chip,
+  .mobile-workplan-filter__chip,
+  .mobile-status-nav-chip,
+  .mobile-section__link,
+  .mobile-queue-row__cancel,
+  .mobile-inline-failure__retry,
+  .mobile-plan-tree__toggle,
+  .mobile-voice-stage__end,
+  .mobile-voice-stage__collapse,
+  .mobile-voice-stage__unmute,
+  .mobile-voice-stage__tone-button,
+  .mobile-voice-stage__picker-arrow,
+  .mobile-button--round,
+  .mobile-button--square
+) {
+  --press-scale: var(--mobile-press-scale-control);
+}
+
+/* ---- 세기 2: 트랙 안에 갇힌 조각 --------------------------------------
+   세그먼트·선택지는 배경 트랙 안에 들어앉아 있어, 크게 부풀면 트랙을 뚫고
+   나온다. 부푸는 것은 같고 폭만 줄인다. */
+:is(
+  .mobile-segmented__item,
+  .mobile-theme-option,
+  .mobile-choice,
+  .mobile-chat-tags__item,
+  .mobile-answer-prompt__option,
+  .mobile-answer-prompt__toggle,
+  .mobile-voice-stage__reply-option,
+  .mobile-voice-stage__picker-done,
+  .mobile-load-more,
+  .mobile-seed-card__pick,
+  .mobile-seed-card__preview
+) {
+  --press-scale: var(--mobile-press-scale-inline);
+}
+
+/* ---- 세기 3(기본): 목록 행·카드 ---------------------------------------
+   기본값이라 따로 선언하지 않는다. 행은 좌우 여백이 몇 px뿐이라 크게 부풀면
+   화면 밖으로 밀려 잘린다 — 2%가 이웃을 건드리지 않는 상한이다. */
+
+/* ---- 글래스 컨트롤: 배경을 갈아 끼운다 --------------------------------
+   `--mobile-glass-strong` → `--mobile-glass-pressed`. 어두운 테마에서는
+   은빛으로 차오르고, 밝은 테마에서는 불투명한 흰색으로 채워진다. 유리가
+   차오르는 것이지 물드는 것이 아니라서 filter는 끈다. */
+:is(
+  .mobile-top-app-bar__icon-button,
+  .mobile-drawer__icon-button,
+  .mobile-drawer__home,
+  .mobile-drawer__new-chat,
+  .mobile-drawer__close,
+  .mobile-context-sheet__head-button,
+  .mobile-home-chat__context-chip,
+  .mobile-logic-model__chip,
+  /* 색을 가진 변형(주 액션·위험)은 제 색이 곧 뜻이라 유리로 덮지 않는다 —
+     그쪽은 아래 밝기 규칙을 그대로 탄다. */
+  .mobile-action-dock__chip:not(.is-primary):not(.is-danger),
+  .mobile-workbench-meta__chip
+) {
+  --press-brightness: 1;
+}
+
+:is(
+  .mobile-top-app-bar__icon-button,
+  .mobile-drawer__icon-button,
+  .mobile-drawer__home,
+  .mobile-drawer__new-chat,
+  .mobile-drawer__close,
+  .mobile-context-sheet__head-button,
+  .mobile-home-chat__context-chip,
+  .mobile-logic-model__chip,
+  /* 색을 가진 변형(주 액션·위험)은 제 색이 곧 뜻이라 유리로 덮지 않는다 —
+     그쪽은 아래 밝기 규칙을 그대로 탄다. */
+  .mobile-action-dock__chip:not(.is-primary):not(.is-danger),
+  .mobile-workbench-meta__chip
+)[data-pressed] {
+  background-color: var(--mobile-glass-pressed);
+  border-color: var(--mobile-press-border);
+}
+
+/* ---- 액센트로 채워진 컨트롤 -------------------------------------------
+   filter로 밝히면 방향이 테마마다 갈린다(어두운 테마는 밝은 주황, 밝은
+   테마는 짙은 주황). 액센트에는 이미 "한 단 밝은" 값이 있으므로 그것으로
+   갈아 끼워 어느 테마에서든 같은 방향으로 반응하게 한다.
+
+   FAB은 반투명 액센트 글래스인데, 눌리면 불투명해지며 밝아진다 — 유리가
+   차오르는 그 문법이다. `filter`를 안 쓰는 덕에 자기 `backdrop-filter`와
+   부딪힐 일도 없다(같은 요소에 둘을 겹치면 뒤가 비치는 유리까지 물든다). */
+:is(
+  .mobile-fab,
+  .mobile-chat-send:not(.is-cancel),
+  .mobile-button--primary,
+  .mobile-scope-banner__button
+) {
+  --press-brightness: 1;
+}
+
+:is(
+  .mobile-fab,
+  .mobile-chat-send:not(.is-cancel),
+  .mobile-button--primary,
+  .mobile-scope-banner__button
+)[data-pressed] {
+  background-color: var(--mobile-accent-strong);
+}
+
+/* ---- 대상에서 뺀다 ------------------------------------------------------
+   스크림은 "닫기"를 받으려고 button으로 깔아 둔 전면 판이다. 화면 전체가
+   부풀고 밝아지면 그건 피드백이 아니라 고장으로 읽힌다. */
+:is([class*="__scrim"], .mobile-context-sheet__grabber)[data-pressed]:not(#_) {
+  transform: none;
+  filter: none;
+}
+
+/* 음성 오브는 `transform: scale()`이 **이미 제 상태 표시**다 — 목소리 크기와
+   듣는 중/생각 중이 그 값으로 나타난다(420ms 자체 전이). 누름 연출이 그
+   transform을 빼앗으면 말하는 동안 오브가 죽는다. 마이크가 막혔을 때만
+   버튼이 되는 요소라 `data-press="off"`로 런타임 단계에서 아예 뺐다
+   (`VoiceStage.tsx`). 여기서는 위 전이 규칙이 가져가 버린 제 타이밍만
+   돌려준다 — 그 규칙은 `button`을 통째로 잡으므로 태그 여부와 무관하다. */
+.mobile-voice-stage__orb:not(#_) {
+  transition:
+    transform 420ms var(--mobile-press-ease),
+    opacity 420ms ease;
+}
+
+/* 비활성 컨트롤은 `press.ts`가 애초에 태그하지 않지만, 눌린 채 비활성이 되는
+   찰나(전송 중 잠김 등)를 위해 그림 쪽에도 같은 규칙을 둔다. */
+:is(:disabled, [aria-disabled="true"])[data-pressed]:not(#_) {
+  transform: none;
+  filter: none;
+}
+
+/* 모션을 줄이는 사용자: 크기 변화만 뺀다. 밝기는 "지금 이걸 누르고 있다"는
+   유일한 신호라 남긴다 — 둘 다 빼면 아무 반응 없는 화면이 된다. */
+@media (prefers-reduced-motion: reduce) {
+  [data-pressed]:not(#_) {
+    transform: none;
+  }
+}

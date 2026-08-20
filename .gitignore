@@ -1,0 +1,38 @@
+# ── 시크릿 (절대 커밋 금지) ──────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+# 자체 서명 개발 인증서 — 각자 mix phx.gen.cert 로 만든다
+/backend/priv/cert/
+*-credentials.json
+*credentials*.json
+service-account*.json
+secrets/
+
+# ── Elixir ─────────────────────────────────
+/backend/_build/
+/backend/deps/
+/backend/.elixir_ls/
+/backend/cover/
+/backend/erl_crash.dump
+*.ez
+*.beam
+/backend/priv/static/assets/
+# React 빌드 산출물 — apps/web 에서 생성한다
+/backend/priv/static/app/
+/backend/priv/static/cache_manifest.json
+
+# ── Node ───────────────────────────────────
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# ── 로컬 ───────────────────────────────────
+.DS_Store
+.idea/
+.vscode/
+*.log
+/tmp/

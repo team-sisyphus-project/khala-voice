@@ -1,0 +1,82 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html {
+  min-width: 320px;
+  background: var(--mobile-surface-canvas);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background:
+    radial-gradient(120% 80% at 82% -6%, var(--mobile-accent-soft), transparent 55%),
+    var(--mobile-surface-canvas);
+  color: var(--mobile-fg-default);
+  font-family: var(--mobile-font-family);
+  font-size: var(--mobile-font-size-body);
+  line-height: var(--mobile-line-height-base);
+}
+
+#root {
+  height: 100%;
+}
+
+/*
+ * Google reCAPTCHA v3 injects a persistent, position:fixed badge that we keep in
+ * the DOM for the app's lifetime. It should only be visible on the four auth
+ * screens that reCAPTCHA guards; App.tsx sets `data-recaptcha-badge="visible"`
+ * on <html> for exactly those screens. Default to hidden so every other surface
+ * (home, board, chat, authenticated, MFA) never shows it. `visibility` keeps the
+ * hidden badge non-interactive without fighting Google's inline positioning.
+ */
+.grecaptcha-badge {
+  visibility: hidden;
+}
+
+:root[data-recaptcha-badge="visible"] .grecaptcha-badge {
+  visibility: visible;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  min-width: 0;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  box-shadow: var(--mobile-focus-ring);
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+input,
+select,
+textarea {
+  color: var(--mobile-fg-strong);
+}

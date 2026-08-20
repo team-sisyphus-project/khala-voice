@@ -1,0 +1,400 @@
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router";
+import { GuestApiClient, GuestApiError } from "@core/api";
+import type { Meeting, RecordingSession, ShareGate, SummarySource } from "@core/api";
+import { TranscriptView } from "@/components/TranscriptView";
+import { SummaryView } from "@/components/SummaryView";
+import { AudioPlayerBar } from "@/components/AudioPlayerBar";
+import { useAudioPlayer } from "@/hooks/useAudioPlayer";
+import { Card, CardBody, Chip, EmptyState, Notice, Spinner } from "@/components/ui";
+import { formatDuration } from "@/lib/format";
+import { Icon } from "@/ui";
+
+const guest = new GuestApiClient();
+
+/** 탭을 닫으면 사라진다. 공유 링크로 잠깐 보는 화면에 맞는 수명이다. */
+function storageKey(token: string) {
+  return `vr.guest.${token.slice(0, 16)}`;
+}
+
+/**
+ * 공유 링크로 들어온 게스트 화면.
+ *
+ * **출처: 신규.** sisyphus 는 서버가 정적 HTML 을 문자열 치환해
+ * `window.__GUEST_LINK_DATA__` 를 심는 방식이었고 오류 메시지를 HTML 에 그대로
+ * 보간했다. 그 방식은 이식하지 않았다.
+ *
+ * 전사·요약 화면은 로그인 화면과 **같은 컴포넌트를 그대로 쓴다** —
+ * 게스트 전용 뷰를 따로 만들면 두 벌이 갈라진다.
+ */
+export function SharePage() {
+  const { token = "" } = useParams();
+  const navigate = useNavigate();
+  const player = useAudioPlayer();
+
+  const [gate, setGate] = useState<ShareGate | null>(null);
+  const [meeting, setMeeting] = useState<Meeting | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [fatal, setFatal] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [selectedSessionId, setSelected] = useState<string | null>(null);
+
+  const loadMeeting = useCallback(async () => {
+    try {
+      setMeeting(await guest.meeting());
+      setError(null);
+      return true;
+    } catch (e) {
+      // 세션이 끊겼다. 다시 입장 화면으로.
+      guest.token = null;
+      sessionStorage.removeItem(storageKey(token));
+      setMeeting(null);
+
+      if (e instanceof GuestApiError && e.status !== 401) setError(e.message);
+      return false;
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+
+    const saved = sessionStorage.getItem(storageKey(token));
+
+    void (async () => {
+      if (saved) {
+        guest.token = saved;
+        if (await loadMeeting()) return;
+      }
+
+      try {
+        setGate(await guest.gate(token));
+      } catch (e) {
+        setFatal(describe(e));
+      }
+    })();
+  }, [token, loadMeeting]);
+
+  async function enter(form: { display_name?: string; email?: string; pincode?: string }) {
+    setBusy(true);
+    setError(null);
+
+    try {
+      const result = await guest.enter(token, form);
+
+      // 로그인한 계정은 게스트 세션을 만들지 않는다. 계정 권한이 우선이다.
+      if (result.mode === "account" && result.redirect) {
+        navigate(result.redirect, { replace: true });
+        return;
+      }
+
+      if (result.guest_token) {
+        guest.token = result.guest_token;
+        sessionStorage.setItem(storageKey(token), result.guest_token);
+        await loadMeeting();
+      }
+    } catch (e) {
+      if (e instanceof GuestApiError && (e.status === 404 || e.status === 410)) {
+        setFatal(describe(e));
+      } else {
+        setError(describe(e));
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (fatal) {
+    return (
+      <Shell>
+        <Card>
+          <CardBody>
+            <EmptyState icon="link_off" title={fatal} desc="링크를 준 사람에게 새 링크를 요청하세요." />
+          </CardBody>
+        </Card>
+      </Shell>
+    );
+  }
+
+  if (meeting) {
+    return (
+      <MeetingView
+        meeting={meeting}
+        player={player}
+        selectedSessionId={selectedSessionId}
+        onSelect={setSelected}
+        error={error}
+        onLeave={async () => {
+          await guest.leave().catch(() => {});
+          sessionStorage.removeItem(storageKey(token));
+          guest.token = null;
+          setMeeting(null);
+          setGate(await guest.gate(token).catch(() => null));
+        }}
+      />
+    );
+  }
+
+  if (!gate) {
+    return (
+      <Shell>
+        <Spinner label="확인 중" />
+      </Shell>
+    );
+  }
+
+  return (
+    <Shell>
+      <Card>
+        <CardBody>
+          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--text-primary)" }}>
+            공유된 회의록
+          </h1>
+          <p className="vr-note" style={{ marginTop: 6 }}>
+            {gate.granted_role === "contributor"
+              ? "전사와 화자를 편집할 수 있습니다."
+              : "읽기 전용으로 열람합니다."}
+          </p>
+
+          {error && <Notice kind="error" icon="error" className="mb-4">{error}</Notice>}
+
+          <ShareGateForm gate={gate} busy={busy} onSubmit={enter} />
+        </CardBody>
+      </Card>
+    </Shell>
+  );
+}
+
+function ShareGateForm({
+  gate,
+  busy,
+  onSubmit,
+}: {
+  gate: ShareGate;
+  busy: boolean;
+  onSubmit: (form: { display_name?: string; email?: string; pincode?: string }) => void;
+}) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [pincode, setPincode] = useState("");
+
+  return (
+    <form
+      style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 16 }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit({
+          display_name: gate.require_name ? name.trim() : undefined,
+          email: gate.require_email ? email.trim() : undefined,
+          pincode: gate.require_pincode ? pincode.trim() : undefined,
+        });
+      }}
+    >
+      {gate.require_name && (
+        <Field label="이름">
+          <input
+            className="mobile-field__input"
+            data-surface="sunken"
+            style={{ fontFamily: "var(--font-sans)" }}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={60}
+            required
+            autoFocus
+          />
+        </Field>
+      )}
+
+      {gate.require_email && (
+        <Field label="이메일">
+          <input
+            type="email"
+            className="mobile-field__input"
+            data-surface="sunken"
+            style={{ fontFamily: "var(--font-sans)" }}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </Field>
+      )}
+
+      {gate.require_pincode && (
+        <Field label="PIN 6자리">
+          <input
+            className="mobile-field__input"
+            data-surface="sunken"
+            style={{ fontFamily: "var(--font-mono)", letterSpacing: 4 }}
+            value={pincode}
+            onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            inputMode="numeric"
+            autoComplete="off"
+            required
+          />
+        </Field>
+      )}
+
+      <button type="submit" className="mobile-button mobile-button--primary mobile-button--full" disabled={busy}>
+        {busy ? "여는 중…" : "회의록 열기"}
+      </button>
+    </form>
+  );
+}
+
+function MeetingView({
+  meeting,
+  player,
+  selectedSessionId,
+  onSelect,
+  error,
+  onLeave,
+}: {
+  meeting: Meeting;
+  player: ReturnType<typeof useAudioPlayer>;
+  selectedSessionId: string | null;
+  onSelect: (id: string) => void;
+  error: string | null;
+  onLeave: () => void;
+}) {
+  const [tab, setTab] = useState<"summary" | "transcript">("summary");
+
+  const sessions = meeting.recording_sessions ?? [];
+  const transcribed = sessions.filter((s) => s.transcript?.segments?.length);
+  const selected = transcribed.find((s) => s.id === selectedSessionId) ?? transcribed[0] ?? null;
+  const canEdit = meeting.role === "contributor";
+
+  function play(session: RecordingSession, startMs = 0) {
+    // Viewer 에게는 서버가 audio_href 를 주지 않는다
+    if (session.audio_href) player.play(session.id, session.audio_href, startMs);
+  }
+
+  return (
+    <Shell>
+      {error && <Notice kind="error" icon="error" className="mb-4">{error}</Notice>}
+
+      <Card className="mb-4">
+        <CardBody>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ minWidth: 0 }}>
+              <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--text-primary)" }}>
+                {meeting.title || "제목 없음"}
+              </h1>
+              <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                <Chip kind="info">{meeting.role}</Chip>
+                {meeting.total_duration_seconds > 0 && (
+                  <Chip kind="neutral">총 {formatDuration(meeting.total_duration_seconds)}</Chip>
+                )}
+              </div>
+            </div>
+
+            <button className="mobile-button mobile-button--ghost mobile-button--fit" onClick={onLeave}>나가기</button>
+          </div>
+        </CardBody>
+      </Card>
+
+      <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+        <button
+          className={tab === "summary" ? "mobile-button mobile-button--secondary mobile-button--fit" : "mobile-button mobile-button--secondary mobile-button--fit"}
+          onClick={() => setTab("summary")}
+          aria-pressed={tab === "summary"}
+        >
+          요약
+        </button>
+        <button
+          className={tab === "transcript" ? "mobile-button mobile-button--secondary mobile-button--fit" : "mobile-button mobile-button--secondary mobile-button--fit"}
+          onClick={() => setTab("transcript")}
+          aria-pressed={tab === "transcript"}
+        >
+          전사 {transcribed.length > 0 && `(${transcribed.length})`}
+        </button>
+      </div>
+
+      <Card>
+        <CardBody>
+          {tab === "summary" ? (
+            <SummaryView
+              meeting={meeting}
+              sessions={sessions}
+              // 게스트는 요약을 만들 수 없다. 서버에도 그 경로가 없다.
+              canEdit={false}
+              busy={false}
+              onSummarize={() => {}}
+              onJump={(source: SummarySource) => {
+                const session = sessions.find((s) => s.id === source.session_id);
+                if (session) {
+                  onSelect(session.id);
+                  play(session, source.start_ms);
+                }
+              }}
+            />
+          ) : selected ? (
+            <>
+              {transcribed.length > 1 && (
+                <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+                  {transcribed.map((session) => (
+                    <button
+                      key={session.id}
+                      className={
+                        session.id === selected.id
+                          ? "mobile-button mobile-button--primary mobile-button--fit"
+                          : "mobile-button mobile-button--secondary mobile-button--fit"
+                      }
+                      onClick={() => onSelect(session.id)}
+                    >
+                      녹음 {session.session_index}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <TranscriptView
+                session={selected}
+                friends={[]}
+                canEdit={canEdit}
+                playingMs={player.sessionId === selected.id ? player.currentMs : null}
+                onPlaySegment={(startMs) => play(selected, startMs)}
+                onSave={() => {}}
+              />
+            </>
+          ) : (
+            <EmptyState icon="format_quote" title="아직 전사된 녹음이 없습니다" />
+          )}
+        </CardBody>
+      </Card>
+
+      <AudioPlayerBar player={player} />
+    </Shell>
+  );
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="vr-app">
+      <header className="vr-app__header">
+        <span className="vr-app__brand">
+          <Icon name="mic" />
+          KHALA VOICE
+        </span>
+      </header>
+      <main className="vr-app__main">{children}</main>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label style={{ display: "block" }}>
+      <span className="mobile-field__label" style={{ display: "block", marginBottom: 5 }}>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function describe(error: unknown): string {
+  if (error instanceof GuestApiError) {
+    if (error.status === 404) return "링크를 찾을 수 없습니다";
+    if (error.status === 410) return "만료되었거나 이미 사용된 링크입니다";
+    return error.message;
+  }
+
+  return error instanceof Error ? error.message : "열지 못했습니다";
+}

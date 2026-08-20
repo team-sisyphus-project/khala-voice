@@ -1,0 +1,296 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
+import { api } from "@/lib/api";
+import { useRoutes } from "@/lib/routes";
+import { AppShell } from "@/components/AppShell";
+import { Card, CardBody, Chip, EmptyState, Notice, Spinner } from "@/components/ui";
+import { formatDateTime, formatRelative } from "@/lib/format";
+import type { BillingSummary, LedgerEntry } from "@core/api";
+import { Icon } from "@/ui";
+
+/**
+ * 내 크레딧과 사용 내역.
+ *
+ * **출처: devkanban** 의 요금 화면 구성. 이 앱은 유료 플랜이 없으므로 결제·업그레이드
+ * 동선은 두지 않고 **잔액과 근거**만 보여준다.
+ *
+ * ## 음수 잔액을 숨기지 않는다
+ *
+ * 사용량 계량은 작업이 끝난 뒤에 일어나므로 잔액이 모자라도 기록된다
+ * (오버드래프트). 그 상태를 0으로 반올림해 보여주면 다음 달 지급분이
+ * 왜 줄었는지 설명할 수 없다.
+ */
+export function BillingPage() {
+  const routes = useRoutes();
+  const navigate = useNavigate();
+  const [summary, setSummary] = useState<BillingSummary | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void api
+      .billing()
+      .then(setSummary)
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : "요금 정보를 불러오지 못했습니다");
+      });
+  }, []);
+
+  if (error) {
+    return (
+      <AppShell active="settings" title="크레딧">
+        <Notice kind="error" icon="error">{error}</Notice>
+      </AppShell>
+    );
+  }
+
+  if (!summary) {
+    return (
+      <AppShell active="settings" title="크레딧">
+        <Spinner label="불러오는 중" />
+      </AppShell>
+    );
+  }
+
+  const overdrawn = summary.balance < 0;
+
+  return (
+    <AppShell
+      active="settings"
+      title="크레딧"
+      subtitle="잔액과 사용 내역"
+      onBack={() => navigate(routes.settings)}
+    >
+      <Card className="mb-4">
+        <CardBody>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <span
+              style={{
+                fontSize: 34,
+                fontWeight: 300,
+                fontVariantNumeric: "tabular-nums",
+                color: overdrawn ? "var(--status-error)" : "var(--text-primary)",
+              }}
+            >
+              {summary.balance.toLocaleString("ko-KR")}
+            </span>
+            <span className="mobile-row__meta">크레딧</span>
+
+            {summary.plan && (
+              <Chip kind="info">
+                {summary.plan.display_name}
+                {summary.plan.included_credits
+                  ? ` · 월 ${summary.plan.included_credits.toLocaleString("ko-KR")}`
+                  : ""}
+              </Chip>
+            )}
+          </div>
+
+          {summary.subscription && (
+            <p className="vr-note" style={{ marginTop: 8, fontSize: 12 }}>
+              이번 기간 {formatDateTime(summary.subscription.current_period_start)} ~{" "}
+              {formatDateTime(summary.subscription.current_period_end)}
+            </p>
+          )}
+
+          {overdrawn && (
+            <Notice kind="warn" icon="info" className="mt-2">
+              잔액이 음수입니다. 서비스는 계속 쓸 수 있고, 다음 지급분에서 먼저 차감됩니다.
+            </Notice>
+          )}
+        </CardBody>
+      </Card>
+
+      {summary.lots.length > 0 && (
+        <Card className="mb-4">
+          <CardBody>
+            <h2 className="mobile-section__title">남은 크레딧</h2>
+            <p className="vr-note" style={{ fontSize: 12, margin: "2px 0 10px" }}>
+              만료가 임박한 것부터 먼저 씁니다.
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {summary.lots.map((lot) => (
+                <div
+                  key={lot.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    padding: "8px 0",
+                    borderBottom: "var(--hairline-width) solid var(--border-subtle)",
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 14, color: "var(--text-primary)", fontWeight: 600 }}>
+                      {lotLabel(lot.source)}
+                    </div>
+                    <div className="vr-note vr-note--small">
+                      {lot.expires_at ? `${formatDateTime(lot.expires_at)} 만료` : "만료 없음"}
+                    </div>
+                  </div>
+
+                  <span
+                    style={{
+                      fontVariantNumeric: "tabular-nums",
+                      color: lot.remaining < 0 ? "var(--status-error)" : "var(--text-primary)",
+                    }}
+                  >
+                    {lot.remaining.toLocaleString("ko-KR")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
+      <Card>
+        <CardBody>
+          <h2 className="mobile-section__title">사용 내역</h2>
+
+          {summary.entries.length === 0 ? (
+            <EmptyState icon="receipt_long" title="아직 사용 내역이 없습니다" />
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", marginTop: 8 }}>
+              {summary.entries.map((entry) => (
+                <EntryRow key={entry.id} entry={entry} />
+              ))}
+            </div>
+          )}
+        </CardBody>
+      </Card>
+    </AppShell>
+  );
+}
+
+function EntryRow({ entry }: { entry: LedgerEntry }) {
+  const [open, setOpen] = useState(false);
+  const spent = entry.delta < 0;
+  const details = detailLines(entry);
+
+  return (
+    <div
+      style={{
+        padding: "10px 0",
+        borderBottom: "var(--hairline-width) solid var(--border-subtle)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ color: "var(--mobile-fg-subtle)", display: "inline-flex" }}>
+          <Icon name={domainIcon(entry)} />
+        </span>
+
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: 14, color: "var(--text-primary)" }}>
+            {entry.reason || sourceLabel(entry.source)}
+          </div>
+          <div className="vr-note vr-note--small">
+            {formatRelative(entry.inserted_at)}
+          </div>
+        </div>
+
+        <span
+          style={{
+            fontVariantNumeric: "tabular-nums",
+            fontWeight: 600,
+            color: spent ? "var(--text-secondary)" : "var(--status-success)",
+          }}
+        >
+          {spent ? "" : "+"}
+          {entry.delta.toLocaleString("ko-KR")}
+        </span>
+
+        {details.length > 0 && (
+          <button
+            className="mobile-button mobile-button--ghost mobile-button--fit"
+            onClick={() => setOpen(!open)}
+            aria-expanded={open}
+            aria-label="계산 근거"
+          >
+            <Icon name={open ? "expand_less" : "expand_more"} />
+          </button>
+        )}
+      </div>
+
+      {/* "왜 이만큼 나갔나" 를 확인할 유일한 근거다. 접어두되 없애지 않는다. */}
+      {open && (
+        <dl className="vr-usage">
+          {details.map(([term, value]) => (
+            <div key={term}>
+              <dt>{term}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
+  );
+}
+
+function detailLines(entry: LedgerEntry): [string, string][] {
+  const snapshot = entry.pricing_snapshot;
+  if (!snapshot) return [];
+
+  const lines: [string, string][] = [];
+  const get = (key: string) => snapshot[key];
+
+  if (get("minutes")) lines.push(["길이", `${String(get("minutes"))}분`]);
+  if (get("model")) lines.push(["모델", String(get("model"))]);
+
+  if (get("input_tokens") || get("output_tokens")) {
+    lines.push([
+      "토큰",
+      `입력 ${Number(get("input_tokens") ?? 0).toLocaleString("ko-KR")} · 출력 ${Number(
+        get("output_tokens") ?? 0,
+      ).toLocaleString("ko-KR")}`,
+    ]);
+  }
+
+  if (entry.usage_cost_usd) lines.push(["원가", `$${entry.usage_cost_usd}`]);
+
+  return lines;
+}
+
+function domainIcon(entry: LedgerEntry): string {
+  if (entry.delta > 0) return "add_circle";
+
+  switch (entry.charge_domain) {
+    case "stt":
+      return "graphic_eq";
+    case "llm":
+      return "summarize";
+    default:
+      return "remove_circle";
+  }
+}
+
+function sourceLabel(source: string): string {
+  switch (source) {
+    case "plan_grant":
+      return "플랜 지급";
+    case "admin_grant":
+      return "관리자 지급";
+    case "usage":
+      return "사용";
+    case "expiry":
+      return "만료";
+    case "admin_revoke":
+      return "관리자 회수";
+    default:
+      return source;
+  }
+}
+
+function lotLabel(source: string): string {
+  switch (source) {
+    case "plan_grant":
+      return "플랜 지급분";
+    case "admin_grant":
+      return "관리자 지급분";
+    case "overdraft":
+      return "부족분";
+    default:
+      return source;
+  }
+}

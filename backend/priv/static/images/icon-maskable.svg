@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Voice Recording">
+  <!--
+    maskable 아이콘. 안드로이드가 원형·스퀘어클 등으로 잘라낸다.
+
+    안전 영역은 중앙 80%(반지름 40%)다. 마이크를 그 안에 넣고
+    배경을 가장자리까지 채워 어떤 모양으로 잘려도 흰 테두리가 안 생기게 한다.
+  -->
+  <rect width="512" height="512" fill="#E5484D"/>
+  <g fill="#fff" transform="translate(256 256) scale(0.72) translate(-256 -256)">
+    <rect x="216" y="112" width="80" height="176" rx="40"/>
+    <path d="M168 240a12 12 0 0 1 24 0 64 64 0 0 0 128 0 12 12 0 0 1 24 0 88 88 0 0 1-76 87.2V368h40a12 12 0 0 1 0 24H204a12 12 0 0 1 0-24h40v-40.8A88 88 0 0 1 168 240z"/>
+  </g>
+</svg>

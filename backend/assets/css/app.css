@@ -1,0 +1,1071 @@
+/* See the Tailwind configuration guide for advanced usage
+   https://tailwindcss.com/docs/configuration */
+
+/* 디자인 시스템 — 웹앱(React)과 **같은 파일**을 읽는다.
+   두 벌로 복사하면 반드시 갈라진다(`CLAUDE.md`의 sisyphus 사례). */
+@import "../../../packages/ui-styles/index.css";
+
+/* 옛 토큰 이름(`--text-primary` · `--surface-canvas` …)을 아직 쓰는 화면이 있다.
+   devkanban 토큰으로 연결해 두 이름이 같은 색을 가리키게 한다. */
+@import "./legacy-tokens.css";
+@import "tailwindcss" source(none);
+@source "../css";
+@source "../js";
+@source "../../lib/vr_web";
+
+/* A Tailwind plugin that makes "hero-#{ICON}" classes available.
+   The heroicons installation itself is managed by your mix.exs */
+@plugin "../vendor/heroicons";
+
+/* daisyUI Tailwind Plugin. You can update this file by fetching the latest version with:
+   curl -sLO https://github.com/saadeghi/daisyui/releases/latest/download/daisyui.js
+   Make sure to look at the daisyUI changelog: https://daisyui.com/docs/changelog/ */
+@plugin "../vendor/daisyui" {
+  themes: false;
+}
+
+/* ── daisyUI 테마 ──
+   어드민 LiveView 가 daisyUI 유틸리티를 일부 쓴다.
+   색을 우리 토큰에 연결해 테마를 따라오게 한다. */
+@plugin "../vendor/daisyui-theme" {
+  name: "vr";
+  default: true;
+  prefersdark: false;
+  color-scheme: "light";
+
+  --color-base-100: var(--surface-1);
+  --color-base-200: var(--surface-0);
+  --color-base-300: var(--surface-canvas);
+  --color-base-content: var(--text-primary);
+
+  --color-primary: var(--accent);
+  --color-primary-content: var(--accent-text);
+  --color-secondary: var(--text-tertiary);
+  --color-secondary-content: var(--surface-3);
+  --color-accent: var(--accent-strong);
+  --color-accent-content: var(--accent-text);
+  --color-neutral: var(--text-primary);
+  --color-neutral-content: var(--surface-3);
+
+  --color-info: var(--status-info);
+  --color-info-content: var(--accent-text);
+  --color-success: var(--status-success);
+  --color-success-content: var(--accent-text);
+  --color-warning: var(--status-warning);
+  --color-warning-content: var(--accent-text);
+  --color-error: var(--status-error);
+  --color-error-content: var(--accent-text);
+
+  --radius-box: 1rem;
+  --radius-field: 0.875rem;
+  --radius-selector: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+/* Add variants based on LiveView classes */
+@custom-variant phx-click-loading (.phx-click-loading&, .phx-click-loading &);
+@custom-variant phx-submit-loading (.phx-submit-loading&, .phx-submit-loading &);
+@custom-variant phx-change-loading (.phx-change-loading&, .phx-change-loading &);
+
+/* Use the data attribute for dark mode  */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* Make LiveView wrapper divs transparent for layout */
+[data-phx-session], [data-phx-teleported-src] { display: contents }
+
+/* This file is for your main application CSS */
+
+/* ── 기본 타이포그래피 ── */
+html {
+  font-family: var(--font-sans);
+}
+
+body {
+  font-size: 16px;
+  line-height: 1.35;
+  color: var(--text);
+  background: var(--bg);
+}
+
+/* Material Symbols Rounded — sisyphus와 같은 아이콘 세트 */
+.material-symbols-rounded {
+  font-family: "Material Symbols Rounded";
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: "opsz" 20, "wght" 400, "FILL" 0, "GRAD" 0;
+}
+
+/* 숫자 폭을 고정한다 — 타이머가 초마다 흔들리지 않게 */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════════════════════════════════════════════
+   컴포넌트
+
+   색을 직접 쓰지 않는다. 전부 토큰을 거친다 —
+   그래야 테마를 바꾸면 컴포넌트가 따라온다.
+
+   매체 테마(연필·게임)는 `data-surface` 역할 태그를 보고 칠하므로
+   컨테이너·입력·버튼에 반드시 태그를 붙인다.
+   ═══════════════════════════════════════════════════ */
+
+/* ── 카드 ──
+   웹앱의 `.mobile-section--card` 와 **같은 재료**로 그린다 (유리 · 블러 ·
+   위쪽 하이라이트). 두 화면을 오갈 때 카드가 달라 보이면 안 된다. */
+.vr-card {
+  background: var(--mobile-glass-bg);
+  -webkit-backdrop-filter: var(--mobile-blur);
+  backdrop-filter: var(--mobile-blur);
+  border: var(--mobile-border-width) var(--mobile-border-style) var(--mobile-border);
+  border-radius: var(--mobile-radius-md);
+  box-shadow:
+    inset 0 1px 0 var(--mobile-glass-edge, oklch(100% 0 0 / 0.5)),
+    var(--mobile-shadow-card),
+    0 1px 2px oklch(0% 0 0 / 0.04);
+}
+
+.vr-card__body {
+  padding: var(--mobile-space-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+}
+
+/* ── 알림 배너 ── */
+.vr-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  border: var(--hairline-width) solid transparent;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.vr-notice__icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+.vr-notice__title { font-weight: 600; margin-bottom: 4px; }
+
+.vr-notice--warn  { background: var(--status-warning-soft); border-color: var(--status-warning); color: var(--status-warning); }
+.vr-notice--error { background: var(--status-error-soft);   border-color: var(--status-error);   color: var(--status-error); }
+.vr-notice--info  { background: var(--status-info-soft);    border-color: var(--status-info);    color: var(--status-info); }
+.vr-notice--ok    { background: var(--status-success-soft); border-color: var(--status-success); color: var(--status-success); }
+
+/* 배너 안 제목은 배경 대비를 위해 조금 더 진하게 */
+.vr-notice__title { filter: brightness(0.85); }
+
+/* ── 상태 칩 ── */
+.vr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.vr-chip--ok      { background: var(--status-success-soft); color: var(--status-success); }
+.vr-chip--warn    { background: var(--status-warning-soft); color: var(--status-warning); }
+.vr-chip--error   { background: var(--status-error-soft);   color: var(--status-error); }
+.vr-chip--info    { background: var(--status-info-soft);    color: var(--status-info); }
+.vr-chip--neutral { background: var(--surface-inset);       color: var(--text-tertiary); }
+
+/* ── 사이드바 ── */
+.vr-nav__item {
+  display: block;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  transition: background 0.12s, color 0.12s;
+}
+
+.vr-nav__item:hover { background: var(--surface-hover); color: var(--text-primary); }
+
+.vr-nav__item--active {
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.vr-nav__title {
+  padding: 14px 12px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* ── 폼 ── */
+.vr-label { display: block; font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.vr-hint  { font-size: 13px; color: var(--text-tertiary); line-height: 1.5; }
+.vr-key   { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); }
+
+.vr-input {
+  width: 100%;
+  min-height: var(--control-height);
+  padding: 10px 14px;
+  background: var(--surface-input);
+  color: var(--text-primary);
+  border: var(--field-border-width) var(--field-border-style) var(--field-border-color);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  transition: border-color 0.12s, box-shadow 0.12s, background 0.12s;
+}
+
+.vr-input:hover:not(:disabled) { background: var(--surface-input-hover); }
+
+.vr-input:focus {
+  outline: none;
+  border-color: var(--interaction-border);
+  box-shadow: 0 0 0 var(--interaction-ring-width) var(--accent-soft);
+}
+
+.vr-input:disabled { background: var(--surface-input-disabled); color: var(--text-faint); }
+.vr-input::placeholder { color: var(--text-faint); font-family: var(--font-sans); }
+
+textarea.vr-input { min-height: unset; resize: vertical; line-height: 1.5; }
+
+/* ── 버튼 ── */
+.vr-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--control-height);
+  padding: 10px 20px;
+  background: var(--text-primary);
+  color: var(--surface-3);
+  border: var(--btn-border-width) var(--btn-border-style) var(--btn-border-color);
+  border-radius: var(--radius-lg);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s, opacity 0.15s;
+}
+
+.vr-btn:hover:not(:disabled)  { background: var(--text-secondary); }
+.vr-btn:active:not(:disabled) { transform: scale(0.98); }
+.vr-btn:disabled              { opacity: 0.4; cursor: not-allowed; }
+
+.vr-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--interaction-ring-width) var(--accent-soft);
+}
+
+.vr-btn--sm { min-height: 34px; padding: 7px 14px; font-size: 13px; border-radius: var(--radius-md); }
+
+.vr-btn--primary { background: var(--accent); color: var(--accent-text); }
+.vr-btn--primary:hover:not(:disabled) { background: var(--accent-hover); }
+
+.vr-btn--danger { background: var(--status-error); color: var(--accent-text); }
+.vr-btn--danger:hover:not(:disabled) { filter: brightness(0.92); }
+
+.vr-btn--ghost {
+  background: transparent;
+  color: var(--text-tertiary);
+  font-weight: 600;
+  border-color: transparent;
+}
+.vr-btn--ghost:hover:not(:disabled) { background: var(--surface-hover); color: var(--text-primary); }
+
+.vr-btn--outline {
+  background: var(--surface-1);
+  color: var(--text-primary);
+  border: var(--hairline-width) solid var(--field-border-color);
+  font-weight: 600;
+}
+.vr-btn--outline:hover:not(:disabled) { background: var(--surface-hover); }
+
+/* ── 기본 타이포그래피 ── */
+html { font-family: var(--font-sans); }
+
+body {
+  font-size: 16px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+  background: var(--surface-canvas);
+}
+
+.tabular-nums { font-variant-numeric: tabular-nums; }
+
+/* Material Symbols Rounded
+   ⚠️ 게임 테마는 `[data-theme="game"] *` 에 `!important` 로 도트 폰트를 강제한다.
+   아이콘까지 그 규칙에 걸리면 리거처가 풀려 "mic" 같은 글자가 그대로 보인다.
+   아이콘은 글꼴이 아니라 기호이므로 예외로 둔다. */
+[data-theme] .material-symbols-rounded,
+[data-theme] *  .material-symbols-rounded,
+.material-symbols-rounded {
+  font-family: "Material Symbols Rounded" !important;
+}
+
+.material-symbols-rounded {
+  font-family: "Material Symbols Rounded";
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: "liga";
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: "opsz" 20, "wght" 400, "FILL" 0, "GRAD" 0;
+}
+
+@keyframes vr-spin { to { transform: rotate(360deg); } }
+
+/* ═══════════════════════════════════════════════════
+   어드민 레이아웃
+
+   좁은 폭에서는 사이드바를 가로 스크롤 줄로 눕힌다.
+   어드민은 데스크톱 위주지만 폰으로 급히 확인할 일이 있고,
+   그때 본문이 눌려 읽을 수 없으면 곤란하다.
+   ═══════════════════════════════════════════════════ */
+
+.vr-admin { display: flex; flex-direction: column; }
+
+.vr-admin__nav {
+  background: var(--surface-1);
+  border-bottom: var(--hairline-width) solid var(--border-subtle);
+  padding: 8px 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.vr-admin__nav-list {
+  display: flex;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+/* 좁을 때는 섹션 제목이 줄만 차지한다 */
+.vr-admin__nav-list .vr-nav__title { display: none; }
+
+.vr-admin__nav-list .vr-nav__item { flex-shrink: 0; }
+
+.vr-admin__main {
+  flex: 1;
+  min-width: 0;
+  padding: 20px 16px;
+}
+
+@media (min-width: 900px) {
+  .vr-admin { flex-direction: row; }
+
+  .vr-admin__nav {
+    width: 224px;
+    flex-shrink: 0;
+    min-height: calc(100vh - 3.5rem);
+    padding: 12px;
+    overflow-x: visible;
+    border-bottom: 0;
+    border-right: var(--hairline-width) solid var(--border-subtle);
+  }
+
+  .vr-admin__nav-list { flex-direction: column; gap: 2px; }
+  .vr-admin__nav-list .vr-nav__title { display: block; }
+
+  .vr-admin__main { padding: 32px; max-width: 56rem; }
+}
+
+/* ═══════════════════════════════════════════════════
+   전사 뷰 · 화자
+
+   화자 색은 토큰(--speaker-N-*)에서 온다.
+   **색만으로 구분하지 않는다** — 이름을 항상 함께 표기한다.
+   ═══════════════════════════════════════════════════ */
+
+/* ── 화자 칩 줄 ── */
+.vr-speakers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.vr-speaker-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: var(--hairline-width) solid transparent;
+  border-radius: var(--radius-full);
+  background: var(--surface-inset);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.vr-speaker-chip:disabled { cursor: default; }
+.vr-speaker-chip:hover:not(:disabled) { filter: brightness(0.97); }
+
+.vr-speaker-chip__count {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.6;
+}
+
+.vr-speaker-chip--add {
+  background: transparent;
+  border-color: var(--border-subtle);
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.vr-speaker-chip__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* 10색 팔레트. pastel=칩 배경, solid=점, text=글자 */
+.vr-speaker-chip[data-speaker="1"]  { background: var(--speaker-1-pastel);  color: var(--speaker-1-text); }
+.vr-speaker-chip[data-speaker="2"]  { background: var(--speaker-2-pastel);  color: var(--speaker-2-text); }
+.vr-speaker-chip[data-speaker="3"]  { background: var(--speaker-3-pastel);  color: var(--speaker-3-text); }
+.vr-speaker-chip[data-speaker="4"]  { background: var(--speaker-4-pastel);  color: var(--speaker-4-text); }
+.vr-speaker-chip[data-speaker="5"]  { background: var(--speaker-5-pastel);  color: var(--speaker-5-text); }
+.vr-speaker-chip[data-speaker="6"]  { background: var(--speaker-6-pastel);  color: var(--speaker-6-text); }
+.vr-speaker-chip[data-speaker="7"]  { background: var(--speaker-7-pastel);  color: var(--speaker-7-text); }
+.vr-speaker-chip[data-speaker="8"]  { background: var(--speaker-8-pastel);  color: var(--speaker-8-text); }
+.vr-speaker-chip[data-speaker="9"]  { background: var(--speaker-9-pastel);  color: var(--speaker-9-text); }
+.vr-speaker-chip[data-speaker="10"] { background: var(--speaker-10-pastel); color: var(--speaker-10-text); }
+
+.vr-speaker-chip__dot[data-speaker="1"]  { background: var(--speaker-1-solid); }
+.vr-speaker-chip__dot[data-speaker="2"]  { background: var(--speaker-2-solid); }
+.vr-speaker-chip__dot[data-speaker="3"]  { background: var(--speaker-3-solid); }
+.vr-speaker-chip__dot[data-speaker="4"]  { background: var(--speaker-4-solid); }
+.vr-speaker-chip__dot[data-speaker="5"]  { background: var(--speaker-5-solid); }
+.vr-speaker-chip__dot[data-speaker="6"]  { background: var(--speaker-6-solid); }
+.vr-speaker-chip__dot[data-speaker="7"]  { background: var(--speaker-7-solid); }
+.vr-speaker-chip__dot[data-speaker="8"]  { background: var(--speaker-8-solid); }
+.vr-speaker-chip__dot[data-speaker="9"]  { background: var(--speaker-9-solid); }
+.vr-speaker-chip__dot[data-speaker="10"] { background: var(--speaker-10-solid); }
+
+/* ── 말풍선 ── */
+.vr-transcript { display: flex; flex-direction: column; gap: 4px; }
+
+.vr-msg {
+  position: relative;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: var(--hairline-width) solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.vr-msg:hover { background: var(--surface-hover); }
+
+/* 재생 중인 발화 */
+.vr-msg--active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.vr-msg__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.vr-msg__speaker {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.vr-msg__speaker:disabled { cursor: default; }
+
+.vr-msg__speaker[data-speaker="1"]  { color: var(--speaker-1-text); }
+.vr-msg__speaker[data-speaker="2"]  { color: var(--speaker-2-text); }
+.vr-msg__speaker[data-speaker="3"]  { color: var(--speaker-3-text); }
+.vr-msg__speaker[data-speaker="4"]  { color: var(--speaker-4-text); }
+.vr-msg__speaker[data-speaker="5"]  { color: var(--speaker-5-text); }
+.vr-msg__speaker[data-speaker="6"]  { color: var(--speaker-6-text); }
+.vr-msg__speaker[data-speaker="7"]  { color: var(--speaker-7-text); }
+.vr-msg__speaker[data-speaker="8"]  { color: var(--speaker-8-text); }
+.vr-msg__speaker[data-speaker="9"]  { color: var(--speaker-9-text); }
+.vr-msg__speaker[data-speaker="10"] { color: var(--speaker-10-text); }
+
+.vr-msg__time {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+
+.vr-msg__time:hover { color: var(--accent); }
+
+.vr-msg__actions {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.vr-msg:hover .vr-msg__actions { opacity: 1; }
+
+.vr-msg__actions button {
+  border: 0;
+  background: transparent;
+  padding: 3px;
+  border-radius: var(--radius-xs);
+  color: var(--text-faint);
+  cursor: pointer;
+  line-height: 0;
+}
+
+.vr-msg__actions button:hover { background: var(--surface-inset); color: var(--text-primary); }
+.vr-msg__actions .material-symbols-rounded { font-size: 16px; }
+
+.vr-msg__text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.vr-msg__edit { margin-top: 4px; }
+
+.vr-split-marker {
+  color: var(--accent);
+  font-weight: 700;
+  margin: 0 1px;
+}
+
+/* 터치 기기에는 hover 가 없다. 액션을 항상 보여준다. */
+@media (hover: none) {
+  .vr-msg__actions { opacity: 1; }
+}
+
+/* ── 팝업 메뉴 ── */
+.vr-menu__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+}
+
+.vr-menu {
+  position: absolute;
+  z-index: 31;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 220px;
+  max-width: 280px;
+  padding: 12px;
+  background: var(--surface-3);
+  border: var(--hairline-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elev-overlay);
+}
+
+.vr-menu--inline { top: 28px; }
+
+.vr-menu__title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  margin: 10px 0 4px;
+}
+
+.vr-menu__list { max-height: 220px; overflow-y: auto; }
+
+.vr-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.vr-menu__item:hover { background: var(--surface-hover); }
+.vr-menu__item[data-active="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+/* ── 하단 고정 플레이어 ── */
+.vr-player {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  background: var(--surface-3);
+  border-top: var(--hairline-width) solid var(--border-subtle);
+  box-shadow: var(--elev-overlay);
+}
+
+/* 모바일은 하단 탭바 위에 얹힌다 */
+@media (max-width: 719px) {
+  .vr-player { bottom: calc(56px + env(safe-area-inset-bottom, 0px)); padding-bottom: 10px; }
+}
+
+.vr-player__btn {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vr-player__bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-inset);
+  cursor: pointer;
+  position: relative;
+}
+
+.vr-player__fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.vr-player__time {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── AI 요약 ─────────────────────────────────────────────
+   출처: sisyphus 회의록 요약 화면. 근거(source) 줄을 항목에 붙여
+   누르면 그 지점이 재생되는 구조를 그대로 가져왔다. */
+
+.vr-summary__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+
+.vr-summary__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vr-summary__item {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.vr-summary__body {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+}
+
+.vr-summary__source {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+/* 누르면 재생되는 근거. 재생 버튼과 같은 강조색을 쓴다 */
+.vr-summary__jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 8px 2px 4px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.vr-summary__jump:hover { background: var(--accent); color: var(--accent-text); }
+
+.vr-summary__quote-toggle {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.vr-summary__quote {
+  flex-basis: 100%;
+  margin: 4px 0 0;
+  padding: 8px 12px;
+  border-left: 2px solid var(--border-strong);
+  background: var(--surface-inset);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+/* ── 분류 칩 (토픽 · 라벨) ────────────────────────────────
+   출처: sisyphus 의 라벨 칩. 자유 HEX 대신 **팔레트 키**를 쓴다 —
+   테마가 넷이라 사용자가 고른 임의 색이 네 배경 모두에서 읽힌다는 보장이 없다.
+   여기서 키를 색으로 바꾸므로 테마가 값을 덮을 수 있다. */
+
+.vr-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  background: var(--tag-bg, var(--surface-3));
+  color: var(--tag-fg, var(--text-secondary));
+}
+
+.vr-tag::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+/* 토픽은 점 대신 채운 형태로 구분한다 — 회의당 하나뿐이라 더 강하게 보인다 */
+.vr-tag--topic { font-weight: 700; }
+.vr-tag--topic::before { width: 7px; height: 7px; opacity: 1; }
+
+.vr-tag[data-deleted="true"] { opacity: 0.55; text-decoration: line-through; }
+
+.vr-tag[data-color="red"]    { --tag-bg: color-mix(in srgb, #f04452 14%, transparent); --tag-fg: #d32f3d; }
+.vr-tag[data-color="orange"] { --tag-bg: color-mix(in srgb, #ff9500 16%, transparent); --tag-fg: #c96f00; }
+.vr-tag[data-color="yellow"] { --tag-bg: color-mix(in srgb, #ffcc00 20%, transparent); --tag-fg: #9a7b00; }
+.vr-tag[data-color="green"]  { --tag-bg: color-mix(in srgb, #34c759 16%, transparent); --tag-fg: #1f8f3d; }
+.vr-tag[data-color="teal"]   { --tag-bg: color-mix(in srgb, #14b8a6 16%, transparent); --tag-fg: #0d8577; }
+.vr-tag[data-color="blue"]   { --tag-bg: color-mix(in srgb, #3182f6 14%, transparent); --tag-fg: #1e63c9; }
+.vr-tag[data-color="indigo"] { --tag-bg: color-mix(in srgb, #5856d6 14%, transparent); --tag-fg: #4442b8; }
+.vr-tag[data-color="violet"] { --tag-bg: color-mix(in srgb, #7c5cff 14%, transparent); --tag-fg: #6141db; }
+.vr-tag[data-color="purple"] { --tag-bg: color-mix(in srgb, #9d4edd 14%, transparent); --tag-fg: #7e35bd; }
+.vr-tag[data-color="gray"]   { --tag-bg: color-mix(in srgb, #6b7280 14%, transparent); --tag-fg: #565d68; }
+
+/* 어두운 배경에서는 글자를 밝게 끌어올린다.
+   dark.css 가 `:root, [data-theme="dark"]` 를 기본으로 쓰므로 여기서도 같은 축을 따른다. */
+[data-theme="dark"] .vr-tag[data-color="red"]       { --tag-fg: #ff8f95; }
+[data-theme="dark"] .vr-tag[data-color="orange"]    { --tag-fg: #ffb040; }
+[data-theme="dark"] .vr-tag[data-color="yellow"]    { --tag-fg: #ffd633; }
+[data-theme="dark"] .vr-tag[data-color="green"]     { --tag-fg: #5fd97e; }
+[data-theme="dark"] .vr-tag[data-color="teal"]      { --tag-fg: #3fd0be; }
+[data-theme="dark"] .vr-tag[data-color="blue"]      { --tag-fg: #6ba5f8; }
+[data-theme="dark"] .vr-tag[data-color="indigo"]    { --tag-fg: #8280e4; }
+[data-theme="dark"] .vr-tag[data-color="violet"]    { --tag-fg: #9d85ff; }
+[data-theme="dark"] .vr-tag[data-color="purple"]    { --tag-fg: #b877e8; }
+[data-theme="dark"] .vr-tag[data-color="gray"]      { --tag-fg: #9aa1ac; }
+[data-theme="dark"] .vr-tag                          { --tag-bg: color-mix(in srgb, currentColor 20%, transparent); }
+
+/* ── 필터 바 ─────────────────────────────────────────────── */
+
+.vr-filter { display: flex; flex-direction: column; gap: 12px; }
+
+.vr-filter__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.vr-filter__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  min-width: 44px;
+}
+
+/* 고르지 않은 것은 흐리게 둔다. 켜진 것이 무엇인지 한눈에 보여야 한다 */
+.vr-filter__chip {
+  border: var(--hairline-width) solid var(--border-subtle);
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  opacity: 0.7;
+}
+
+.vr-filter__chip[aria-pressed="true"] {
+  opacity: 1;
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1.5px currentColor;
+}
+
+.vr-filter__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+/* ── 공유 다이얼로그 ─────────────────────────────────────── */
+
+.vr-share {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 40;
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(80vh, 720px);
+  overflow-y: auto;
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  box-shadow: var(--elev-overlay);
+  border: var(--hairline-width) solid var(--border-subtle);
+}
+
+.vr-share__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.vr-share__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.vr-share__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: var(--hairline-width) solid var(--border-subtle);
+  flex-wrap: wrap;
+}
+
+.vr-share__row:last-child { border-bottom: 0; }
+
+/* ── 공개 범위 선택 ──────────────────────────────────────
+   출처: sisyphus 의 공개범위 popover. **인라인 라디오로 바꿨다** —
+   선택지가 4개뿐이고 각 설명이 판단의 핵심이라 접으면 고른 뒤에야
+   다른 선택지의 뜻을 보게 되어 오설정을 부른다.
+
+   원본의 파스텔 색 하드코딩(#FFF8E1 등)은 이식하지 않았다. 라이트 전용이라
+   dark · pencil · game 테마에서 글자가 안 읽힌다. 토큰만 쓴다. */
+
+.vr-field__label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.vr-scope {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vr-scope__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: var(--hairline-width) solid var(--border-subtle);
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.vr-scope__option:hover:not(:disabled) { background: var(--surface-hover); }
+.vr-scope__option:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 색만으로 선택을 나타내지 않는다 — 체크 아이콘과 굵기가 함께 바뀐다 */
+.vr-scope__option[data-active="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.vr-scope__icon { font-size: 20px; color: var(--text-tertiary); flex-shrink: 0; }
+.vr-scope__option[data-active="true"] .vr-scope__icon { color: var(--accent); }
+
+.vr-scope__meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+
+.vr-scope__name {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.vr-scope__hint { font-size: 12px; color: var(--text-tertiary); line-height: 1.4; }
+
+.vr-scope__check { font-size: 18px; color: var(--accent); flex-shrink: 0; }
+
+/* ── 선택된 사람 토큰 ────────────────────────────────────── */
+
+.vr-tokens { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.vr-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px 3px 10px;
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 친구를 끊은 뒤 남은 옛 id. 숨기면 지울 수도 없으므로 흐리게 두되 남긴다. */
+.vr-token[data-unknown] { opacity: 0.7; font-style: italic; }
+
+.vr-token__x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.vr-token__x:hover { background: var(--surface-inset); }
+
+/* ── 사용 내역 근거 ─────────────────────────────────────── */
+
+.vr-usage {
+  margin: 8px 0 0 30px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.vr-usage > div { display: flex; gap: 10px; }
+.vr-usage dt { color: var(--text-tertiary); min-width: 44px; }
+.vr-usage dd { margin: 0; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+/* ── 설치 안내 ───────────────────────────────────────────── */
+
+.vr-install {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border-radius: var(--radius-lg);
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: var(--hairline-width) solid var(--accent);
+}
+
+.vr-install .vr-hint { color: inherit; opacity: 0.8; }
+
+/* 스크린리더 전용. 화면에서는 안 보이지만 읽힌다.
+   `display: none` 이나 `visibility: hidden` 은 스크린리더도 건너뛴다. */
+.vr-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

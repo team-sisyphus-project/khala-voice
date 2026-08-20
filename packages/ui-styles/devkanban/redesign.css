@@ -1,0 +1,6076 @@
+/* ============================================================
+   autosquad dev Mobile — Redesign component grammar
+   SoT: mobile/sot/mobile-redesign/handoff/build-guide.md
+   - page gutter 24px (auth / tabs / detail 공통)
+   - top-level 섹션은 section header + content + divider (card-in-card 금지)
+   - floating glass bottom nav / action rail (safe-area + 16px)
+   - 테두리 기반 인풋(inset shadow 금지), elevated CTA
+   모든 색상은 var(--mobile-*) 토큰만 사용.
+   ============================================================ */
+
+/* ---- Icon sizing baseline ---- */
+.mobile-icon {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+
+/* 스크롤바는 그리지 않는다 — 네이티브 모바일 문법(스크롤 동작·위치는 그대로,
+   표시만 없앤다). 데스크톱 브라우저로 열어도 앱처럼 보이게 전역 적용. */
+* {
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* ---- Screen (스크롤 컨테이너) ---- */
+/* 탑바가 오버레이(레이아웃 미점유)라, 첫 콘텐츠가 플로팅 버튼을 비키도록
+   시작 패딩을 버튼 행 높이만큼 준다. 스크롤하면 콘텐츠가 버튼 밑을 지나간다. */
+.mobile-screen {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding-top: calc(var(--mobile-safe-top) + 72px);
+  padding-bottom: var(--mobile-content-pad-bottom);
+}
+
+.mobile-screen__inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-section-gap);
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: var(--mobile-space-7) 24px 0;
+}
+
+.mobile-screen--center {
+  display: flex;
+  align-items: center;
+}
+
+.mobile-screen--center .mobile-screen__inner {
+  justify-content: center;
+  min-height: 100%;
+  padding-top: 0;
+}
+
+/* ---- Page header (본문 내 큰 타이틀) ---- */
+.mobile-page-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-2);
+}
+
+.mobile-page-header__title {
+  font-size: var(--mobile-font-size-screen-title);
+  font-weight: var(--mobile-font-weight-bold);
+  line-height: var(--mobile-line-height-tight);
+  color: var(--mobile-fg-strong);
+  letter-spacing: -0.01em;
+}
+
+.mobile-page-header__subtitle {
+  font-size: var(--mobile-font-size-body);
+  color: var(--mobile-fg-muted);
+}
+
+/* ---- Section (header + content + divider) ---- */
+.mobile-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-4);
+}
+
+.mobile-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mobile-space-3);
+}
+
+.mobile-section__title {
+  font-size: var(--mobile-font-size-label);
+  font-weight: var(--mobile-font-weight-semibold);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--mobile-fg-subtle);
+}
+
+.mobile-section__action {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+}
+
+.mobile-section__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+}
+
+/* ---- Row ---- */
+.mobile-row {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-4);
+  width: 100%;
+  padding: var(--mobile-space-4) var(--mobile-space-5);
+  background: var(--mobile-surface-item);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-sm);
+  text-align: left;
+  color: var(--mobile-fg-default);
+}
+
+.mobile-row--interactive {
+  cursor: pointer;
+  transition: transform var(--mobile-transition), background var(--mobile-transition);
+}
+
+/* 누름 연출은 `styles/press.css`가 전담한다 — 여기서 scale(0.99)로 줄이던
+   것은 시스템 규칙(커지고 밝아진다)과 방향이 반대라 걷어냈다. */
+
+.mobile-row__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: var(--mobile-radius-xs);
+  background: var(--mobile-surface-inset);
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-row__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: var(--mobile-radius-xs);
+  background: var(--mobile-accent-soft);
+  color: var(--mobile-accent);
+  font-weight: var(--mobile-font-weight-bold);
+  font-size: var(--mobile-font-size-body-strong);
+  text-transform: uppercase;
+}
+
+.mobile-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.mobile-row__title {
+  font-size: var(--mobile-font-size-body-strong);
+  font-weight: var(--mobile-font-weight-medium);
+  color: var(--mobile-fg-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-row__meta {
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-row__trailing {
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-subtle);
+  flex: 0 0 auto;
+}
+
+.mobile-row__chevron {
+  display: inline-flex;
+  color: var(--mobile-fg-subtle);
+  flex: 0 0 auto;
+}
+
+/* ---- Button ---- */
+.mobile-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mobile-space-2);
+  min-height: var(--mobile-control-height);
+  padding: 0 var(--mobile-space-6);
+  border: var(--mobile-border-width) solid transparent;
+  border-radius: var(--mobile-control-radius);
+  font-size: var(--mobile-font-size-body-strong);
+  font-weight: var(--mobile-font-weight-semibold);
+  cursor: pointer;
+  transition: transform var(--mobile-transition), background var(--mobile-transition),
+    opacity var(--mobile-transition);
+}
+
+.mobile-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+  transform: none;
+}
+
+/* 유예 동의 시계 — **버튼 자체가 시계다**(데스크톱 `action-button-fill`·음성
+   스테이지와 같은 표현). 남은 시간이 배경으로 차오르고 남은 초가 라벨 옆에
+   붙는다. 별도 막대를 두면 "무엇이 자동으로 눌리는가"와 "얼마나 남았는가"가
+   화면에서 갈라져, 둘을 눈으로 이어 붙여야 한다. */
+.mobile-button.is-counting {
+  position: relative;
+  overflow: hidden;
+}
+
+.mobile-button__consent-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 0;
+  /* 액센트 위에 올라가므로 색이 아니라 **밝기**로 구분한다 — 테마마다 다른
+     색을 고르면 같은 시계가 화면마다 다른 뜻으로 읽힌다. */
+  background: oklch(100% 0 0 / 0.28);
+  /* 틱(100ms)만큼만 부드럽게 — 더 길면 채움이 초침을 따라오지 못한다. */
+  transition: width 100ms linear;
+  pointer-events: none;
+}
+
+.mobile-button__consent-label {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+}
+
+.mobile-button__consent-secs {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
+.mobile-button--full {
+  width: 100%;
+}
+
+/* 섹션 본문(flex-column stretch) 안에서 내용 너비만 차지하는 본문 버튼.
+   본문 액션은 화면을 가로지르는 바가 아니라 가운데 놓인 인라인 컨트롤로 읽힌다. */
+.mobile-button--fit {
+  align-self: center;
+  width: fit-content;
+}
+
+.mobile-button--square {
+  width: var(--mobile-control-height);
+  padding: 0;
+  flex: 0 0 auto;
+}
+
+/* 원형 버튼(square와 함께) — 이슈카드 상세의 채팅 버튼 */
+.mobile-button--round {
+  border-radius: var(--mobile-radius-full);
+}
+
+.mobile-button--primary {
+  background: var(--mobile-accent);
+  color: var(--mobile-on-accent);
+  box-shadow: var(--mobile-shadow-soft);
+}
+
+/* primary의 누름 배경도 press.css의 밝기 규칙이 대신한다 — 색을 따로 바꾸면
+   같은 조작이 버튼 종류마다 다른 밝기로 반응한다. */
+
+.mobile-button--secondary {
+  background: var(--mobile-surface-item);
+  color: var(--mobile-fg-strong);
+  border-color: var(--mobile-border);
+}
+
+.mobile-button--ghost {
+  background: transparent;
+  color: var(--mobile-accent);
+}
+
+.mobile-button--danger {
+  background: var(--mobile-danger-soft);
+  color: var(--mobile-danger);
+}
+
+.mobile-button--pending {
+  opacity: 0.75;
+}
+
+/* ---- 면 채움 프로그레스 (variant와 직교) ----
+   "가만히 있으면 이게 된다"를 버튼 스스로 알리는 카운트다운 문법. 배경이
+   왼쪽부터 progress만큼 물들고, 라벨 우측에 남은 초가 붙는다. 프라이머리는
+   채워진 부분의 색이 한 단계 진해지는 방향(hover 색), 그 외 variant는
+   액센트 소프트가 차오른다. */
+.mobile-button--filling {
+  position: relative;
+  overflow: hidden;
+}
+
+/* 콘텐츠(아이콘·라벨·초)는 채움 층 위로. */
+.mobile-button--filling > * {
+  position: relative;
+  z-index: 1;
+}
+
+.mobile-button__fill {
+  position: absolute;
+  z-index: 0;
+  inset: 0 auto 0 0;
+  background: var(--mobile-accent-soft);
+  /* 틱(200ms) 간격만큼만 부드럽게 — 더 길면 채움이 초침을 따라오지 못한다. */
+  transition: width 200ms linear;
+  pointer-events: none;
+}
+
+.mobile-button--primary .mobile-button__fill {
+  background: var(--mobile-accent-hover);
+}
+
+.mobile-button__fill-seconds {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--mobile-font-size-label);
+  opacity: 0.75;
+}
+
+/* ---- Field (recessed input) ---- */
+.mobile-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-2);
+}
+
+.mobile-field__label {
+  font-size: var(--mobile-font-size-label);
+  font-weight: var(--mobile-font-weight-semibold);
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-field__control {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.mobile-field__icon {
+  position: absolute;
+  left: var(--mobile-space-4);
+  display: inline-flex;
+  color: var(--mobile-fg-subtle);
+  pointer-events: none;
+}
+
+.mobile-field__input {
+  width: 100%;
+  min-height: var(--mobile-field-height);
+  padding: 0 var(--mobile-space-5);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-field-radius);
+  background: var(--mobile-surface-inset);
+  color: var(--mobile-fg-strong);
+  transition: border-color var(--mobile-transition), box-shadow var(--mobile-transition);
+}
+
+.mobile-field__control:has(.mobile-field__icon) .mobile-field__input {
+  padding-left: calc(var(--mobile-space-5) + 26px);
+}
+
+.mobile-field__input::placeholder {
+  color: var(--mobile-fg-subtle);
+}
+
+.mobile-field__input:focus-visible {
+  border-color: var(--mobile-accent);
+  box-shadow: var(--mobile-focus-ring);
+}
+
+.mobile-field__input:disabled {
+  opacity: 0.56;
+}
+
+.mobile-field--error .mobile-field__input {
+  border-color: var(--mobile-danger);
+  box-shadow: 0 0 0 2px var(--mobile-danger-soft);
+}
+
+.mobile-field__error {
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-danger);
+}
+
+.mobile-field__hint {
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-subtle);
+}
+
+/* ---- StatusChip ---- */
+.mobile-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mobile-space-1);
+  padding: 3px var(--mobile-space-3);
+  border-radius: var(--mobile-radius-full);
+  font-size: var(--mobile-font-size-caption);
+  font-weight: var(--mobile-font-weight-semibold);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.mobile-status-chip__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--mobile-radius-full);
+  background: currentColor;
+  animation: mobile-status-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes mobile-status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.mobile-status-chip--todo {
+  background: var(--mobile-surface-inset);
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-status-chip--planned {
+  background: var(--mobile-planned-soft);
+  color: var(--mobile-planned);
+}
+
+.mobile-status-chip--in-progress {
+  background: var(--mobile-info-soft);
+  color: var(--mobile-info);
+}
+
+.mobile-status-chip--in-review {
+  background: var(--mobile-warning-soft);
+  color: var(--mobile-warning);
+}
+
+.mobile-status-chip--done {
+  background: var(--mobile-success-soft);
+  color: var(--mobile-success);
+}
+
+.mobile-status-chip--cancelled {
+  background: var(--mobile-surface-item);
+  color: var(--mobile-fg-subtle);
+}
+
+.mobile-status-chip--waiting {
+  background: var(--mobile-accent-soft);
+  color: var(--mobile-accent);
+}
+
+.mobile-status-chip--neutral {
+  background: var(--mobile-surface-inset);
+  color: var(--mobile-fg-muted);
+}
+
+/* ---- SegmentedControl ---- */
+.mobile-segmented {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--mobile-surface-inset);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-sm);
+}
+
+.mobile-segmented__item {
+  flex: 1 1 0;
+  min-height: 36px;
+  padding: 0 var(--mobile-space-3);
+  border: 0;
+  border-radius: var(--mobile-radius-xs);
+  background: transparent;
+  color: var(--mobile-fg-muted);
+  font-size: var(--mobile-font-size-label);
+  font-weight: var(--mobile-font-weight-semibold);
+  cursor: pointer;
+  transition: background var(--mobile-transition), color var(--mobile-transition);
+  white-space: nowrap;
+}
+
+.mobile-segmented__item.is-active {
+  background: var(--mobile-surface-2);
+  color: var(--mobile-fg-strong);
+  box-shadow: var(--mobile-shadow-soft);
+}
+
+/* ---- MetricChips ---- */
+.mobile-metric-chips {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--mobile-space-3);
+}
+
+.mobile-metric-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--mobile-space-4) var(--mobile-space-4);
+  border-radius: var(--mobile-radius-sm);
+  background: var(--mobile-surface-inset);
+}
+
+.mobile-metric-chip__value {
+  font-size: var(--mobile-font-size-title);
+  font-weight: var(--mobile-font-weight-bold);
+  color: var(--mobile-fg-strong);
+  line-height: 1.1;
+}
+
+.mobile-metric-chip__label {
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-metric-chip--review {
+  background: var(--mobile-warning-soft);
+}
+
+.mobile-metric-chip--waiting {
+  background: var(--mobile-accent-soft);
+}
+
+.mobile-metric-chip--running {
+  background: var(--mobile-info-soft);
+}
+
+/* ---- IssueCardRow — 데스크톱 .lane-card 문법(18px 패딩·14px 라디우스·솔리드
+   서피스·리프트 인터랙션)의 모바일 카드. 리스트 행이 아니라 '카드'로 읽히도록
+   크기·그림자·여백을 준다. ---- */
+.mobile-issue-card-row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+  width: 100%;
+  min-height: 96px;
+  padding: 18px;
+  background: var(--mobile-surface-item);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-sm);
+  box-shadow: var(--mobile-shadow-card);
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--mobile-transition), background var(--mobile-transition);
+}
+
+/* 카드가 살짝 들리며 기울던 연출(translateY + rotate)은 걷어냈다 — 누름
+   반응이 화면마다 다른 문법이면 "눌렸다"를 매번 새로 배워야 한다. */
+
+/* in-progress — 데스크톱 .lane-card.status-in_progress의 회전 conic 글로우 링 이식 */
+@property --mobile-glow-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.mobile-issue-card-row.is-glowing {
+  isolation: isolate;
+  border-color: transparent;
+}
+
+.mobile-issue-card-row.is-glowing::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  padding: 3px;
+  background: conic-gradient(
+    from var(--mobile-glow-angle),
+    var(--mobile-glow-1),
+    var(--mobile-glow-2),
+    var(--mobile-glow-3),
+    var(--mobile-glow-4),
+    var(--mobile-glow-5),
+    var(--mobile-glow-4),
+    var(--mobile-glow-3),
+    var(--mobile-glow-2),
+    var(--mobile-glow-1)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  will-change: --mobile-glow-angle;
+  animation: mobile-glow-spin 3s linear infinite;
+  pointer-events: none;
+}
+
+.mobile-issue-card-row.is-glowing > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes mobile-glow-spin {
+  to {
+    --mobile-glow-angle: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-issue-card-row.is-glowing::before {
+    animation: none;
+  }
+}
+
+.mobile-issue-card-row__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--mobile-space-3);
+}
+
+.mobile-issue-card-row__title {
+  font-size: var(--mobile-font-size-lg);
+  font-weight: var(--mobile-font-weight-semibold);
+  line-height: var(--mobile-line-height-tight);
+  color: var(--mobile-fg-strong);
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mobile-issue-card-row__context {
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 워크플로 진행 — 얇은 진행 바 + n/m 카운트 */
+.mobile-issue-card-row__workflow {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-3);
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.mobile-issue-card-row__workflow-bar {
+  flex: 1 1 auto;
+  height: 4px;
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-surface-inset);
+  overflow: hidden;
+}
+
+.mobile-issue-card-row__workflow-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-accent);
+  transition: width var(--mobile-transition);
+}
+
+/* 다음 액션 — 상태(칩)와 구분되는 "이어서 할 일" 필 */
+.mobile-issue-card-row__next {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mobile-space-1);
+  align-self: flex-start;
+  margin-top: var(--mobile-space-1);
+  padding: 3px var(--mobile-space-3);
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-accent-soft);
+  color: var(--mobile-accent);
+  font-size: var(--mobile-font-size-caption);
+  font-weight: var(--mobile-font-weight-semibold);
+}
+
+.mobile-issue-card-row__next .mobile-icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* ---- IssueCard tile (보드 레인 전용) — 트렐로/지라처럼 레인당 1열 카드 스택.
+   높이는 내용 기반 + 최소 높이로 카드감을 유지한다. ---- */
+.mobile-issue-card-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-5);
+}
+
+.mobile-issue-card-row--tile {
+  min-height: 124px;
+  gap: var(--mobile-space-3);
+}
+
+.mobile-issue-card-row--tile .mobile-issue-card-row__head {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--mobile-space-3);
+}
+
+.mobile-issue-card-row--tile .mobile-issue-card-row__next {
+  margin-top: auto;
+}
+
+/* ---- 상태 이동 chip 행 (보드 상단) ---- */
+.mobile-status-chip-row {
+  display: flex;
+  gap: var(--mobile-space-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 calc(-1 * 24px);
+  padding: 0 24px var(--mobile-space-1);
+}
+
+.mobile-status-chip-row::-webkit-scrollbar {
+  display: none;
+}
+
+.mobile-status-nav-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 var(--mobile-space-4);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-surface-item);
+  color: var(--mobile-fg-muted);
+  font-size: var(--mobile-font-size-label);
+  font-weight: var(--mobile-font-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mobile-status-nav-chip__count {
+  color: var(--mobile-fg-subtle);
+  font-weight: var(--mobile-font-weight-bold);
+}
+
+/* ---- NotificationRow ---- */
+.mobile-notification-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mobile-space-3);
+  width: 100%;
+  padding: var(--mobile-space-5);
+  background: var(--mobile-surface-item);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-sm);
+  text-align: left;
+}
+
+.mobile-notification-row--unread {
+  background: color-mix(in oklab, var(--mobile-accent) 8%, var(--mobile-surface-item));
+}
+
+.mobile-notification-row__dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-accent);
+  flex: 0 0 auto;
+}
+
+.mobile-notification-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.mobile-notification-row__label {
+  font-size: var(--mobile-font-size-caption);
+  font-weight: var(--mobile-font-weight-semibold);
+  color: var(--mobile-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.mobile-notification-row__title {
+  font-size: var(--mobile-font-size-body-strong);
+  font-weight: var(--mobile-font-weight-medium);
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-notification-row__body {
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-notification-row__time {
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-subtle);
+}
+
+/* ---- Accordion ---- */
+.mobile-accordion {
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-sm);
+  background: var(--mobile-surface-item);
+  overflow: hidden;
+}
+
+.mobile-accordion__header {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-3);
+  width: 100%;
+  padding: var(--mobile-space-4) var(--mobile-space-5);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.mobile-accordion__title {
+  font-size: var(--mobile-font-size-body-strong);
+  font-weight: var(--mobile-font-weight-semibold);
+  color: var(--mobile-fg-strong);
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+.mobile-accordion__count {
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-accordion__chevron {
+  display: inline-flex;
+  color: var(--mobile-fg-subtle);
+}
+
+.mobile-accordion__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+  padding: 0 var(--mobile-space-5) var(--mobile-space-5);
+}
+
+/* ---- LoadMore ---- */
+.mobile-load-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mobile-space-2);
+  width: 100%;
+  min-height: var(--mobile-control-height);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-control-radius);
+  background: var(--mobile-surface-inset);
+  color: var(--mobile-fg-muted);
+  font-size: var(--mobile-font-size-label);
+  font-weight: var(--mobile-font-weight-semibold);
+  cursor: pointer;
+}
+
+.mobile-load-more__count {
+  color: var(--mobile-fg-subtle);
+}
+
+/* ---- Drawer (좌측 햄버거 내비 — 데스크톱 /service 사이드바의 모바일 번역) ---- */
+.mobile-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+}
+
+.mobile-drawer__scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--modal-scrim);
+  opacity: 0;
+  transition: opacity var(--mobile-transition);
+  -webkit-backdrop-filter: var(--mobile-blur);
+  backdrop-filter: var(--mobile-blur);
+}
+
+.mobile-drawer.is-open {
+  pointer-events: auto;
+}
+
+.mobile-drawer.is-open .mobile-drawer__scrim {
+  opacity: 1;
+}
+
+.mobile-drawer__panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  width: min(84vw, 320px);
+  padding: calc(var(--mobile-space-5) + var(--mobile-safe-top)) var(--mobile-space-5)
+    calc(var(--mobile-space-5) + var(--mobile-safe-bottom));
+  background: var(--mobile-surface-1);
+  border-right: var(--mobile-border-width) solid var(--mobile-border);
+  box-shadow: var(--mobile-shadow-nav);
+  transform: translateX(-100%);
+  transition: transform var(--mobile-transition);
+}
+
+.mobile-drawer.is-open .mobile-drawer__panel {
+  transform: translateX(0);
+}
+
+.mobile-drawer__header {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-3);
+  margin-bottom: var(--mobile-space-5);
+}
+
+/* 로고 아이콘 + 조직명 = 홈 복귀 버튼. 남는 폭을 다 차지해 X를 우측 끝으로 민다. */
+.mobile-drawer__home {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-3);
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mobile-drawer__org-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--mobile-font-size-body);
+  font-weight: var(--mobile-font-weight-semibold);
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-drawer__close {
+  margin-left: auto;
+}
+
+/* 로고 = 홈 버튼 (새 채팅 상태로 진입) */
+.mobile-drawer__brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.mobile-drawer__titles {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mobile-drawer__title {
+  font-size: var(--mobile-font-size-body);
+  font-weight: var(--mobile-font-weight-bold);
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-drawer__subtitle {
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-drawer__icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: var(--mobile-radius-full);
+  background: transparent;
+  color: var(--mobile-fg-muted);
+  cursor: pointer;
+}
+
+/* 섹션 타이틀 행 — 우측 끝에 새 채팅 + 아이콘 (보더/박스 없는 플랫 버튼) */
+.mobile-drawer__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mobile-space-2);
+}
+
+.mobile-drawer__new-chat {
+  width: 32px;
+  height: 32px;
+  color: var(--mobile-fg-strong);
+}
+
+/* 채팅 섹션 — 패널 가운데를 차지하고 목록만 내부 스크롤. 내비는 이 밖(하단 고정). */
+.mobile-drawer__chats {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: var(--mobile-space-5);
+}
+
+.mobile-drawer__chats-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* 패널 우측 패딩을 상쇄해 스크롤바를 패널 가장자리에 붙인다 */
+  margin-right: calc(-1 * var(--mobile-space-5));
+  padding-right: var(--mobile-space-5);
+  /* 스크롤 가능함을 암시하는 하단 페이드 */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
+}
+
+.mobile-drawer__nav-section {
+  flex: 0 0 auto;
+  margin-top: var(--mobile-space-4);
+}
+
+.mobile-drawer__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-2);
+}
+
+.mobile-drawer__section-title {
+  font-size: var(--mobile-font-size-caption);
+  font-weight: var(--mobile-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--mobile-fg-subtle);
+  padding: 0 var(--mobile-space-2);
+}
+
+.mobile-drawer__empty {
+  padding: var(--mobile-space-2);
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-subtle);
+}
+
+/* 대화 목록 — 드로어(홈 대화)와 채팅 화면의 세션 시트(보드 대화)가 같은
+   컴포넌트로 그린다. `--dense`는 드로어 자리(내비 목록) 전용이고, 시트에서는
+   행이 44px 터치 타깃이다. */
+.mobile-chat-sessions,
+.mobile-drawer__nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mobile-chat-sessions {
+  gap: 2px;
+}
+
+.mobile-chat-sessions--dense {
+  gap: 1px;
+  padding-bottom: var(--mobile-space-5);
+}
+
+/* 리소스 토글 — 우측 끝 펼침 캐럿 */
+.mobile-drawer__resources-toggle .mobile-icon:last-child {
+  margin-left: auto;
+}
+
+.mobile-drawer__resources {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-2);
+  padding: var(--mobile-space-1) var(--mobile-space-4) var(--mobile-space-3)
+    calc(var(--mobile-space-3) + 24px + var(--mobile-space-3));
+}
+
+.mobile-drawer__resources-name {
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-drawer__resource-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.mobile-chat-session,
+.mobile-drawer__nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-3);
+  width: 100%;
+  min-height: 48px;
+  padding: var(--mobile-space-2) var(--mobile-space-3);
+  border: 0;
+  border-radius: var(--mobile-radius-md);
+  background: transparent;
+  color: var(--mobile-fg-muted);
+  font-size: var(--mobile-font-size-label);
+  font-weight: var(--mobile-font-weight-semibold);
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--mobile-transition), background var(--mobile-transition);
+}
+
+.mobile-chat-session .mobile-icon,
+.mobile-drawer__nav-item .mobile-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.mobile-chat-session.is-active,
+.mobile-drawer__nav-item.is-active {
+  color: var(--mobile-accent);
+  background: var(--mobile-accent-soft);
+}
+
+/* 세션 행은 내비 항목보다 컴팩트하게 — 아이콘 없이 제목만, 낮은 높이.
+   좌측은 배지 슬롯(12px) + 간격(6px)만 쓴다 — 점 없는 행의 제목이 과하게
+   들여쓰이지 않게(데스크톱 사이드메뉴와 같은 규격). */
+.mobile-chat-session {
+  position: relative;
+  min-height: var(--mobile-drawer-session-min-height);
+  gap: var(--mobile-drawer-session-gap);
+  padding: var(--mobile-space-1) var(--mobile-space-2);
+  /* 좌측 여백 8px + 점 6px + 점·글자 사이 6px = 제목 20px (데스크톱과 같은 규격) */
+  padding-left: var(--mobile-drawer-session-padding-inline-start);
+  font-weight: var(--mobile-font-weight-regular);
+}
+
+/* 바텀시트 자리의 같은 행 — 손가락으로 고르는 목록이라 44px 터치 타깃을 지킨다
+   (시트의 다른 선택 행 `.mobile-home-chat__picker-item`과 같은 규격). 드로어는
+   내비 목록이라 촘촘한 쪽(`--dense`)이 기본이다. */
+.mobile-chat-sessions:not(.mobile-chat-sessions--dense) .mobile-chat-session {
+  min-height: 44px;
+}
+
+.mobile-chat-session.is-active {
+  font-weight: var(--mobile-font-weight-semibold);
+}
+
+/* 미읽음 점 — 데스크톱 사이드메뉴와 같은 규칙. 자리를 차지하지 않고 좌측 여백
+   위에 겹쳐 그린다. 판정은 서버가 하고(unread) 여기서는 그리기만 한다. */
+.mobile-chat-session.is-unread::before {
+  content: "";
+  position: absolute;
+  left: var(--mobile-drawer-session-unread-dot-offset);
+  top: 50%;
+  transform: translateY(-50%);
+  width: var(--mobile-drawer-session-unread-dot-size);
+  height: var(--mobile-drawer-session-unread-dot-size);
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-accent);
+}
+
+.mobile-chat-session__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 스코프 서브라벨이 붙는 행은 두 줄이 된다 — 제목과 스코프를 세로로 쌓는다. */
+.mobile-chat-session__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mobile-chat-session__text .mobile-chat-session__title {
+  flex: 0 0 auto;
+}
+
+/* 스코프 서브라벨은 이 목록에서 스코프가 남다른 대화(홈에서 인계받아 아직 이
+   보드에 핀되기 전인 세션)에만 붙는다 — 나머지는 전부 같은 값이라 정보가 아니다
+   (데스크톱 사이드바 동형). */
+.mobile-chat-session__scope {
+  font-size: var(--mobile-font-size-caption);
+  font-weight: var(--mobile-font-weight-regular);
+  color: var(--mobile-fg-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-drawer__nav-item span:not(.mobile-drawer__badge) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mobile-drawer__badge {
+  flex: 0 0 auto;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-accent);
+  color: var(--mobile-on-accent);
+  font-size: var(--mobile-font-size-caption);
+  text-align: center;
+}
+
+.mobile-drawer__divider {
+  height: 1px;
+  background: var(--mobile-border);
+}
+
+/* 드로어 헤더의 조직 스위처(복수 조직일 때만 토글 버튼). */
+.mobile-drawer__org-toggle {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mobile-drawer__org-toggle .mobile-drawer__subtitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.mobile-drawer__org-toggle .mobile-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.mobile-drawer__org-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+  margin: 0 0 var(--mobile-space-4);
+  padding: var(--mobile-space-2);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-md);
+  background: var(--mobile-surface-inset);
+}
+
+/* ---- 세션 rename 시트 ---- */
+.mobile-rename {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+/* 딤이 아니라 **블러**가 분리를 만든다(`--scrim-alpha: 0%`, 2026-08-09 확정).
+   그래서 블러가 없으면 이 스크림은 아무것도 그리지 않는다 — 알파 0짜리 배경만
+   깔려서, 뜬 다이얼로그 뒤로 본문이 그대로 선명하게 보였다(2026-08-10 감사).
+
+   토큰 알파를 0으로 내린 변경은 스크림 다섯 곳에 전부 먹었는데 보상 블러는
+   drawer·context-sheet 두 블록에만 들어갔다. 여기가 그 누락분이다.
+   형제(`.mobile-drawer__scrim`)와 같은 모양으로 맞춘다. */
+.mobile-rename__scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--modal-scrim);
+  -webkit-backdrop-filter: var(--mobile-blur);
+  backdrop-filter: var(--mobile-blur);
+}
+
+.mobile-rename__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-4);
+  width: 100%;
+  max-width: 360px;
+  padding: var(--mobile-space-5);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-md);
+  background: var(--mobile-surface-1);
+  box-shadow: var(--mobile-shadow-nav);
+}
+
+.mobile-rename__title {
+  font-size: var(--mobile-font-size-lg);
+  font-weight: var(--mobile-font-weight-bold);
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-rename__input {
+  min-height: var(--mobile-control-height);
+  padding: var(--mobile-space-3) var(--mobile-space-4);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-field-radius);
+  background: var(--mobile-surface-inset);
+  color: var(--mobile-fg-strong);
+  font: inherit;
+}
+
+.mobile-rename__input:focus-visible {
+  border-color: var(--mobile-accent);
+  box-shadow: var(--mobile-focus-ring);
+}
+
+.mobile-rename__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--mobile-space-3);
+}
+
+/* ---- Top app bar ----
+   SoT: 헤더는 스크롤할 때만 노출. 최상단에서는 투명(제목 숨김)이고,
+   좌측 상단 페이지 헤더 텍스트(.mobile-page-header)가 보인다. */
+/* iOS 문법: 헤더 바(스트립)를 통째로 칠하지도, 레이아웃 공간을 차지하지도
+   않는다. 버튼·타이틀 캡슐만 콘텐츠 위에 떠 있는 오버레이. */
+.mobile-top-app-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  padding-top: var(--mobile-safe-top);
+  background: transparent;
+  border-bottom: 0;
+  pointer-events: none;
+}
+
+.mobile-top-app-bar__row {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-3);
+  /* 48px 터치 타깃. 상단 여백은 좌측 인셋(10px)보다 살짝 커야 시각적으로
+     균형이 맞는다 — 12px. */
+  min-height: 64px;
+  padding: var(--mobile-space-5) var(--mobile-space-4) var(--mobile-space-2);
+  pointer-events: none;
+}
+
+/* 오버레이 안에서 실제 컨트롤만 탭 가능 */
+.mobile-top-app-bar__icon-button,
+.mobile-top-app-bar__action {
+  pointer-events: auto;
+}
+
+.mobile-top-app-bar.is-scrolled .mobile-top-app-bar__titles {
+  pointer-events: auto;
+}
+
+/* 타이틀 캡슐 — 스크롤 시에만 fade-in하는 플로팅 글래스 필. 슬랙처럼 항상
+   좌측(메뉴/뒤로가기 버튼 바로 옆)에 붙고, 버튼과 같은 높이(42px)라 한 줄로
+   읽힌다. */
+.mobile-top-app-bar__titles {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  height: var(--mobile-touch-target);
+  max-width: 62%;
+  padding: 0 16px;
+  border-radius: var(--mobile-radius-full);
+  text-align: left;
+  opacity: 0;
+  transition: opacity var(--mobile-transition);
+}
+
+.mobile-top-app-bar.is-scrolled .mobile-top-app-bar__titles {
+  opacity: 1;
+  background: var(--mobile-glass-strong);
+  backdrop-filter: var(--mobile-blur);
+  -webkit-backdrop-filter: var(--mobile-blur);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  box-shadow: var(--mobile-shadow-soft);
+}
+
+/* 동그란 글래스 버튼 — 콘텐츠 위에 떠 있는 iOS식 개별 컨트롤. */
+.mobile-top-app-bar__icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--mobile-touch-target);
+  height: var(--mobile-touch-target);
+  flex: 0 0 auto;
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-glass-strong);
+  backdrop-filter: var(--mobile-blur);
+  -webkit-backdrop-filter: var(--mobile-blur);
+  box-shadow: var(--mobile-shadow-soft);
+  color: var(--mobile-fg-strong);
+  cursor: pointer;
+}
+
+.mobile-top-app-bar__title {
+  font-size: var(--mobile-font-size-body-strong);
+  font-weight: var(--mobile-font-weight-semibold);
+  color: var(--mobile-fg-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.mobile-top-app-bar__subtitle {
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.mobile-top-app-bar__action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  /* 액션이 둘 이상이면(보드: 카드 추가 + 기획서) 글래스 버튼끼리 붙어 하나로
+     보인다 — 버튼 간격을 준다. */
+  gap: var(--mobile-space-2);
+  min-width: 40px;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+/* 헤더 인라인 컨트롤(로직 모델 피커) — __titles 캡슐은 스크롤 전 opacity:0이라
+   그 안에 두면 첫 화면에서 안 보인다. 형제로 두고 항상 보이게 한다. */
+/* 헤더 좌측 그룹은 auto 마진을 쓰지 않는다 — 여러 요소가 margin-right:auto를
+   가지면 flex가 남는 공간을 나눠 가져 제목·피커가 가운데로 밀린다. 우측 액션만
+   margin-left:auto로 밀고, 나머지는 버튼 옆에 그대로 붙여 항상 좌측정렬한다. */
+.mobile-top-app-bar__inline {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 0 1 auto;
+  pointer-events: auto;
+}
+
+/* ---- 채팅 헤더 로직 모델 피커 ---- */
+.mobile-logic-model {
+  position: relative;
+  min-width: 0;
+}
+
+/* 헤더 체계와 동일한 문법: 42px 높이(버튼·타이틀 캡슐과 같은 줄), 글래스 필,
+   같은 보더·섀도·타이포. 헤더 안에서 별도 컴포넌트처럼 보이지 않게 맞춘다. */
+.mobile-logic-model__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  height: var(--mobile-touch-target);
+  max-width: 52vw;
+  min-width: 0;
+  padding: 0 16px;
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-glass-strong);
+  backdrop-filter: var(--mobile-blur);
+  -webkit-backdrop-filter: var(--mobile-blur);
+  box-shadow: var(--mobile-shadow-soft);
+  color: var(--mobile-fg-strong);
+  font-size: var(--mobile-font-size-body-strong);
+  font-weight: var(--mobile-font-weight-semibold);
+  line-height: var(--mobile-line-height-tight);
+  cursor: pointer;
+}
+
+.mobile-logic-model__chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.mobile-logic-model__chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* 컴팩트(컴포저 도구 행) — 홈챗 컨텍스트 핀과 같은 경량 문법: 투명·무테,
+   라벨 폰트, 캐럿만. 글래스 필/보더/섀도를 벗는다. */
+.mobile-logic-model--compact .mobile-logic-model__chip {
+  gap: 2px;
+  height: auto;
+  min-height: 34px;
+  /* vw 기준 상한은 래퍼가 flex로 줄어든 폭을 모른다 — 칩이 래퍼를 넘어 그려져
+     옆 칩(컨텍스트 핀)과 글자가 겹쳤다. 래퍼 폭(100%)을 상한으로 삼는다. */
+  max-width: 100%;
+  padding: 0 var(--mobile-space-1);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+  color: var(--mobile-fg-muted);
+  font-size: var(--mobile-font-size-label);
+}
+
+.mobile-logic-model--compact .mobile-logic-model__chip .mobile-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+/* 지정됨 — 스코프 칩 `.is-pinned`와 같은 강조색. 두 칩이 나란히 서므로 같은
+   뜻(설정됨)은 같은 색이어야 한다.
+
+   ⚠ compact 셀렉터(`.mobile-logic-model--compact .mobile-logic-model__chip`)가
+   `color: muted`를 같은 특정도(클래스 2개)로 걸고 **뒤에 있어서**, 단순히
+   `.mobile-logic-model__chip.is-set`만 두면 눌린다. 컴포저의 칩은 전부 compact라
+   강조가 아예 안 먹었다. 그래서 compact 경로를 명시해 한 칸 더 세운다. */
+.mobile-logic-model__chip.is-set,
+.mobile-logic-model--compact .mobile-logic-model__chip.is-set {
+  color: var(--mobile-accent);
+}
+
+.mobile-logic-model__filter {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  padding: var(--mobile-space-3);
+  border-bottom: var(--mobile-border-width) solid var(--mobile-border);
+  color: var(--mobile-fg-strong);
+  font-size: 14px;
+}
+
+.mobile-logic-model__badge {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: var(--mobile-radius-sm);
+  background: var(--mobile-surface-inset);
+  color: var(--mobile-accent);
+  font-size: 10px;
+}
+
+/* ---- FAB ---- */
+.mobile-fab {
+  position: fixed;
+  right: 24px;
+  bottom: calc(var(--mobile-floating-bottom-offset) + 8px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 58px;
+  height: 58px;
+  border: 0;
+  border-radius: var(--mobile-radius-full);
+  /* 다른 플로팅 컨트롤(독 칩·헤더 원형 버튼)과 같은 글래스 문법 — 액센트를
+     살짝 투과시키고 뒤를 블러해 떠 있는 느낌을 맞춘다. */
+  background: var(--mobile-accent-glass);
+  backdrop-filter: var(--mobile-blur);
+  -webkit-backdrop-filter: var(--mobile-blur);
+  color: var(--mobile-on-accent);
+  box-shadow: var(--mobile-shadow-fab);
+  cursor: pointer;
+  z-index: 35;
+  transition: transform var(--mobile-transition);
+}
+
+
+.mobile-fab .mobile-icon {
+  width: 26px;
+  height: 26px;
+}
+
+/* ---- Inline failure / empty ---- */
+.mobile-inline-failure {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mobile-space-3);
+  padding: var(--mobile-space-4) var(--mobile-space-5);
+  border-radius: var(--mobile-radius-sm);
+  background: var(--mobile-danger-soft);
+}
+
+.mobile-inline-failure__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mobile-inline-failure__title {
+  font-size: var(--mobile-font-size-body-strong);
+  color: var(--mobile-danger);
+}
+
+.mobile-inline-failure__message {
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-inline-failure__retry {
+  border: 0;
+  border-radius: var(--mobile-radius-xs);
+  padding: var(--mobile-space-2) var(--mobile-space-4);
+  background: var(--mobile-danger);
+  color: var(--mobile-on-accent);
+  font-weight: var(--mobile-font-weight-semibold);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.mobile-empty-state {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-2);
+  padding: var(--mobile-space-8) var(--mobile-space-5);
+  text-align: center;
+}
+
+.mobile-empty-state__title {
+  font-size: var(--mobile-font-size-body-strong);
+  font-weight: var(--mobile-font-weight-semibold);
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-empty-state__description {
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-subtle);
+}
+
+/* ---- Auth header (좌측 정렬) ---- */
+.mobile-auth-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+  text-align: left;
+}
+
+.mobile-auth-header__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-3);
+  font-size: var(--mobile-font-size-lg);
+  font-weight: var(--mobile-font-weight-bold);
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-auth-header__title {
+  font-size: var(--mobile-font-size-screen-title);
+  font-weight: var(--mobile-font-weight-bold);
+  line-height: var(--mobile-line-height-tight);
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-auth-header__subtitle {
+  font-size: var(--mobile-font-size-body);
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-auth-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mobile-space-4);
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-auth-footer button {
+  border: 0;
+  background: transparent;
+  color: var(--mobile-accent);
+  font-weight: var(--mobile-font-weight-semibold);
+  cursor: pointer;
+}
+
+/* ============================================================
+   Shell layout + screen-specific grammar
+   ============================================================ */
+
+/* ---- App shell (main) ---- */
+.mobile-app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.mobile-app > .mobile-screen {
+  flex: 1 1 auto;
+}
+
+/* ---- Page header (row variant) ---- */
+.mobile-page-header--row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mobile-space-4);
+}
+
+.mobile-page-header--row .mobile-page-header__title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ---- Section link / count (header actions) ---- */
+.mobile-section__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  border: 0;
+  background: transparent;
+  color: var(--mobile-accent);
+  font-size: var(--mobile-font-size-label);
+  font-weight: var(--mobile-font-weight-semibold);
+  cursor: pointer;
+}
+
+.mobile-section__count {
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-subtle);
+}
+
+/* ---- Board chip grid (Products screen) ---- */
+.mobile-board-chip-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--mobile-space-3);
+}
+
+.mobile-board-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--mobile-space-4);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-sm);
+  background: var(--mobile-surface-item);
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--mobile-transition), background var(--mobile-transition);
+}
+
+
+.mobile-board-chip__title {
+  font-size: var(--mobile-font-size-body-strong);
+  font-weight: var(--mobile-font-weight-semibold);
+  color: var(--mobile-fg-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-board-chip__meta {
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Profile card ---- */
+.mobile-profile-card {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-4);
+}
+
+.mobile-profile-card__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 auto;
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-accent-soft);
+  color: var(--mobile-accent);
+  font-size: var(--mobile-font-size-title);
+  font-weight: var(--mobile-font-weight-bold);
+  text-transform: uppercase;
+}
+
+.mobile-profile-card__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.mobile-profile-card__name {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  font-size: var(--mobile-font-size-lg);
+  font-weight: var(--mobile-font-weight-bold);
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-profile-card__email {
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-verify-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px var(--mobile-space-2);
+  border-radius: var(--mobile-radius-full);
+  font-size: var(--mobile-font-size-caption);
+  font-weight: var(--mobile-font-weight-semibold);
+  background: var(--mobile-success-soft);
+  color: var(--mobile-success);
+}
+
+.mobile-verify-badge.is-pending {
+  background: var(--mobile-warning-soft);
+  color: var(--mobile-warning);
+}
+
+/* ---- Theme grid ---- */
+.mobile-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--mobile-space-3);
+}
+
+.mobile-theme-option {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-3);
+  padding: var(--mobile-space-4);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-sm);
+  background: var(--mobile-surface-item);
+  color: var(--mobile-fg-default);
+  font-size: var(--mobile-font-size-label);
+  font-weight: var(--mobile-font-weight-semibold);
+  cursor: pointer;
+  transition: border-color var(--mobile-transition), background var(--mobile-transition);
+}
+
+.mobile-theme-option.is-active {
+  border-color: var(--mobile-accent);
+  background: var(--mobile-accent-soft);
+  color: var(--mobile-accent);
+}
+
+/* ---- Diagnostic / detail list ---- */
+/* 진단 정보 — 연한 단순 텍스트. 긴 값은 그대로 줄바꿈한다. */
+.mobile-diagnostics {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-1);
+}
+
+.mobile-diagnostics p {
+  margin: 0;
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-subtle);
+  overflow-wrap: anywhere;
+}
+
+.mobile-diagnostic-list,
+.mobile-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-sm);
+  background: var(--mobile-surface-item);
+  overflow: hidden;
+}
+
+.mobile-diagnostic-row,
+.mobile-detail-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--mobile-space-4);
+  padding: var(--mobile-space-4) var(--mobile-space-5);
+}
+
+.mobile-diagnostic-row + .mobile-diagnostic-row,
+.mobile-detail-row + .mobile-detail-row {
+  border-top: var(--mobile-border-width) solid var(--mobile-border);
+}
+
+.mobile-diagnostic-row dt,
+.mobile-detail-row dt {
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-muted);
+  flex: 0 0 auto;
+}
+
+.mobile-diagnostic-row dd,
+.mobile-detail-row dd {
+  margin: 0;
+  font-size: var(--mobile-font-size-label);
+  font-weight: var(--mobile-font-weight-medium);
+  color: var(--mobile-fg-strong);
+  text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mobile-panel-hint {
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-subtle);
+}
+
+.mobile-app-version {
+  margin-top: 12px;
+  text-align: center;
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-subtle);
+}
+
+/* ---- Workbench lead ---- */
+.mobile-workbench-lead {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--mobile-space-2);
+}
+
+.mobile-workbench-lead__title {
+  font-size: var(--mobile-font-size-title);
+  font-weight: var(--mobile-font-weight-bold);
+  line-height: var(--mobile-line-height-tight);
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-workbench-lead__context {
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-muted);
+}
+
+/* ---- Signal grid ---- */
+.mobile-signal-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+}
+
+.mobile-signal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: var(--mobile-space-4) var(--mobile-space-5);
+  border-radius: var(--mobile-radius-sm);
+  background: var(--mobile-surface-inset);
+}
+
+.mobile-signal-card__label {
+  font-size: var(--mobile-font-size-caption);
+  font-weight: var(--mobile-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--mobile-fg-subtle);
+}
+
+.mobile-signal-card__value {
+  font-size: var(--mobile-font-size-body-strong);
+  font-weight: var(--mobile-font-weight-semibold);
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-signal-card__detail {
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-muted);
+}
+
+/* ---- Workplan editors ---- */
+.mobile-workplan-editors {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+}
+
+.mobile-workplan-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-2);
+  padding: var(--mobile-space-4);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-sm);
+  background: var(--mobile-surface-inset);
+}
+
+.mobile-workplan-editor.is-current {
+  border-color: var(--mobile-accent);
+}
+
+.mobile-workplan-editor.is-completed {
+  opacity: 0.72;
+}
+
+.mobile-workplan-editor__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mobile-space-3);
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-subtle);
+}
+
+.mobile-workplan-editor__head strong {
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-workplan-editor__input,
+.mobile-workplan-editor__textarea,
+.mobile-note-editor,
+.mobile-action-rail__answer {
+  width: 100%;
+  padding: var(--mobile-space-3) var(--mobile-space-4);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-field-radius);
+  background: var(--mobile-surface-item);
+  color: var(--mobile-fg-strong);
+  transition: border-color var(--mobile-transition), box-shadow var(--mobile-transition);
+  font: inherit;
+}
+
+.mobile-workplan-editor__input:focus-visible,
+.mobile-workplan-editor__textarea:focus-visible,
+.mobile-note-editor:focus-visible,
+.mobile-action-rail__answer:focus-visible {
+  border-color: var(--mobile-accent);
+  box-shadow: var(--mobile-focus-ring);
+}
+
+.mobile-workplan-editor__textarea,
+.mobile-note-editor {
+  min-height: 88px;
+  resize: vertical;
+  line-height: var(--mobile-line-height-base);
+}
+
+.mobile-workplan-editor__input:disabled,
+.mobile-workplan-editor__textarea:disabled,
+.mobile-note-editor:disabled {
+  opacity: 0.56;
+}
+
+.mobile-workplan-editor__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--mobile-space-2);
+}
+
+/* ---- Workplan read list ---- */
+.mobile-workplan-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mobile-workplan-list__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-2);
+  padding: var(--mobile-space-4);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-sm);
+}
+
+.mobile-workplan-list__item.is-current {
+  border-color: var(--mobile-accent);
+}
+
+.mobile-workplan-list__item.is-completed {
+  opacity: 0.72;
+}
+
+.mobile-workplan-list__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mobile-space-3);
+}
+
+.mobile-workplan-list__head strong {
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-workplan-list__head span {
+  flex: 0 0 auto;
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-subtle);
+}
+
+.mobile-workplan-list__body {
+  margin: 0;
+  color: var(--mobile-fg-muted);
+  font-size: var(--mobile-font-size-body);
+  line-height: var(--mobile-line-height-base);
+  white-space: pre-wrap;
+}
+
+/* ---- Workplan editor modal (full-screen) ---- */
+.mobile-workplan-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-workplan-modal__scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--modal-scrim);
+  border: 0;
+  cursor: pointer;
+}
+
+.mobile-workplan-modal__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding-top: var(--mobile-safe-top);
+  background: var(--mobile-surface-1);
+  animation: mobile-chat-inspector-in var(--mobile-transition);
+}
+
+.mobile-workplan-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mobile-space-3);
+  padding: var(--mobile-space-4) 24px;
+  border-bottom: var(--mobile-border-width) solid var(--mobile-border);
+}
+
+.mobile-workplan-modal__title {
+  margin: 0;
+  font-size: var(--mobile-font-size-lg);
+  font-weight: var(--mobile-font-weight-bold);
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-workplan-modal__body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+  padding: var(--mobile-space-5) 24px;
+}
+
+.mobile-workplan-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--mobile-space-2);
+  padding: var(--mobile-space-4) 24px calc(var(--mobile-space-4) + var(--mobile-safe-bottom));
+  border-top: var(--mobile-border-width) solid var(--mobile-border);
+}
+
+/* ---- Note editor ---- */
+/* 편집 래퍼: focus-out 자동저장의 초점 경계이자, 섹션 본문의 세로 리듬을
+   유지하기 위한 flex 컬럼(텍스트영역 ↔ 액션 사이 gap). */
+.mobile-note-editor__edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+}
+
+.mobile-note-editor__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--mobile-space-2);
+}
+
+.mobile-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--mobile-space-2);
+}
+
+.mobile-note-markdown {
+  font-size: var(--mobile-font-size-body);
+  /* 긴 산문이다 — 노트·기획서 본문은 계속 읽어 내려간다. */
+  line-height: var(--mobile-line-height-relaxed);
+  color: var(--mobile-fg-default);
+}
+
+/* 블록 간격·제목 계층은 `md-*` 클래스가 갖는다(components.css "블록 리듬").
+   여기서 `> * + *`로 일괄로 주면 종류를 구분하지 못해 제목이 문단과 같은
+   간격으로 붙고, 컨테이너마다 값이 갈려 같은 글이 화면마다 다르게 읽힌다. */
+
+.mobile-note-markdown code {
+  padding: 1px 4px;
+  border-radius: var(--mobile-radius-xs);
+  background: var(--mobile-surface-inset);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+
+.mobile-note-markdown a {
+  color: var(--mobile-accent);
+}
+
+/* ---- Action rail answer ---- */
+.mobile-action-rail__answer {
+  min-height: 44px;
+  flex: 1 1 auto;
+  resize: none;
+  line-height: var(--mobile-line-height-base);
+}
+
+/* ---- PWA surface ---- */
+.mobile-pwa-stack {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+  padding: 0 24px calc(var(--mobile-space-4) + var(--mobile-safe-bottom));
+  pointer-events: none;
+}
+
+.mobile-pwa-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-2);
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: var(--mobile-space-5);
+  background: var(--mobile-glass-strong);
+  backdrop-filter: var(--mobile-blur);
+  -webkit-backdrop-filter: var(--mobile-blur);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-md);
+  box-shadow: var(--mobile-shadow-nav);
+  pointer-events: auto;
+}
+
+.mobile-pwa-card.is-warning {
+  border-color: var(--mobile-warning-soft);
+}
+
+.mobile-pwa-card--sheet {
+  border-radius: var(--mobile-radius-lg);
+}
+
+.mobile-pwa-card__handle {
+  width: 36px;
+  height: 4px;
+  margin: 0 auto var(--mobile-space-2);
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-border);
+}
+
+.mobile-pwa-card__kicker {
+  font-size: var(--mobile-font-size-caption);
+  font-weight: var(--mobile-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--mobile-fg-subtle);
+}
+
+.mobile-pwa-card__title {
+  font-size: var(--mobile-font-size-body-strong);
+  font-weight: var(--mobile-font-weight-bold);
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-pwa-card__body {
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-pwa-card__actions {
+  display: flex;
+  gap: var(--mobile-space-2);
+  margin-top: var(--mobile-space-2);
+}
+
+.mobile-pwa-card__actions .mobile-button {
+  flex: 1 1 0;
+}
+
+/* In-app chat-reply toast: shown instead of a system notification when the
+   service worker sees the user already has that conversation on screen. */
+.mobile-push-toast {
+  position: fixed;
+  left: 24px;
+  right: 24px;
+  bottom: calc(var(--mobile-space-4) + var(--mobile-safe-bottom) + 64px);
+  z-index: 46;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: var(--mobile-space-4);
+  background: var(--mobile-glass-strong);
+  backdrop-filter: var(--mobile-blur);
+  -webkit-backdrop-filter: var(--mobile-blur);
+  border: 1px solid var(--mobile-border);
+  border-radius: var(--mobile-radius-md);
+  box-shadow: var(--mobile-shadow-nav);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: none;
+}
+
+.mobile-push-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.mobile-push-toast__title {
+  font-size: var(--mobile-font-size-body-strong);
+  font-weight: var(--mobile-font-weight-bold);
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-push-toast__body {
+  margin-top: 2px;
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ============================================================
+   Chat inspector (overlay)
+   ============================================================ */
+.mobile-chat-inspector {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-chat-inspector__scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--modal-scrim);
+  border: 0;
+  cursor: pointer;
+}
+
+.mobile-chat-inspector__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: calc(var(--mobile-space-5) + var(--mobile-safe-top)) 24px calc(var(--mobile-space-5) + var(--mobile-safe-bottom));
+  background: var(--mobile-surface-1);
+  animation: mobile-chat-inspector-in var(--mobile-transition);
+}
+
+@keyframes mobile-chat-inspector-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.mobile-chat-inspector__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--mobile-space-3);
+  margin-bottom: var(--mobile-space-4);
+}
+
+.mobile-chat-inspector__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mobile-chat-inspector__kicker {
+  font-size: var(--mobile-font-size-caption);
+  font-weight: var(--mobile-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--mobile-fg-subtle);
+}
+
+.mobile-chat-inspector__title {
+  font-size: var(--mobile-font-size-lg);
+  font-weight: var(--mobile-font-weight-bold);
+  color: var(--mobile-fg-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 헤더 우측 아이콘 묶음 — 이름 바꾸기(연필) + 닫기. 헤더가 space-between이라
+   버튼을 낱개로 세우면 제목·연필·닫기가 균등 분배돼 제목이 가운데로 밀린다. */
+.mobile-chat-inspector__header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  flex: 0 0 auto;
+}
+
+.mobile-chat-inspector__icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-surface-inset);
+  color: var(--mobile-fg-strong);
+  cursor: pointer;
+}
+
+.mobile-chat-inspector__icon-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.mobile-chat-screen__alert {
+  margin-bottom: var(--mobile-space-3);
+}
+
+/* ---- 보드챗 멀티 세션 피커 (데스크톱 세션 드롭다운 패리티) ---- */
+.mobile-chat-inspector__session-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mobile-space-1);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+}
+
+.mobile-chat-inspector__session-caret {
+  display: inline-flex;
+  flex: 0 0 auto;
+  color: var(--mobile-fg-subtle);
+  transform: rotate(90deg);
+  transition: transform var(--mobile-transition);
+}
+
+.mobile-chat-inspector__session-caret.is-open {
+  transform: rotate(-90deg);
+}
+
+/* 세션 목록은 공용 바텀시트(`.mobile-context-sheet`) 안에서 드로어와 **같은
+   컴포넌트**로 그린다 — 행·미읽음 점·스코프 서브라벨 규칙은 전부
+   `.mobile-chat-session*` 한 자리에 있다(위쪽 드로어 절).
+   (인라인 카드 시절의 `__sessions`/`__session-list`/`__session-row`/
+   `__session-item`/`__session-rename`/`__session-more`/`__session-new`는
+   2026-08-03에 지웠다. 자체 스크롤러를 품은 40dvh 카드였고, 그래버도 시트
+   경계도 없어 마지막 행이 글자 중간에서 잘려 보이던 것이 그 구조였다.
+   시트 전용이던 `__session-text`/`__session-title`/`__session-scope`/
+   `__session-unread`는 목록을 한 벌로 합치며 함께 지웠다.) */
+
+/* ---- Chat thread ---- */
+.mobile-chat-thread {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* 부모(홈챗·오버레이)의 24px 거터를 상쇄해 스크롤바가 화면 끝에 붙도록
+     스크롤러를 가장자리까지 넓히고, 콘텐츠 거터는 내부 패딩으로 복원한다. */
+  margin: 0 -24px;
+  /* 상단 = 플로팅 탑바 버튼을 비키는 시작 패딩, 하단 = 플로팅 컴포저 높이만큼
+     확보 — 본문이 양쪽 글래스 밑으로 지나가되 처음/마지막 콘텐츠는 가려지지
+     않는다 (컴포저 높이는 ResizeObserver가 var 갱신). */
+  /* 하단 여백은 **다른 스크롤러와 같은 규약**이다: 컨트롤 높이 + 콘텐츠 여유.
+     컨트롤이 앉는 자리(floating-offset)는 부모가 이미 패딩으로 내주므로
+     (`.mobile-home-chat` / `.mobile-chat-inspector__panel`) 여기서는 컴포저
+     높이와 여유만 더한다.
+
+     예전에는 `composer + 10px`이라 **여유가 10px뿐**이었다 — `.mobile-screen`·
+     `.mobile-lane__scroll`이 쓰는 96px 규약에서 이 스크롤러만 벗어나 있었고,
+     그래서 이슈카드 상세는 멀쩡한데 챗 화면(홈·보드·노트 세 레인 전부)만
+     마지막 항목이 컴포저에 붙어 잘린 것처럼 보였다. 브라우저에서는 하단
+     툴바가 그 차이를 가려 눈에 덜 띄었고, 툴바가 없는 PWA에서 드러났다. */
+  padding: var(--mobile-top-bar-clearance) 24px
+    calc(var(--mobile-composer-height, 132px) + var(--mobile-content-clearance));
+}
+
+.mobile-chat-thread__empty {
+  margin: auto 0;
+}
+
+/* '이전 대화 더보기' — 스레드의 첫 항목으로 흐른다(고정 행이 아니다).
+   말풍선이 아니라 조작이라 배경 없이 연한 한 줄로 둔다. */
+.mobile-chat-thread__more {
+  align-self: center;
+  padding: var(--mobile-space-2) var(--mobile-space-4);
+  border: 0;
+  background: transparent;
+  color: var(--mobile-fg-muted);
+  font-size: var(--mobile-font-size-caption);
+  line-height: var(--mobile-line-height-base);
+}
+
+.mobile-chat-thread__more:disabled {
+  opacity: 0.5;
+}
+
+.mobile-chat-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 84%;
+  padding: var(--mobile-space-3) var(--mobile-space-4);
+  border-radius: var(--mobile-radius-md);
+  font-size: var(--mobile-font-size-body);
+  line-height: var(--mobile-line-height-base);
+}
+
+.mobile-chat-bubble.is-mine {
+  align-self: flex-end;
+  background: var(--mobile-accent);
+  color: var(--mobile-on-accent);
+}
+
+.mobile-chat-bubble__body {
+  overflow-wrap: anywhere;
+}
+
+/* 간격은 `md-*` 블록이 갖는다 — 위 노트 컨테이너와 같은 이유. */
+
+/* 어시스턴트 답변 — 버블·라벨 없이 본문 마크다운 플로우로 렌더 */
+.mobile-chat-message {
+  align-self: stretch;
+  max-width: 100%;
+  padding: var(--mobile-space-2) 0;
+  font-size: var(--mobile-font-size-body);
+  line-height: var(--mobile-line-height-relaxed);
+  color: var(--mobile-fg-default);
+  overflow-wrap: anywhere;
+}
+
+/* 간격은 `md-*` 블록이 갖는다 — 위 노트 컨테이너와 같은 이유. */
+
+.mobile-chat-message--typing {
+  padding: var(--mobile-space-3) 0;
+}
+
+/* ── 음성으로 오간 발화 ─────────────────────────────────────────────────
+   음성 세션과 채팅 세션이 한 스레드에 섞인다(2026-08-08). 말풍선 구조는
+   그대로 두고 — 영수증 같은 시스템 각주가 아니라 진짜 대화 발화다 — 🎙️와
+   기울임으로 "이건 말로 오간 것"만 표시한다.
+
+   기울임은 블록 전체에 건다. 마크다운 안의 굵게·링크·목록까지 함께 기울어야
+   한 덩어리로 읽히고, `<em>`만 쓰면 본문 안의 강조와 구분되지 않는다. */
+.mobile-chat-bubble.is-voice .mobile-chat-bubble__body,
+.mobile-chat-message.is-voice {
+  font-style: italic;
+}
+
+/* 본문 안의 `<em>`은 되돌린다 — 블록이 이미 기울었으므로, 강조가 강조로
+   읽히려면 여기서만 곧게 서야 한다. */
+.mobile-chat-bubble.is-voice .mobile-chat-bubble__body em,
+.mobile-chat-message.is-voice em {
+  font-style: normal;
+}
+
+/* 코드는 기울이지 않는다 — 등폭 글꼴이 기울면 읽기가 크게 나빠진다. */
+.mobile-chat-bubble.is-voice .mobile-chat-bubble__body code,
+.mobile-chat-bubble.is-voice .mobile-chat-bubble__body pre,
+.mobile-chat-message.is-voice code,
+.mobile-chat-message.is-voice pre {
+  font-style: normal;
+}
+
+.mobile-chat-voice-mark {
+  /* 본문 첫 블록 **안에** 첫 글자로 들어간다(`markdown.ts`의 `prependLead`).
+     그러니 여기서 할 일은 글자 하나만큼의 자리를 잡는 것뿐이다.
+
+     `float`은 쓰지 않는다 — 말풍선은 내용에 맞춰 줄어드는 상자라(`is-mine`은
+     `align-self: flex-end`) 뜬 요소가 폭 계산에서 빠지고, 그러면 "시작해" 세
+     글자가 "시 / 작해"로 쪼개진다(사용자 보고 2026-08-12: "이미지가 자리를
+     차지해 글자 간격이 깨진다"). 인라인 이모지 한 글자면 줄바꿈도 폭도 본문과
+     같이 계산된다. */
+  margin-right: var(--mobile-space-1);
+  font-size: 0.8em;
+  line-height: inherit;
+  opacity: 0.65;
+}
+
+/* 보조기기 전용 텍스트 — 화면에서만 감춘다(`display: none`은 스크린리더도
+   못 읽는다). 이 프로젝트에 시각적 숨김 유틸이 없어 여기서 만든다. */
+.mobile-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 새로 도착한 답변의 블록 리빌 — 블록이 마운트될 때 한 번 페이드인한다.
+   (단어별 opacity 리빌은 전체 골격을 먼저 깔아 빈 불릿이 보이던 문제로 폐기:
+   지금은 아직 안 나온 블록을 렌더 자체를 안 해 레이아웃도 차지하지 않는다.) */
+.mobile-chat-block-reveal {
+  animation: mobile-chat-block-reveal 0.22s ease-out both;
+}
+
+@keyframes mobile-chat-block-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(0.2em);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-chat-block-reveal {
+    animation: none;
+  }
+}
+
+.mobile-chat-typing {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.mobile-chat-typing span {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-fg-subtle);
+  animation: mobile-chat-typing 1.2s ease-in-out infinite;
+}
+
+.mobile-chat-typing span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.mobile-chat-typing span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes mobile-chat-typing {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+/* ---- Chat composer ---- */
+/* ---- Chat composer shell — 데스크톱 /service footer-chat-shell 이식 ----
+   큰 textarea + 우상단 인라인 전송 버튼, 그 아래 divider로 구분된 액션 행
+   (좌: 탐색·첨부 / 우: 컨텍스트 피커). */
+/* 컴포저 셸 — 스레드 위에 떠 있는 플로팅 레이어. 글래스 박스 밑으로
+   본문이 스크롤되어 지나간다. 본문 카드 거터보다 좌우 8px 더 넓게. */
+.mobile-chat-shell {
+  position: absolute;
+  left: -8px;
+  right: -8px;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+  padding-top: var(--mobile-space-3);
+}
+
+/* 컴포저 박스 — 글래스 라운드 컨테이너 하나에 입력·액션을 모두 담는다 */
+.mobile-chat-composer-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-2);
+  padding: var(--mobile-space-4) var(--mobile-space-7);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-lg);
+  background: var(--mobile-glass-bg);
+  backdrop-filter: var(--mobile-blur);
+  -webkit-backdrop-filter: var(--mobile-blur);
+  transition: border-color var(--mobile-transition);
+}
+
+/* 포커스 = 외곽 보더 한 겹만 — 링/그림자 중첩 금지 */
+.mobile-chat-composer-box:focus-within {
+  border-color: var(--mobile-accent);
+}
+
+/* 입력 행 — 텍스트 + 전송(·음성)을 한 줄에. 텍스트가 여러 줄로 늘면 버튼은
+   마지막 줄과 나란히(하단 정렬) 선다. */
+.mobile-chat-input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--mobile-space-2);
+  min-width: 0;
+}
+
+/* 전송/음성 묶음 — 입력 오른쪽에 인라인. */
+.mobile-chat-input-row__send {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  flex: 0 0 auto;
+}
+
+/* 입력 래퍼 — 미러와 textarea를 겹치는 relative 기둥 */
+.mobile-chat-input-wrap {
+  position: relative;
+  display: flex;
+  /* .mobile-chat-input-row(플렉스 행) 안에서 전송 묶음을 뺀 나머지를 채운다.
+     이게 없으면 래퍼가 콘텐츠 폭으로 줄어 입력창이 좁아진다. */
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 인라인 멘션 미러 — textarea와 픽셀 단위로 겹치는 표시층. 본문을 그대로
+   복제하되 `#제목`만 칩으로 감싼다(데스크톱 .footer-chat-mention-mirror 이식).
+   메트릭(폰트·행간·패딩·줄바꿈 규칙)이 .mobile-chat-input과 완전히 같아야
+   겹침이 어긋나지 않는다 — 아래 값은 .mobile-chat-input에서 1:1 복제한 것이다.
+   둘 중 하나만 고치면 글자가 어긋나므로 항상 같이 고쳐야 한다.
+
+   실제로 한 번 어긋났다(2026-08-12 수리): 미러가 생길 때는 양쪽 다 space-1이었는데
+   이후 .mobile-chat-input만 space-2(+min-height 26→36px)로 바뀌어 미러가 2px 위에
+   그려졌다. 미러가 켜지면 textarea 글자는 투명이라, 멘션이 있는 화면에서만 컴포저
+   본문 전체가 캐럿보다 위로 뜨는 모양이었다. */
+.mobile-chat-input-mirror {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+  /* ↓ .mobile-chat-input과 1:1 동일해야 하는 메트릭 */
+  padding: var(--mobile-space-2) 0;
+  font: inherit;
+  line-height: var(--mobile-line-height-base);
+  color: var(--mobile-fg-strong);
+  /* textarea의 소프트랩 규칙 복제(UA 기본: pre-wrap + break-word) */
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+/* 미러가 보이는 본문이 된다 — textarea 글자는 투명, 캐럿은 유지.
+   -webkit-text-fill-color를 함께 지정하는 이유: WebKit(iOS 사파리 포함)은
+   fill-color가 color보다 우선이라 color만으로는 글자가 남는다. */
+.mobile-chat-input-wrap:has(.mobile-chat-input-mirror) .mobile-chat-input,
+.mobile-chat-input-wrap:has(.mobile-chat-input-mirror) .mobile-action-rail__answer {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: var(--mobile-accent);
+}
+
+/* 워크벤치 Answer 입력의 미러 변형.
+   기본 .mobile-chat-input-mirror는 채팅 컴포저(.mobile-chat-input) 메트릭을
+   복제한 값이라 여기엔 맞지 않는다 — Answer 필드는 자체 패딩·보더·라운드를
+   갖는다. 보더는 '투명하게 같은 두께'로 둬야 안쪽 글자 시작점이 textarea와
+   일치한다(보더를 빼면 1px씩 밀린다).
+   아래 값은 .mobile-action-rail__answer에서 1:1 복제한 것이므로 둘 중 하나만
+   고치면 글자가 어긋난다 — 항상 같이 고칠 것. */
+.mobile-action-rail__answer-mirror {
+  padding: var(--mobile-space-3) var(--mobile-space-4);
+  border: var(--mobile-border-width) solid transparent;
+  border-radius: var(--mobile-field-radius);
+  line-height: inherit;
+}
+
+/* 래퍼가 액션 독 안에서 전송 버튼과 나란히 늘어나도록. */
+.mobile-action-rail__answer-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* IME 조합 구간(preedit) — **미러가 그린다.**
+   데스크톱 .chat-mention-composing과 같은 모델이다. 예전엔 이 구간을 투명
+   처리했는데, 그 전제("브라우저 preedit 페인트는 color: transparent를 무시한다")가
+   틀려서 textarea·미러 양쪽이 투명이 되는 바람에 조합 중 글자가 아예 안 보였다
+   (사용자 관찰 2026-07-27). textarea 글자는 항상 투명이고 보이는 본문은 미러
+   한 겹이므로 겹침이 없다 — 색을 되돌린다. span은 조합 구간 식별용으로 남긴다. */
+.mobile-chat-composing {
+  color: inherit;
+  -webkit-text-fill-color: currentColor;
+}
+
+/* 드래프트 — 1줄에서 시작해 개행/줄바꿈만큼만 늘어난다 (JS 자동 리사이즈) */
+.mobile-chat-input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  max-height: 148px;
+  padding: var(--mobile-space-2) 0;
+  border: 0;
+  background: transparent;
+  color: var(--mobile-fg-strong);
+  font: inherit;
+  line-height: var(--mobile-line-height-base);
+  resize: none;
+}
+
+.mobile-chat-input::placeholder {
+  color: var(--mobile-fg-subtle);
+}
+
+.mobile-chat-input:focus,
+.mobile-chat-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.mobile-chat-composer-row {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  min-width: 0;
+}
+
+.mobile-chat-composer-row__end {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  margin-left: auto;
+  min-width: 0;
+}
+
+/* 아이콘 단독 액션(첨부 등) */
+.mobile-chat-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: var(--mobile-radius-full);
+  background: transparent;
+  color: var(--mobile-fg-muted);
+  cursor: pointer;
+}
+
+.mobile-chat-icon-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.mobile-chat-icon-btn .mobile-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.mobile-chat-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-accent);
+  color: var(--mobile-on-accent);
+  cursor: pointer;
+  transition: transform var(--mobile-transition), opacity var(--mobile-transition);
+}
+
+.mobile-chat-send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+
+.mobile-chat-send.is-cancel {
+  background: var(--mobile-danger-soft);
+  color: var(--mobile-danger);
+}
+
+/* `#카드제목` 칩 — 컴포저 미러(입력 중)와 스레드 본문(보낸 뒤)이 같은 클래스를
+   쓴다. 입력하던 모양 그대로 올라가는 게 이 통일의 핵심. 데스크톱
+   .chat-mention-chip / .chat-mention-token 대응. */
+.mobile-chat-mention {
+  display: inline;
+  padding: 0 5px;
+  border-radius: var(--mobile-radius-xs);
+  font-weight: var(--mobile-font-weight-semibold);
+  color: var(--mobile-accent);
+  background: var(--mobile-accent-soft);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* 미러 안에서는 글리프 메트릭을 건드리는 속성을 전부 되돌린다.
+   padding과 font-weight는 글자 폭·위치를 바꿔 아래 textarea의 실제 글자(캐럿·
+   선택 영역이 걸린 진짜 본문)와 어긋나게 만든다. 여백감은 레이아웃에 영향이
+   없는 box-shadow 확장으로만 낸다 — 데스크톱 .chat-mention-token과 같은 처방. */
+.mobile-chat-input-mirror .mobile-chat-mention {
+  padding: 0;
+  font-weight: inherit;
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px var(--mobile-accent-soft);
+}
+
+/* #태그 자동완성 패널 — 컴포저 바로 위.
+   기본 상태는 **불투명**이다. 글래스(반투명 + 블러)는 패널이 top layer에 있을
+   때만 실제로 그려진다 — 컴포저 박스가 이미 backdrop-filter를 쓰고 화면에 따라
+   그 위 조상(드로어·시트)도 글래스라, 중첩 backdrop-filter는 조상이 만든
+   backdrop root 안에서 합성되지 않는다. 그래서 ChatConversation이 Popover API로
+   이 패널을 top layer에 띄우고, 글래스는 :popover-open에서만 켠다.
+   데스크톱과 같은 규칙 — docs/sot/glass-top-layer.md. */
+.mobile-chat-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: var(--mobile-space-2);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-md);
+  background: var(--mobile-surface-1);
+  box-shadow: var(--mobile-shadow-nav);
+}
+
+/* top layer 승격 시 — UA popover 기본값(position: fixed; inset: 0; margin: auto;
+   border)을 우리 배치로 교정하고, 여기서만 글래스를 켠다. left/width/bottom은
+   훅이 컴포저 박스를 재서 인라인으로 넣는다(키보드로 뷰포트가 바뀌면 다시 잰다). */
+.mobile-chat-tags:popover-open {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  z-index: 10;
+  background: var(--mobile-glass-bg);
+  backdrop-filter: var(--mobile-blur);
+  -webkit-backdrop-filter: var(--mobile-blur);
+}
+
+.mobile-chat-tags__empty {
+  padding: var(--mobile-space-3);
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-subtle);
+}
+
+.mobile-chat-tags__item {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-3);
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--mobile-space-3);
+  border: 0;
+  border-radius: var(--mobile-radius-sm);
+  background: transparent;
+  color: var(--mobile-fg-default);
+  font-size: var(--mobile-font-size-label);
+  text-align: left;
+  cursor: pointer;
+}
+
+
+/* 완료·취소·보관된 카드 — 지우지 않고 물러나게 한다(데스크톱 멘션 드롭다운의
+   opacity-60과 같은 값). 흐림은 **항목에만** 건다: 패널(.mobile-chat-tags)에
+   걸면 backdrop-filter가 죽는다. */
+.mobile-chat-tags__item.is-inactive {
+  opacity: 0.6;
+}
+
+.mobile-chat-tags__item .mobile-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  color: var(--mobile-accent);
+}
+
+.mobile-chat-tags__title {
+  font-weight: var(--mobile-font-weight-semibold);
+  color: var(--mobile-fg-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.mobile-chat-tags__context {
+  margin-left: auto;
+  flex: 0 0 auto;
+  max-width: 40%;
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 탐색 토글(체크박스+라벨) — 데스크톱 leading 슬롯과 동일(아이콘 없음).
+   체크박스는 데스크톱 .field-checkbox 문법: unchecked = recessed inset,
+   checked = accent-soft 배경 + accent 체크(clip-path). */
+.mobile-chat-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  flex: 0 0 auto;
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-muted);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.mobile-chat-toggle input,
+.mobile-manage-toggle input {
+  width: 16px;
+  height: 16px;
+  /* 어느 화면에 놓여도 정사각형을 유지한다 — 폼 필드 규칙이 높이·패딩을
+     덧씌워 세로로 늘어나던 회귀(로그인 '로그인 유지')를 막는 방어선. */
+  min-height: 0;
+  padding: 0;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  appearance: none;
+  display: inline-grid;
+  place-items: center;
+  margin: 0;
+  background: var(--mobile-surface-inset);
+  border: 0;
+  border-radius: 5px;
+  color: var(--mobile-accent-strong);
+  cursor: pointer;
+  transition: background var(--mobile-transition);
+}
+
+.mobile-chat-toggle input::before,
+.mobile-manage-toggle input::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  transform: scale(0);
+  transition: transform var(--mobile-transition);
+  background: currentColor;
+  clip-path: polygon(14% 44%, 0 59%, 39% 100%, 100% 19%, 84% 6%, 37% 68%);
+}
+
+.mobile-chat-toggle input:checked,
+.mobile-manage-toggle input:checked {
+  background: var(--mobile-accent-soft);
+}
+
+.mobile-chat-toggle input:checked::before,
+.mobile-manage-toggle input:checked::before {
+  transform: scale(1);
+}
+
+.mobile-chat-toggle.is-disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---- 음성 컴포저 ---- */
+
+.mobile-chat-icon-btn.is-live,
+.mobile-chat-icon-btn.is-active {
+  background: var(--mobile-accent-soft);
+  color: var(--mobile-accent);
+}
+
+.mobile-chat-mic {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  /* 음성은 이 컴포저의 대표 진입점 — 아이콘을 액센트로 세운다. */
+  color: var(--mobile-accent);
+}
+
+/* 음성 큰 화면의 동의 대기 제안 — 흘끗 보고 탭 한 번으로 끝나는 밀도. */
+.mobile-voice-stage__proposal {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--mobile-accent-soft);
+  text-align: center;
+}
+
+.mobile-voice-stage__proposal-text {
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--mobile-accent);
+  font-weight: 600;
+}
+
+.mobile-voice-stage__proposal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+/* 음성 동의는 운전 중에도 눌리는 크기여야 한다 — 두 버튼이 행을 나눠 갖고
+   컨트롤 높이보다 한 단계 크다. 좌(승인)가 기본값이라 더 넓다. */
+.mobile-voice-stage__proposal-actions .mobile-button {
+  flex: 1 1 0;
+  min-height: 56px;
+  font-size: var(--mobile-font-size-body);
+}
+
+.mobile-voice-stage__proposal-actions .mobile-button--primary {
+  flex: 1.6 1 0;
+}
+
+/* 음성 베타 안내 시트의 베타 딱지 — 어드민 공용 feature chip과 같은 문법
+   (액센트 소프트 배경 + 액센트 글자, 소형 알약). */
+.mobile-voice-permission__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--mobile-accent-soft);
+  color: var(--mobile-accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+/* 대화가 열리면 상태 문구가 함께 들어오므로 원형에서 알약으로 늘어난다.
+   기본 .mobile-chat-icon-btn은 flex: 0 0 auto(줄어들지 않음)라, 오류 문구처럼
+   긴 텍스트("마이크 연결이 끊겼습니다")가 들어오면 옆 전송 버튼을 밀어내거나
+   화면 밖으로 넘친다 — 그래서 줄어들 수 있게(0 1 auto) 하고 위쪽에서 최대
+   너비를 못 박는다. */
+.mobile-chat-icon-btn.is-live {
+  position: relative;
+  width: auto;
+  min-width: 0;
+  max-width: 46vw;
+  flex: 0 1 auto;
+  gap: var(--mobile-space-2);
+  padding: 0 var(--mobile-space-3);
+  font: inherit;
+  font-size: var(--mobile-font-size-label);
+  --mobile-mic-level: 0;
+}
+
+.mobile-chat-icon-btn.is-live .mobile-icon {
+  flex-shrink: 0;
+}
+
+/* 목소리 크기에 반응하는 링. --mobile-mic-level은 VAD 루프가 50ms마다 DOM에
+   직접 쓰는 0~1 값이다(리렌더 없음). 맥동이 아니라 실제 음량을 쓰는 이유는
+   "살아 있다"보다 "내 말이 들어가고 있다"가 알고 싶은 것이기 때문이다. */
+.mobile-chat-icon-btn.is-live::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--mobile-accent-soft);
+  transform: scale(calc(1 + var(--mobile-mic-level) * 0.18));
+  opacity: calc(0.25 + var(--mobile-mic-level) * 0.75);
+  transition: transform 80ms linear, opacity 80ms linear;
+  pointer-events: none;
+}
+
+/* 조용할 때는 링이 거의 사라지므로, 마이크가 열려 있다는 것 자체는 아이콘이 알린다. */
+.mobile-chat-icon-btn.is-live .mobile-icon {
+  position: relative;
+  animation: mobile-chat-recording-pulse 2.4s ease-in-out infinite;
+}
+
+.mobile-chat-icon-btn.is-live > span {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@keyframes mobile-chat-recording-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-chat-icon-btn.is-live .mobile-icon {
+    animation: none;
+  }
+
+  .mobile-chat-icon-btn.is-live::before {
+    transform: none;
+    transition: opacity 80ms linear;
+  }
+}
+/* ---- Chat codebase searching banner ---- */
+.mobile-chat-searching {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  align-self: flex-start;
+  padding: var(--mobile-space-3) var(--mobile-space-4);
+  border-radius: var(--mobile-radius-sm);
+  background: var(--mobile-accent-soft);
+  color: var(--mobile-accent);
+  font-size: var(--mobile-font-size-label);
+}
+
+.mobile-chat-searching .mobile-icon {
+  width: 16px;
+  height: 16px;
+  animation: mobile-chat-searching-pulse 1.2s ease-in-out infinite;
+}
+
+/* 경고 변형 — 진행 중이 아니라 "끝났는데 안 됐다"이므로 맥동을 멈춘다.
+   계속 깜빡이면 아직 무언가 도는 줄 안다. */
+.mobile-chat-searching.is-warning {
+  background: var(--mobile-surface-inset);
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-chat-searching.is-warning .mobile-icon {
+  animation: none;
+}
+
+.mobile-chat-searching__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: var(--mobile-space-2);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+@keyframes mobile-chat-searching-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ---- Chat proposals ---- */
+.mobile-chat-proposals {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+  align-self: stretch;
+}
+
+.mobile-chat-proposals__label {
+  font-size: var(--mobile-font-size-label);
+  font-weight: var(--mobile-font-weight-semibold);
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-chat-proposal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+  padding: var(--mobile-space-4) var(--mobile-space-5);
+  background: var(--mobile-surface-item);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-sm);
+}
+
+.mobile-chat-proposal__title {
+  font-size: var(--mobile-font-size-body);
+  font-weight: var(--mobile-font-weight-semibold);
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-chat-proposal__summary {
+  margin: 0;
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-muted);
+}
+
+/* 코드베이스 탐색 원문 — 접힌 카드(데스크톱 아코디언의 모바일 짝). */
+.mobile-chat-receipt {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mobile-space-2);
+  padding: 0 var(--mobile-space-1);
+  font-size: var(--mobile-font-size-caption);
+  line-height: 1.5;
+  color: var(--mobile-fg-subtle, var(--mobile-fg-muted));
+}
+
+.mobile-chat-receipt svg {
+  flex: 0 0 auto;
+  width: 0.875rem;
+  height: 0.875rem;
+  margin-top: 0.125rem;
+}
+
+.mobile-chat-receipt--error {
+  color: var(--mobile-danger);
+}
+
+/* 되짚기 펼치개 — **영수증 줄 자체가 머리다.** 예전엔 영수증 아래에 "과정 보기"를
+   한 줄 더 뒀는데, 그 줄에는 사용자가 쓸 수 있는 사실이 0이라 각주만 두 줄로 늘었다
+   (사용자 지적 2026-08-16). 지금은 `<summary>`가 곧 `.mobile-chat-receipt`이므로 이
+   컨테이너는 모양을 만들지 않는다 — 여백·글자색을 여기서 또 주면 되짚기가 있는
+   영수증만 남들과 어긋난다(데스크톱 `.inspecting-chat-receipt-trace`와 같은 규칙). */
+.mobile-chat-receipt-trace {
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-chat-receipt-trace > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.mobile-chat-receipt-trace > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* 캐럿은 **줄 끝**에 — 앞자리는 상태 아이콘(✓·ⓘ·⚠)이 이미 쓴다. summary가 flex라
+   의사요소도 flex 아이템이 되어 본문 바로 뒤에 선다. */
+.mobile-chat-receipt-trace > summary::after {
+  content: "▸";
+  opacity: 0.7;
+}
+
+.mobile-chat-receipt-trace[open] > summary::after {
+  content: "▾";
+}
+
+/* 피드백은 캐럿에만 — 줄 색을 건드리면 실패 영수증의 빨강(`--error`)이 눌린다
+   (데스크톱과 같은 이유). */
+.mobile-chat-receipt-trace > summary:active::after {
+  opacity: 1;
+}
+
+/* 라운드 순서가 곧 읽는 순서다 — 번호를 지우면 "몇 단계였나"가 사라진다.
+   서버 상한이 40줄이라 길어질 수 있으므로 안쪽에서 스크롤시켜 스레드를
+   밀지 않는다(데스크톱과 같은 규칙). 들여쓰기는 여기서 준다 — 머리줄이 아이콘
+   자리를 갖고 있으므로 목록도 그만큼 물러나야 글자 아래에서 시작한다. */
+.mobile-chat-receipt-trace > ol {
+  margin: var(--mobile-space-1) 0 0
+    calc(0.875rem + var(--mobile-space-2) + var(--mobile-space-1));
+  padding-left: 1.4em;
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: var(--mobile-font-size-caption);
+  line-height: 1.4;
+  list-style: decimal;
+}
+
+.mobile-chat-receipt-trace > ol > li {
+  margin: 2px 0;
+}
+
+.mobile-chat-explore {
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-md);
+  background: var(--mobile-surface-inset);
+  overflow: hidden;
+}
+
+.mobile-chat-explore__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  padding: var(--mobile-space-2) var(--mobile-space-3);
+  font-size: var(--mobile-font-size-label);
+  font-weight: var(--mobile-font-weight-semibold);
+  color: var(--mobile-fg-muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+.mobile-chat-explore__summary::-webkit-details-marker {
+  display: none;
+}
+
+.mobile-chat-explore__body {
+  padding: 0 var(--mobile-space-3) var(--mobile-space-3);
+  max-height: 50dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  font-size: var(--mobile-font-size-caption);
+}
+
+.mobile-chat-proposal__actions {
+  display: flex;
+  gap: var(--mobile-space-2);
+}
+
+.mobile-chat-proposal__actions .mobile-button {
+  flex: 1 1 auto;
+}
+
+/* ---- 제품 생성 제안 카드의 시드 선택 ----
+   데스크톱은 홈 화면이 갤러리를 모달로 띄우지만, 좁은 화면에서 모달을 겹치면
+   대화 맥락이 가려진다. 그래서 카드 자리에서 바로 펼친다. 토큰은 주변 제안
+   카드와 같은 것을 쓴다(새 값 만들지 않음). */
+.mobile-chat-proposal__seeds {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-2);
+}
+
+.mobile-chat-proposal__seeds-hint {
+  margin: 0;
+  color: var(--mobile-fg-muted);
+  font-size: var(--mobile-font-size-caption);
+}
+
+.mobile-seed-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mobile-seed-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-1);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-field-radius);
+  background: var(--mobile-surface-item);
+  padding: var(--mobile-space-2);
+}
+
+.mobile-seed-card__pick {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-3);
+  width: 100%;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mobile-seed-card__pick:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* 16:10 — 어드민이 그 비율로 올린다. object-fit으로 넘치는 부분만 자른다. */
+.mobile-seed-card__thumb {
+  flex: 0 0 auto;
+  width: 96px;
+  aspect-ratio: 16 / 10;
+  border-radius: var(--mobile-field-radius);
+  object-fit: cover;
+  background: var(--mobile-surface-2);
+}
+
+.mobile-seed-card__thumb--empty {
+  display: block;
+}
+
+.mobile-seed-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mobile-seed-card__title {
+  color: var(--mobile-fg-strong);
+  font-size: var(--mobile-font-size-caption);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 한 줄 소개는 두 줄까지 — 그 이상은 자른다(SoT F: 긴 한/영 혼합 truncate). */
+.mobile-seed-card__tagline {
+  color: var(--mobile-fg-muted);
+  font-size: var(--mobile-font-size-caption);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.mobile-seed-card__preview {
+  align-self: flex-start;
+  color: var(--mobile-fg-muted);
+  font-size: var(--mobile-font-size-caption);
+  text-decoration: underline;
+}
+
+/* ---- Settings: forms ---- */
+.mobile-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-4);
+}
+
+.mobile-form__notice {
+  margin: 0;
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-accent-strong);
+}
+
+/* ---- Settings: choice list ---- */
+.mobile-choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-sm);
+  background: var(--mobile-surface-item);
+  overflow: hidden;
+}
+
+.mobile-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mobile-space-4);
+  padding: var(--mobile-space-4) var(--mobile-space-5);
+  border: 0;
+  background: transparent;
+  color: var(--mobile-fg-strong);
+  font-size: var(--mobile-font-size-body);
+  text-align: left;
+  cursor: pointer;
+}
+
+.mobile-choice + .mobile-choice {
+  border-top: var(--mobile-border-width) solid var(--mobile-border);
+}
+
+.mobile-choice:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.mobile-choice--active {
+  color: var(--mobile-accent-strong);
+  font-weight: var(--mobile-font-weight-semibold);
+}
+
+.mobile-choice__mark {
+  color: var(--mobile-accent-strong);
+  font-weight: var(--mobile-font-weight-bold);
+}
+
+/* ---- Settings: member/invite list ---- */
+.mobile-member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-sm);
+  background: var(--mobile-surface-item);
+  overflow: hidden;
+}
+
+.mobile-member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mobile-space-4);
+  padding: var(--mobile-space-4) var(--mobile-space-5);
+}
+
+.mobile-member-row + .mobile-member-row {
+  border-top: var(--mobile-border-width) solid var(--mobile-border);
+}
+
+.mobile-member-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-1);
+  min-width: 0;
+}
+
+.mobile-member-row__main strong {
+  font-size: var(--mobile-font-size-body);
+  font-weight: var(--mobile-font-weight-semibold);
+  color: var(--mobile-fg-strong);
+  overflow-wrap: anywhere;
+}
+
+.mobile-member-row__main span {
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.mobile-member-row__role {
+  flex: 0 0 auto;
+  font-size: var(--mobile-font-size-label);
+  font-weight: var(--mobile-font-weight-medium);
+  color: var(--mobile-fg-muted);
+}
+
+/* ---- Settings: two-factor setup ---- */
+.mobile-mfa-qr {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--mobile-space-4);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-sm);
+  background: #ffffff;
+}
+
+.mobile-mfa-qr svg {
+  width: 176px;
+  height: 176px;
+}
+
+.mobile-mfa-secret {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-1);
+}
+
+.mobile-mfa-secret__label {
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-mfa-secret code {
+  font-size: var(--mobile-font-size-body);
+  color: var(--mobile-fg-strong);
+  overflow-wrap: anywhere;
+}
+
+/* ---- Chat conversation (홈챗·모달 공용 스레드+컴포저 래퍼) ---- */
+.mobile-chat-conversation {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* 홈챗 스코프 배너 — 보드가 특정되면 스레드 위에 떠서 "지금 그 보드로 이동"을
+   상시 제공한다. 이동 제안 카드는 대화를 더 이어가면 사라지므로(제안 슬롯이
+   턴마다 교체), 특정과 이동을 잇는 상설 통로는 이 배너다.
+   컨테이너는 클릭을 통과시키고(pointer-events: none) 버튼만 받는다 — 배너 좌우
+   빈 공간이 그 아래 메시지 스크롤을 가로채지 않게. */
+/* 스레드 **위 줄**로 흐른다(스레드 스크롤러 바깥이라 스크롤에 밀리지 않는다).
+   예전에는 position:absolute로 화면 상단에 띄웠는데, 그 자리엔 햄버거와 상단
+   메뉴가 있어서 서로 가렸다. 겹치는 자리를 피하는 대신 자리를 하나 내준다. */
+/* 배너는 스레드 **앞의 일반 흐름**이라, 떠 있는 탑앱바를 스스로 비켜야 한다.
+   예전에는 스레드만 `padding-top`으로 비켜서 배너가 제목 캡슐 밑으로 들어가
+   글자가 겹쳐 읽혔다(실기기 2026-08-08). 제목 아래로 한 칸 더 띄운다. */
+/* 스코프 배너는 **스레드 스크롤 콘텐츠의 첫 항목**이다(2026-08-12 전환).
+   예전에는 스크롤러 바깥 형제라 헤더 아래 고정 행이 되어, 대화를 아무리 내려도
+   자리를 계속 차지했다. 지금은 본문과 같이 흐른다 — 위로 올리면 첫 메시지 앞에
+   다시 나온다.
+
+   상단 여백은 두지 않는다: 스레드가 이미 `--mobile-top-bar-clearance`를
+   padding-top으로 갖고 있어 플로팅 탑바를 비켜 준다. */
+.mobile-scope-banner {
+  /* 세로 플렉스(스레드) 안에서 눌리지 않게. 스크롤 콘텐츠라 줄어들 이유가 없다. */
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  max-width: var(--mobile-scope-banner-max-width);
+  margin: 0 auto var(--mobile-space-2);
+  padding: 0 var(--mobile-space-3);
+}
+
+.mobile-scope-banner__button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mobile-scope-banner-gap);
+  max-width: var(--mobile-scope-banner-button-max-width);
+  min-width: var(--mobile-scope-banner-min-width);
+  padding: var(--mobile-scope-banner-padding);
+  border: var(--mobile-scope-banner-border-width) var(--mobile-scope-banner-border-style)
+    var(--mobile-scope-banner-border-color);
+  border-radius: var(--mobile-scope-banner-radius);
+  background: var(--mobile-scope-banner-bg);
+  box-shadow: var(--mobile-scope-banner-shadow);
+  color: var(--mobile-scope-banner-fg);
+  font-size: var(--mobile-scope-banner-font-size);
+  font-weight: var(--mobile-scope-banner-font-weight);
+  /* 데스크톱 orb 배너와 같은 규칙: primary(accent) 배경 + on-accent 텍스트,
+     그림자 없음(평면). 이전의 짙은 그림자는 이 디자인 체계에 없던 것이다. */
+  cursor: pointer;
+}
+
+.mobile-scope-banner__button span {
+  min-width: var(--mobile-scope-banner-min-width);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-scope-banner__button .mobile-icon {
+  width: var(--mobile-scope-banner-icon-size);
+  height: var(--mobile-scope-banner-icon-size);
+  flex: var(--mobile-scope-banner-icon-flex);
+  color: var(--mobile-scope-banner-icon-fg);
+}
+
+.mobile-chat-explore > span:not(.mobile-chat-explore__hint) {
+  white-space: nowrap;
+}
+
+.mobile-chat-explore__hint {
+  flex: 1 1 100%;
+  color: var(--mobile-fg-subtle);
+  font-weight: var(--mobile-font-weight-regular);
+}
+
+.mobile-chat-explore {
+  flex-wrap: wrap;
+}
+
+/* ---- Home chat (홈 = 채팅, 클로드/지피티 앱 문법) ---- */
+.mobile-home-chat {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 0 24px calc(var(--mobile-floating-bottom-offset));
+}
+
+.mobile-chat-screen__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mobile-space-4);
+  flex: 1 1 auto;
+}
+
+/* 랜딩(빈 대화): 히어로가 스레드 한 화면을 채우고, 아래로 슬라이드하면
+   확인할 일 큐가 이어진다. min-height 100%는 스크롤 컨테이너(.mobile-chat-thread)의
+   가시 높이에 대해 해석된다. */
+.mobile-home-chat__landing {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  flex-shrink: 0;
+}
+
+.mobile-home-chat__hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  gap: var(--mobile-space-4);
+  margin: auto 0;
+  text-align: center;
+  padding: var(--mobile-space-7) 0;
+}
+
+/* 히어로 하단의 스크롤 어포던스: 확인할 일 요약 + 아래 화살표. */
+.mobile-home-chat__peek {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  padding-bottom: var(--mobile-space-3);
+  color: var(--mobile-fg-subtle);
+  font-size: var(--mobile-font-size-caption);
+}
+
+.mobile-home-chat__peek .mobile-icon {
+  width: 18px;
+  height: 18px;
+  animation: mobile-home-chat-peek-bob 1.6s ease-in-out infinite;
+}
+
+@keyframes mobile-home-chat-peek-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.55;
+  }
+
+  50% {
+    transform: translateY(3px);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-home-chat__peek .mobile-icon {
+    animation: none;
+  }
+}
+
+/* 랜딩 아래의 확인할 일 큐(원래 대시보드 섹션 문법 재사용). */
+.mobile-home-chat__queue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-section-gap);
+  flex-shrink: 0;
+  padding: var(--mobile-space-5) 0 var(--mobile-space-7);
+}
+
+.mobile-home-chat__hero-mark {
+  display: inline-flex;
+  opacity: 0.9;
+}
+
+/* ---- 브랜드 블롭 (데스크톱 .brand-blob 이식 — transform/opacity 전용 애니메이션) ---- */
+.mobile-brand-blob {
+  position: relative;
+  --mobile-blob-speed: 1;
+}
+
+.mobile-blob-halo {
+  position: absolute;
+  inset: -14%;
+  border-radius: 50%;
+  background: radial-gradient(
+    50% 50% at 50% 56%,
+    color-mix(in oklch, var(--mobile-blob-c3) 30%, transparent),
+    transparent 72%
+  );
+  filter: blur(11px);
+  animation: mobile-blob-halo calc(5s * var(--mobile-blob-speed)) ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+@keyframes mobile-blob-halo {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.94);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.08);
+  }
+}
+
+/* 코어 — 우윳빛 반투명 몸체. idle = 원형 진주(숨쉬기), thinking에서만 비정형 모핑. */
+.mobile-blob-core {
+  position: absolute;
+  inset: 7%;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 50%;
+  background: var(--mobile-blob-body);
+  animation: mobile-blob-breath calc(2.6s * var(--mobile-blob-speed)) ease-in-out infinite;
+  will-change: transform, border-radius;
+}
+
+@keyframes mobile-blob-breath {
+  0%,
+  100% {
+    border-radius: 50%;
+    transform: scale(1);
+  }
+  50% {
+    border-radius: 50%;
+    transform: scale(0.97);
+  }
+}
+
+/* 내부 색 필드 — 느린 정방향 회전 드리프트 */
+.mobile-blob-core::before {
+  content: "";
+  position: absolute;
+  inset: -35%;
+  background:
+    radial-gradient(56% 62% at 31% 27%, color-mix(in oklch, var(--mobile-blob-c2) 82%, white), transparent 56%),
+    radial-gradient(64% 56% at 73% 60%, color-mix(in oklch, var(--mobile-blob-c3) 80%, white), transparent 58%),
+    radial-gradient(56% 48% at 42% 106%, color-mix(in oklch, var(--mobile-blob-c1) 88%, white), transparent 60%),
+    radial-gradient(44% 40% at 66% 22%, color-mix(in oklch, var(--mobile-blob-c4) 90%, white), transparent 56%),
+    radial-gradient(closest-side, rgb(255 255 255 / 0.62) 34%, transparent 64%);
+  filter: blur(4px) saturate(1.2);
+  animation: mobile-blob-flow-a calc(11s * var(--mobile-blob-speed)) linear infinite;
+  will-change: transform;
+}
+
+@keyframes mobile-blob-flow-a {
+  0% {
+    transform: rotate(0deg) scale(1.08);
+  }
+  25% {
+    transform: rotate(90deg) scale(0.95);
+  }
+  50% {
+    transform: rotate(180deg) scale(0.9);
+  }
+  75% {
+    transform: rotate(270deg) scale(1);
+  }
+  100% {
+    transform: rotate(360deg) scale(1.08);
+  }
+}
+
+.mobile-blob-lobe {
+  position: absolute;
+  inset: -4%;
+  border-radius: 50%;
+  opacity: 0.5;
+  will-change: transform, opacity;
+}
+
+/* 두 번째 색 레이어 — 역방향 회전 */
+.mobile-blob-lobe.l1 {
+  background:
+    radial-gradient(66% 66% at 28% 62%, color-mix(in oklch, var(--mobile-blob-c2) 74%, white), transparent 62%),
+    radial-gradient(54% 54% at 108% 10%, color-mix(in oklch, var(--mobile-blob-mix) 78%, white), transparent 62%);
+  filter: blur(6px);
+  animation: mobile-blob-flow-b calc(3.4s * var(--mobile-blob-speed)) linear infinite;
+}
+
+@keyframes mobile-blob-flow-b {
+  0% {
+    transform: rotate(0deg) scale(0.92);
+  }
+  25% {
+    transform: rotate(-90deg) scale(1.05);
+  }
+  50% {
+    transform: rotate(-180deg) scale(1.14);
+  }
+  75% {
+    transform: rotate(-270deg) scale(1);
+  }
+  100% {
+    transform: rotate(-360deg) scale(0.92);
+  }
+}
+
+/* 흰빛 안개 — 아주 느린 역회전 보조 */
+.mobile-blob-lobe.l2 {
+  inset: -2%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0turn 0.12turn,
+    rgb(255 255 255 / 0.5) 0.3turn,
+    transparent 0.5turn,
+    rgb(255 255 255 / 0.3) 0.74turn,
+    transparent 0.94turn
+  );
+  filter: blur(9px);
+  animation: mobile-blob-spin-rev calc(6.5s * var(--mobile-blob-speed)) linear infinite;
+}
+
+@keyframes mobile-blob-spin-rev {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 비눗방울 하이라이트 — 정적 */
+.mobile-blob-core::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(30% 16% at 34% 13%, rgb(255 255 255 / 0.75), transparent 72%),
+    radial-gradient(52% 46% at 74% 80%, rgb(255 255 255 / 0.55), transparent 70%);
+  box-shadow:
+    inset 0 -16px 26px -6px color-mix(in oklch, var(--mobile-blob-c1) 55%, transparent),
+    inset 14px 8px 24px -8px color-mix(in oklch, var(--mobile-blob-c3) 72%, transparent),
+    inset -14px 4px 24px -8px color-mix(in oklch, var(--mobile-blob-c2) 68%, transparent),
+    inset 0 14px 22px -10px rgb(255 255 255 / 0.75);
+}
+
+/* 생각 중 — 비정형 모핑 + 색 필드 고속 스월 */
+.mobile-brand-blob[data-orb-state="thinking"] .mobile-blob-core {
+  animation: mobile-blob-morph calc(3.6s * var(--mobile-blob-speed)) ease-in-out infinite;
+}
+
+@keyframes mobile-blob-morph {
+  0%,
+  100% {
+    border-radius: 60% 40% 65% 35% / 43% 64% 36% 57%;
+    transform: rotate(0deg) scale(1);
+  }
+  18% {
+    border-radius: 40% 60% 51% 49% / 65% 37% 63% 35%;
+    transform: rotate(9deg) scale(1.05);
+  }
+  38%,
+  52% {
+    border-radius: 50%;
+    transform: rotate(18deg) scale(0.94);
+  }
+  70% {
+    border-radius: 66% 34% 40% 60% / 44% 65% 35% 56%;
+    transform: rotate(10deg) scale(1.06);
+  }
+  86% {
+    border-radius: 45% 55% 62% 38% / 60% 42% 58% 40%;
+    transform: rotate(3deg) scale(0.98);
+  }
+}
+
+.mobile-brand-blob[data-orb-state="thinking"] .mobile-blob-core::before {
+  animation-duration: calc(6s * var(--mobile-blob-speed));
+}
+
+.mobile-brand-blob[data-orb-state="thinking"] .mobile-blob-lobe.l1 {
+  animation-duration: calc(1.5s * var(--mobile-blob-speed));
+}
+
+.mobile-brand-blob[data-orb-state="thinking"] .mobile-blob-lobe.l2 {
+  animation-duration: calc(4s * var(--mobile-blob-speed));
+}
+
+/* 말하는 중 — 내부 블룸이 숨쉬고 파문 한 겹이 퍼진다 */
+.mobile-brand-blob[data-orb-state="speaking"] .mobile-blob-core {
+  animation: mobile-blob-speak 1.15s ease-in-out infinite;
+}
+
+@keyframes mobile-blob-speak {
+  0%,
+  100% {
+    border-radius: 46% 54% 51% 49% / 55% 45% 52% 48%;
+    transform: scale(0.96);
+  }
+  22% {
+    border-radius: 50%;
+    transform: scale(1.02);
+  }
+  40% {
+    border-radius: 43% 57% 54% 46% / 58% 42% 56% 44%;
+    transform: scale(0.975);
+  }
+  58% {
+    border-radius: 50%;
+    transform: scale(1.045);
+  }
+  76% {
+    border-radius: 53% 47% 44% 56% / 46% 54% 45% 55%;
+    transform: scale(0.985);
+  }
+}
+
+.mobile-brand-blob[data-orb-state="speaking"] .mobile-blob-halo {
+  inset: 7%;
+  border-radius: 50%;
+  background: transparent;
+  filter: blur(2px);
+  box-shadow:
+    0 0 0 2px color-mix(in oklch, var(--mobile-blob-c2) 50%, transparent),
+    0 0 14px color-mix(in oklch, var(--mobile-blob-c2) 38%, transparent);
+  animation: mobile-blob-wave 1.3s ease-out infinite;
+}
+
+/* ---- making: 카드 생성 (데스크톱 `.brand-blob[data-orb-state="making"]` 이식)
+   씨앗에서 카드가 태어나 잠깐 머물고, 카드 자신이 빠르게 날아가 사라지면
+   새 카드가 다시 태어난다. 로브는 꺼진다 — 카드가 주인공인 구간이라
+   물방울 두 개가 같이 흔들리면 무엇이 만들어지는지 안 보인다. ---- */
+.mobile-brand-blob[data-orb-state="making"] .mobile-blob-lobe {
+  opacity: 0;
+  animation: none;
+}
+
+.mobile-brand-blob[data-orb-state="making"] .mobile-blob-core {
+  animation: mobile-blob-make 2.6s ease-in-out infinite;
+  background: color-mix(in oklch, white 38%, transparent);
+  box-shadow:
+    inset 0 10px 18px rgb(255 255 255 / 0.5),
+    inset 0 -8px 16px color-mix(in oklch, var(--mobile-blob-c1) 28%, transparent),
+    0 10px 0 -1px color-mix(in oklch, var(--mobile-blob-c1) 32%, white),
+    0 22px 26px color-mix(in oklch, var(--mobile-blob-c1) 26%, transparent);
+}
+
+.mobile-brand-blob[data-orb-state="making"] .mobile-blob-halo {
+  animation-duration: 2.6s;
+}
+
+@keyframes mobile-blob-make {
+  0% {
+    border-radius: 60% 40% 65% 35% / 43% 64% 36% 57%;
+    transform: translate(0, 0) scale(0.95, 0.95);
+    opacity: 1;
+  }
+  22% {
+    border-radius: 14% / 20%;
+    transform: translate(0, 0) scale(1.15, 0.78);
+    opacity: 1;
+  }
+  58% {
+    border-radius: 14% / 20%;
+    transform: translate(3%, -2%) scale(1.15, 0.78);
+    opacity: 1;
+  }
+  70% {
+    border-radius: 14% / 20%;
+    transform: translate(165%, 0) scale(1.08, 0.74);
+    opacity: 0;
+  }
+  71% {
+    border-radius: 45% 55% 62% 38% / 60% 42% 58% 40%;
+    transform: translate(0, 0) scale(0.55, 0.55);
+    opacity: 0;
+  }
+  84% {
+    border-radius: 66% 34% 40% 60% / 44% 65% 35% 56%;
+    transform: translate(0, 0) scale(0.85, 0.85);
+    opacity: 0.9;
+  }
+  100% {
+    border-radius: 60% 40% 65% 35% / 43% 64% 36% 57%;
+    transform: translate(0, 0) scale(0.95, 0.95);
+    opacity: 1;
+  }
+}
+
+@keyframes mobile-blob-wave {
+  0% {
+    transform: scale(0.98);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* PM Orb 스프라이트 스킨 — 데스크톱 .brand-orb-sprite의 모바일 이식.
+   시트(가로 스트립)를 background-position steps로 재생. 프레임 수·속도는
+   BrandBlob이 CSS 변수로 꽂는다. */
+.mobile-orb-sprite {
+  display: inline-block;
+  background-size: var(--mob-orb-size, 400% 100%);
+  background-repeat: no-repeat;
+  background-position-x: 0%;
+  animation: mobile-orb-sheet var(--mob-orb-dur, 1.6s) var(--mob-orb-steps, steps(4, jump-none))
+    infinite;
+}
+
+.mobile-orb-sprite--px {
+  image-rendering: pixelated;
+}
+
+/* 칩(≤48px) — 1프레임 정지컷. 데스크톱 `.brand-blob-chip > .brand-orb-sprite`와
+   같은 규칙: 이 크기에서 프레임이 도는 것은 읽히지 않고 배터리만 쓴다. */
+.mobile-orb-sprite--chip {
+  animation: none;
+  background-position-x: 0%;
+}
+
+/* 탭이 숨으면 정지 — 데스크톱 `[data-orb-paused]`와 같다. */
+.mobile-orb-sprite[data-orb-paused] {
+  animation-play-state: paused;
+}
+
+/* 수채화 thinking = **팔레트 전환**. 데스크톱 app.css의
+   `:root[data-brand-style="watercolor"] #brand-blob-portal[data-orb-state="thinking"]`
+   과 같은 값이다. 수채화는 다른 스킨과 달리 thinking 시트가 따로 없어서
+   가속만으로는 "생각 중"이 읽히지 않는다 — 색이 그 자리를 대신한다.
+   모바일에는 이 규칙이 통째로 빠져 있어 수채화만 thinking 표현이 없었다. */
+.mobile-orb-sprite[data-orb-family="watercolor"][data-orb-state="thinking"] {
+  filter: hue-rotate(-70deg) saturate(1.15);
+}
+
+[data-theme$="-cool"] .mobile-orb-sprite[data-orb-family="watercolor"][data-orb-state="thinking"] {
+  filter: hue-rotate(125deg) saturate(1.2);
+}
+
+.mobile-orb-factory {
+  display: inline-block;
+  object-fit: contain;
+}
+
+/* 설정 화면의 스타일 미리보기 — 현재 선택을 실물로 보여준다 */
+.mobile-orb-style-preview {
+  display: grid;
+  place-items: center;
+  padding: 12px 0 16px;
+}
+
+@keyframes mobile-orb-sheet {
+  from {
+    background-position-x: 0%;
+  }
+  to {
+    background-position-x: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-orb-sprite {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-brand-blob,
+  .mobile-blob-core,
+  .mobile-blob-core::before,
+  .mobile-blob-halo,
+  .mobile-blob-lobe {
+    animation: none;
+  }
+}
+
+.mobile-home-chat__hero-title {
+  font-size: var(--mobile-font-size-screen-title);
+  font-weight: var(--mobile-font-weight-bold);
+  line-height: var(--mobile-line-height-tight);
+  color: var(--mobile-fg-strong);
+  letter-spacing: -0.01em;
+}
+
+.mobile-home-chat__hero-subtitle {
+  font-size: var(--mobile-font-size-body);
+  color: var(--mobile-fg-muted);
+  max-width: 300px;
+}
+
+/* ---- 채팅 스코프(프로덕트·보드·카드) 컨텍스트 칩 + 바텀시트 피커 ---- */
+/* 컨텍스트 트리거 — 칩(필) 대신 텍스트 + 캐럿만. 핀 시 액센트 텍스트.
+   세 레인이 **같은 칩**을 쓴다: 홈챗은 눌러서 핀을 바꾸고, 보드·카드 챗은
+   화면이 스코프를 정하므로 같은 칩을 읽기 전용(`is-static`, 캐럿 없음)으로
+   둔다. 예전에 보드·카드만 쓰던 `.mobile-chat-inspector__scope`는 지웠다. */
+.mobile-home-chat__context-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 34px;
+  padding: 0 var(--mobile-space-1);
+  border: 0;
+  background: transparent;
+  color: var(--mobile-fg-muted);
+  font-size: var(--mobile-font-size-label);
+  font-weight: var(--mobile-font-weight-semibold);
+  cursor: pointer;
+  /* 컴포저 액션 행 안에서 너무 길어지지 않도록 말줄임 — 상한은 부모가 내준
+     폭(100%)이다. vw로 잡으면 좁은 화면에서 이웃 칩과 겹친다. */
+  max-width: 100%;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.mobile-home-chat__context-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-home-chat__context-chip .mobile-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.mobile-home-chat__context-chip.is-pinned {
+  color: var(--mobile-accent);
+}
+
+/* 읽기 전용 칩(보드·카드 챗) — 같은 칩이되 누를 수 없다. */
+.mobile-home-chat__context-chip.is-static {
+  cursor: default;
+}
+
+/* 컨텍스트 바텀시트 — 프로덕트→보드 2단 선택 모달 */
+.mobile-context-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.mobile-context-sheet__scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--modal-scrim); /* 알파 0 — 딤 없음, 아래 블러가 분리를 만든다 */
+  -webkit-backdrop-filter: var(--mobile-blur);
+  backdrop-filter: var(--mobile-blur);
+  border: 0;
+  cursor: pointer;
+}
+
+.mobile-context-sheet__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: var(--mobile-space-3) 24px calc(var(--mobile-space-7) + var(--mobile-safe-bottom));
+  border-top: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-lg) var(--mobile-radius-lg) 0 0;
+  /* 데스크톱 메뉴 계약의 모바일판(2026-08-09): 떠 있는 면 = 글라스 + 블러 */
+  background: var(--mobile-glass-strong);
+  -webkit-backdrop-filter: var(--mobile-blur);
+  backdrop-filter: var(--mobile-blur);
+  animation: mobile-context-sheet-in var(--mobile-transition);
+}
+
+@keyframes mobile-context-sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.mobile-context-sheet__grabber {
+  align-self: center;
+  width: 36px;
+  height: 4px;
+  margin-bottom: var(--mobile-space-3);
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-border);
+}
+
+.mobile-context-sheet__title {
+  margin: 0 0 var(--mobile-space-2);
+  font-size: var(--mobile-font-size-body-strong);
+  font-weight: var(--mobile-font-weight-bold);
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-home-chat__picker-item {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-3);
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--mobile-space-3);
+  border: 0;
+  border-radius: var(--mobile-radius-sm);
+  background: transparent;
+  color: var(--mobile-fg-muted);
+  font-size: var(--mobile-font-size-label);
+  font-weight: var(--mobile-font-weight-semibold);
+  text-align: left;
+  cursor: pointer;
+}
+
+.mobile-home-chat__picker-item .mobile-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.mobile-home-chat__picker-item.is-active {
+  color: var(--mobile-accent);
+  background: var(--mobile-accent-soft);
+}
+
+/* 시트 행의 비활성 상태 — 시트 머리말 버튼(`__head-button:disabled`)과 같은
+   규격. 이 규칙이 없어서 '고정 중'·'다음 쪽 불러오는 중'에 눌러도 되는 것처럼
+   보였다. */
+.mobile-home-chat__picker-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.mobile-home-chat__picker-item--clear {
+  color: var(--mobile-fg-subtle);
+}
+
+/* 시트 타이틀 행 — 좌측 제목, 우측에 되돌리기·고정 해제 아이콘 */
+.mobile-context-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mobile-space-3);
+}
+
+.mobile-context-sheet__head .mobile-context-sheet__title {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-context-sheet__head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  flex: 0 0 auto;
+}
+
+.mobile-context-sheet__head-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--mobile-touch-target);
+  height: var(--mobile-touch-target);
+  border: 0;
+  border-radius: var(--mobile-radius-full);
+  background: transparent;
+  color: var(--mobile-fg-subtle);
+  cursor: pointer;
+}
+
+.mobile-context-sheet__head-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.mobile-home-chat__picker-label {
+  padding: var(--mobile-space-2) var(--mobile-space-3) 0;
+  font-size: var(--mobile-font-size-caption);
+  font-weight: var(--mobile-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--mobile-fg-subtle);
+}
+
+/* ---- 워크벤치 활동 타임라인 — 세로 레일 + 상태색 도트 ---- */
+.mobile-activity-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-5);
+  list-style: none;
+  margin: 0;
+  padding: var(--mobile-space-1) 0 var(--mobile-space-1) 20px;
+}
+
+.mobile-activity-list::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-border);
+}
+
+.mobile-activity-list__item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-activity-list__item::before {
+  content: "";
+  position: absolute;
+  left: -18px;
+  top: 4px;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-surface-1);
+  border: 2px solid var(--mobile-fg-subtle);
+}
+
+.mobile-activity-list__item.is-result::before {
+  border-color: var(--mobile-success);
+}
+
+.mobile-activity-list__item.is-interaction::before {
+  border-color: var(--mobile-warning);
+}
+
+.mobile-activity-list__item p {
+  margin: 0;
+}
+
+/* Plain-language note under a raw execution error. Quieter than the message it
+   explains — the raw text stays the record. */
+.mobile-activity-annotation {
+  --annotation-accent: var(--mobile-danger);
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-1);
+  margin-top: var(--mobile-space-2);
+  padding: var(--mobile-space-3);
+  border-inline-start: 2px solid var(--annotation-accent);
+  border-radius: var(--mobile-radius-xs);
+  background: var(--mobile-surface-2);
+}
+
+.mobile-activity-annotation.is-warning {
+  --annotation-accent: var(--mobile-warning);
+}
+
+.mobile-activity-annotation.is-info {
+  --annotation-accent: var(--mobile-info);
+}
+
+.mobile-activity-annotation.is-success {
+  --annotation-accent: var(--mobile-success);
+}
+
+.mobile-activity-annotation strong {
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-activity-annotation__action {
+  color: var(--mobile-fg-subtle);
+}
+
+.mobile-activity-list__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--mobile-space-3);
+}
+
+.mobile-activity-list__head strong {
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-activity-list__head span {
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-subtle);
+  flex: 0 0 auto;
+}
+
+/* 실행 흐름과 에이전트 로그는 **같은 층**이다(둘 다 지나간 기록) — 여는
+   손잡이도 같은 문법이어야 "둘 중 하나를 고르는 것"으로 읽힌다. */
+.mobile-activity-flow summary,
+.mobile-activity-log summary {
+  cursor: pointer;
+  font-size: var(--mobile-font-size-label);
+  font-weight: var(--mobile-font-weight-semibold);
+  color: var(--mobile-fg-muted);
+  padding: var(--mobile-space-2) 0;
+}
+
+/* 펼친 내용은 손잡이에서 한 칸 띄운다 — 붙어 있으면 목록 첫 줄이 손잡이의
+   일부처럼 읽힌다. */
+.mobile-activity-flow[open] > :not(summary) {
+  margin-top: var(--mobile-space-3);
+}
+
+.mobile-activity-log pre {
+  max-height: 280px;
+  overflow: auto;
+  padding: var(--mobile-space-3);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-sm);
+  background: var(--mobile-surface-inset);
+  font-size: var(--mobile-font-size-caption);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mobile-note-editor--compact {
+  min-height: 72px;
+}
+
+/* ---- 챗 첨부 스테이징 ---- */
+.mobile-chat-staged {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mobile-space-2);
+  padding-top: var(--mobile-space-3);
+}
+
+.mobile-chat-staged__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  max-width: 100%;
+  padding: var(--mobile-space-2) var(--mobile-space-3);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-surface-inset);
+  color: var(--mobile-fg-muted);
+  font-size: var(--mobile-font-size-caption);
+}
+
+.mobile-chat-staged__chip .mobile-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.mobile-chat-staged__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+
+.mobile-chat-staged__chip button {
+  display: inline-flex;
+  border: 0;
+  background: transparent;
+  color: var(--mobile-fg-subtle);
+  cursor: pointer;
+  padding: 0;
+}
+
+.mobile-chat-composer__file {
+  display: none;
+}
+
+.mobile-chat-composer__button--attach {
+  background: var(--mobile-surface-inset);
+  color: var(--mobile-fg-muted);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+}
+
+/* ---- 보드 레인 (데스크톱 칸반 레인의 가로 스와이프 번역) ---- */
+.mobile-board {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.mobile-board__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-4);
+  padding: var(--mobile-top-bar-clearance) 24px 0;
+}
+
+.mobile-board__empty {
+  padding: var(--mobile-space-7) 24px;
+}
+
+/* ---- 진화 물음 카드 (보드 상단) ----
+   데스크톱은 이 물음을 채팅 레이어 오른쪽 popover로 띄운다. 폰에는 상시 열린
+   채팅 레일이 없어 그 자리가 없으므로 보드 헤더에 얹는 독립 카드로 옮겼다.
+   `mobile-section`(목록 규격)이 아니라 테두리 카드인 이유가 이것이다 — 목록의
+   한 칸이 아니라 화면 위에 잠깐 서는 것이다.
+
+   카드 안의 행 규격(`.mobile-evolution-ask`)은 components.css가 이미 갖고 있어
+   여기서 다시 만들지 않는다. */
+.mobile-evolution-asks-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-2);
+  padding: var(--mobile-space-4) var(--mobile-space-5);
+  background: var(--mobile-surface-item);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-sm);
+}
+
+/* 카드 안에서는 행의 위쪽 여백이 카드 padding과 겹쳐 두 번 들어간다. */
+.mobile-evolution-asks-card .mobile-evolution-ask {
+  padding-bottom: 0;
+}
+
+.mobile-lanes {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.mobile-lanes::-webkit-scrollbar {
+  display: none;
+}
+
+/* 레인 = 한 화면에 하나, 다음 레인이 우측에 살짝 보이는 트렐로식 peek(88%).
+   스냅 계산(JS)은 레인 실제 폭 기준. */
+.mobile-lane {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 88%;
+  min-width: 88%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  padding: var(--mobile-space-4) var(--mobile-space-5) 0 24px;
+}
+
+.mobile-lane:last-child {
+  flex-basis: 100%;
+  min-width: 100%;
+  padding-right: 24px;
+}
+
+.mobile-lane__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--mobile-space-3);
+  padding-bottom: var(--mobile-space-3);
+  border-bottom: var(--mobile-border-width) solid var(--mobile-border);
+  font-size: var(--mobile-font-size-label);
+  font-weight: var(--mobile-font-weight-semibold);
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-lane__header span {
+  color: var(--mobile-fg-subtle);
+}
+
+.mobile-lane__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: var(--mobile-space-4) 0 var(--mobile-content-pad-bottom);
+}
+
+.mobile-status-nav-chip.is-active {
+  border-color: var(--mobile-accent);
+  color: var(--mobile-accent);
+  background: var(--mobile-accent-soft);
+}
+
+/* ---- 워크벤치 관리 폼 ---- */
+/* 체크 토글 — 48px 행 높이에 체크박스·라벨을 세로 중앙 정렬 */
+.mobile-manage-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-3);
+  min-height: var(--mobile-touch-target);
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-strong);
+  cursor: pointer;
+}
+
+.mobile-manage-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-2);
+  font-size: var(--mobile-font-size-label);
+  color: var(--mobile-fg-muted);
+}
+
+/* 폼 안의 선택 트리거 — 네이티브 `<select>` 대신 쓰는 자리(ChoiceField).
+   생김새는 그 자리에 있던 select와 같게 두고(같은 높이·라운드·서피스),
+   여는 것만 시스템 휠에서 우리 바텀시트로 바꾼다. */
+.mobile-choice-field {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  width: 100%;
+  min-height: var(--mobile-control-height);
+  padding: 0 var(--mobile-space-3);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-field-radius);
+  background: var(--mobile-surface-inset);
+  color: var(--mobile-fg-strong);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mobile-choice-field__value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-choice-field:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* 필드 안의 액션(이름 변경·기본값으로 되돌리기)은 **좌측**에 선다.
+   `--fit`은 본문 한가운데 놓이는 인라인 컨트롤용이라, 라벨 아래 필드에서
+   쓰면 버튼만 혼자 가운데로 떠 어긋나 보인다. */
+.mobile-manage-field__actions {
+  display: flex;
+  justify-content: flex-start;
+  gap: var(--mobile-space-2);
+}
+
+/* ---- 워크벤치 플로팅 액션 독 (글래스, 스크롤 반응) ---- */
+.mobile-action-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--mobile-floating-bottom-offset);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  justify-content: center;
+  padding: 0 24px;
+  pointer-events: none;
+  z-index: 40;
+  transition: transform var(--mobile-transition), opacity var(--mobile-transition);
+}
+
+.mobile-action-dock.is-hidden {
+  transform: translateY(calc(100% + var(--mobile-floating-bottom-offset)));
+  opacity: 0;
+}
+
+.mobile-action-dock > * {
+  pointer-events: auto;
+}
+
+.mobile-action-dock__contextual,
+.mobile-action-dock__main {
+  width: 100%;
+  max-width: 520px;
+}
+
+/* 칩 행은 **가로 스크롤이 아니라 줄바꿈**이다(2026-08-09 수리).
+   스크롤 컨테이너(`overflow-x: auto`)는 그 안쪽 요소의 `backdrop-filter`가
+   샘플할 배경을 잘라 버려서, 칩에 블러가 걸려 있어도 **그려지지 않았다** —
+   실기기에서 카드 본문이 칩을 통과해 그대로 읽혔다. 게다가 넷째 칩이 화면
+   밖으로 밀려 있어 스크롤을 모르면 존재조차 몰랐다. 줄바꿈으로 바꾸면 둘 다
+   해소된다. */
+.mobile-action-dock__contextual {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--mobile-space-2);
+  padding: var(--mobile-space-1);
+}
+
+.mobile-action-dock__chip {
+  flex: 0 0 auto;
+  min-height: var(--mobile-touch-target);
+  padding: 0 var(--mobile-space-4);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-nav-bg);
+  backdrop-filter: var(--mobile-blur);
+  -webkit-backdrop-filter: var(--mobile-blur);
+  box-shadow: var(--mobile-shadow-soft);
+  color: var(--mobile-fg-strong);
+  font-size: var(--mobile-font-size-label);
+  font-weight: var(--mobile-font-weight-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mobile-action-dock__chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.mobile-action-dock__chip.is-danger {
+  color: var(--mobile-danger);
+  border-color: var(--mobile-danger-soft);
+}
+
+/* 독은 배경 패널 없이 버튼들만 떠 있다 — 글래스는 컨트롤 개별에 입힌다.
+   주 버튼은 화면을 다 가로지르지 않게 너비 상한을 두고 가운데 정렬한다. */
+.mobile-action-dock__main {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--mobile-space-2);
+}
+
+.mobile-action-dock__main .mobile-button--full {
+  max-width: 300px;
+}
+
+.mobile-action-dock__main .mobile-action-rail__answer {
+  flex: 1 1 auto;
+  background: var(--mobile-nav-bg);
+  backdrop-filter: var(--mobile-blur-strong);
+  -webkit-backdrop-filter: var(--mobile-blur-strong);
+  box-shadow: var(--mobile-shadow-nav);
+}
+
+/* 독 안의 보조(채팅) 버튼 — 개별 글래스 원 */
+.mobile-action-dock__main .mobile-button--secondary {
+  background: var(--mobile-nav-bg);
+  backdrop-filter: var(--mobile-blur-strong);
+  -webkit-backdrop-filter: var(--mobile-blur-strong);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  box-shadow: var(--mobile-shadow-nav);
+}
+
+/* 독의 주 버튼도 FAB·칩과 같은 글래스 문법 — 액센트를 살짝 투과시키고 블러. */
+.mobile-action-dock__main .mobile-button--primary {
+  background: var(--mobile-accent-glass);
+  backdrop-filter: var(--mobile-blur);
+  -webkit-backdrop-filter: var(--mobile-blur);
+  box-shadow: var(--mobile-shadow-nav);
+}
+
+/* ---- 음성 모드 큰 화면 ---- */
+
+/* 운전 중 신호 대기에 1~2초 흘끗 보는 화면이다. 대화 로그가 아니라 상태·방금
+   오간 말·멈추는 법만 담고, 탭할 수 있는 것을 둘로 줄여 흔들리는 거치대에서
+   잘못 눌릴 여지를 없앤다. */
+.mobile-voice-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  padding: calc(env(safe-area-inset-top) + var(--mobile-space-7)) var(--mobile-space-9)
+    calc(env(safe-area-inset-bottom) + var(--mobile-space-8));
+  background: var(--mobile-surface-canvas);
+}
+
+.mobile-voice-stage__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mobile-space-3);
+}
+
+/* 지금 범위 — 상단 한 줄. 스코프는 사건이 아니라 상태라 말로 반복하지 않고
+   여기가 계속 들고 있는다(사용자 확정 2026-08-08).
+
+   시선 중심(오브)과 경쟁하면 안 된다 — 흘끗 봤을 때 눈에 걸리되 읽으려고
+   멈추지는 않을 무게로 둔다. 그래서 톤 버튼과 같은 캡션 크기에 더 낮은 대비다. */
+.mobile-voice-stage__scope {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: var(--mobile-space-2);
+  text-align: center;
+}
+
+.mobile-voice-stage__scope-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  font-size: var(--mobile-font-size-caption);
+  font-weight: var(--mobile-font-weight-semibold);
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-voice-stage__scope-name svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: 0 0 auto;
+  opacity: 0.7;
+}
+
+/* 해제 방법. 대화로만 풀리는 고정 문구라 어딘가 쓰여 있지 않으면 알 길이
+   없는데, 예전엔 음성이 이동할 때마다 말로 가르쳐서 안내방송이 됐다. */
+.mobile-voice-stage__scope-hint {
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-subtle, var(--mobile-fg-muted));
+  opacity: 0.75;
+}
+
+/* 목소리 톤 버튼 — 우측 상단의 작은 유틸리티. 누르면 이름·설명 모달이 뜬다.
+   시선 중심(오브)과 경쟁하지 않게 낮은 대비로 눌러 둔다. */
+.mobile-voice-stage__tone-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  padding: 6px 10px;
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-surface-2);
+  color: var(--mobile-fg-muted);
+  font-size: var(--mobile-font-size-caption);
+  cursor: pointer;
+}
+
+/* 톤 선택 모달 — 스테이지 위에 얹는 바텀 시트. 고르면 즉시 인사말이 나오므로
+   열어 둔 채 여러 톤을 이어 들어볼 수 있다. */
+.mobile-voice-stage__tone-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  background: var(--mobile-surface-canvas);
+}
+
+/* 풀스크린 목소리 픽커 — 한 곳에서 고르고(캐러셀) 조절하고 [완료]로 확정. */
+.mobile-voice-stage__picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-6);
+  width: 100%;
+  max-width: 480px;
+  padding: calc(env(safe-area-inset-top) + var(--mobile-space-8)) var(--mobile-space-8)
+    calc(env(safe-area-inset-bottom) + var(--mobile-space-8));
+  overflow-y: auto;
+}
+
+.mobile-voice-stage__picker-stage {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mobile-space-4);
+  padding: var(--mobile-space-6) 0;
+}
+
+.mobile-voice-stage__picker-arrow {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-surface-2);
+  color: var(--mobile-fg-default);
+  cursor: pointer;
+}
+
+.mobile-voice-stage__picker-voice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--mobile-space-3);
+  text-align: center;
+}
+
+.mobile-voice-stage__picker-name {
+  font-size: var(--mobile-font-size-title);
+  font-weight: 700;
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-voice-stage__picker-desc {
+  font-size: var(--mobile-font-size-body);
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-voice-stage__picker-dots {
+  display: flex;
+  gap: var(--mobile-space-2);
+  margin-top: var(--mobile-space-2);
+}
+
+.mobile-voice-stage__picker-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-border);
+}
+
+.mobile-voice-stage__picker-dot.is-active {
+  background: var(--mobile-accent);
+}
+
+.mobile-voice-stage__picker-control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-2);
+}
+
+.mobile-voice-stage__picker-label {
+  font-size: var(--mobile-font-size-caption);
+  font-weight: 600;
+  color: var(--mobile-fg-muted);
+  text-align: left;
+}
+
+.mobile-voice-stage__picker-done {
+  margin-top: auto;
+}
+
+.mobile-voice-stage__tone-title {
+  margin: 0;
+  font-size: var(--mobile-font-size-title);
+  color: var(--mobile-fg-strong);
+  text-align: left;
+}
+
+.mobile-voice-stage__tone-hint {
+  margin: 0;
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-muted);
+  text-align: left;
+}
+
+/* 응답 길이 세그먼트 — 간결/보통/자세히. 손가락 타깃을 넉넉히. */
+.mobile-voice-stage__reply-row {
+  display: flex;
+  gap: var(--mobile-space-3);
+  width: 100%;
+}
+
+.mobile-voice-stage__reply-option {
+  flex: 1 1 0;
+  padding: var(--mobile-space-5) var(--mobile-space-4);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-md);
+  background: var(--mobile-surface-1);
+  color: var(--mobile-fg-default);
+  font-size: var(--mobile-font-size-body);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mobile-voice-stage__reply-option.is-active {
+  border-color: var(--mobile-accent);
+  background: var(--mobile-accent-soft);
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-voice-stage__collapse,
+.mobile-voice-stage__end {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  border: 0;
+  background: transparent;
+  color: var(--mobile-fg-muted);
+  font: inherit;
+  font-size: var(--mobile-font-size-body);
+  padding: var(--mobile-space-4) var(--mobile-space-7);
+  border-radius: var(--mobile-radius-full);
+  cursor: pointer;
+}
+
+/* 고정 비율 그리드(실기기 2026-07-25 2차): 남는 공간을 위 1 : 아래 0.6으로
+   나눠 오브가 정중앙보다 살짝 아래의 **같은 자리**에 항상 선다 — 바닥에
+   박히지도, 자막이 자란다고 밀리지도 않는다. 자막(1행)은 자기 칸 안에서
+   아래 정렬로 위로만 자라고, 오브 아래(3행)는 최소 3줄을 예약하며, 4행이
+   바닥 여백이다. */
+.mobile-voice-stage__body {
+  flex: 1;
+  display: grid;
+  /* 아래 예약(3행) = 상태 한 줄 + 들은 말 3줄 + 사이 간격. 위:아래 = 1:0.3
+     — 오브가 중앙보다 확실히 아래(사용자 지정), 그래도 바닥엔 여백이 남는다. */
+  grid-template-rows:
+    minmax(0, 1fr)
+    auto
+    minmax(
+      calc(var(--mobile-font-size-caption) * 1.5 + var(--mobile-space-3) + var(--mobile-font-size-body) * 1.5 * 3),
+      auto
+    )
+    minmax(16px, 0.3fr);
+  justify-items: center;
+  align-items: center;
+  row-gap: var(--mobile-space-6);
+  text-align: center;
+  min-height: 0;
+}
+
+/* 목소리 반응은 브랜드 오브를 감싼 층에서만 준다 — halo/core/lobe의 자체
+   애니메이션은 그대로 두고 크기만 얹는다. --mobile-mic-level은 VAD 루프가
+   50ms마다 직접 쓰는 0~1 값이다. 막혔을 때는 이 층 자체가 <button>이 되므로
+   버튼 기본 스타일(테두리·배경·패딩)을 지운다. */
+/* 바깥 층 = 상태 크기. 듣는 중/생각 중/전사 중 사이를 오갈 때만 움직이며,
+   사람이 "부드럽다"고 느끼도록 느리고 감속되게 간다. 음량은 여기 태우지 않는다 —
+   한 transition이 둘을 겸하면 상태가 바뀔 때마다 툭 끊기듯 튄다. */
+.mobile-voice-stage__orb {
+  --mobile-mic-level: 0;
+  flex: 0 0 auto;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: default;
+  transform: scale(1);
+  transition:
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 420ms ease;
+}
+
+/* 안쪽 층 = 음량 반응. 진폭은 작게(과하게 커지지 않게), 트랜지션은 넉넉히 주어
+   레벨이 50ms마다 튀어도 그 사이를 부드럽게 늘었다 줄이며 잇는다 — 빠르게
+   움직여도 톡톡 끊기지 않고 유연하게 흐르게. */
+.mobile-voice-stage__orb-level {
+  display: block;
+  transform: scale(calc(1 + var(--mobile-mic-level) * 0.09));
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+/* 마이크가 닫힌 구간(생각 중·대기)에서는 살짝 물러나 "지금은 내 차례가 아님"을
+   소리 없이 알린다. 오브의 thinking 모션이 이어받는다. */
+.mobile-voice-stage__orb.is-idle-mic {
+  transform: scale(0.92);
+  opacity: 0.72;
+}
+
+/* 오디오가 막혀 재시도가 필요한 상태. 눌러야 풀린다는 게 보여야 하므로 흔들리는
+   조작이 아니라 뚜렷한 링과 커서로 "여기 누르세요"를 알린다. */
+.mobile-voice-stage__orb.is-blocked {
+  cursor: pointer;
+  transform: none;
+  opacity: 1;
+  outline: 3px solid var(--mobile-accent);
+  outline-offset: 6px;
+  border-radius: var(--mobile-radius-full);
+  animation: mobile-voice-orb-nudge 1.6s ease-in-out infinite;
+}
+
+@keyframes mobile-voice-orb-nudge {
+  0%,
+  100% {
+    outline-offset: 6px;
+  }
+
+  50% {
+    outline-offset: 12px;
+  }
+}
+
+.mobile-voice-stage__status {
+  margin: 0;
+  font-size: var(--mobile-font-size-screen-title);
+  font-weight: 600;
+  color: var(--mobile-fg-strong);
+}
+
+/* 오디오가 막혔을 때 상태 문구 아래 덧붙는 설명. 왜 눌러야 하는지를 말한다. */
+.mobile-voice-stage__hint {
+  margin: 0;
+  max-width: 30ch;
+  font-size: var(--mobile-font-size-body);
+  color: var(--mobile-fg-muted);
+}
+
+/* 방금 이쪽에서 들은 말. 오인식을 알아채는 지점이라 띄우되, 주인공은 아니다. */
+/* 방금 들은 말 — 최대 3줄까지만 자리를 차지하고, 넘치면 스크롤(JS가 최신
+   줄로 붙여 둔다). 길게 말해도 오브·레이아웃이 밀리지 않는다. */
+.mobile-voice-stage__heard {
+  margin: 0;
+  max-width: 32ch;
+  max-height: calc(var(--mobile-font-size-body) * 1.5 * 3);
+  overflow-y: auto;
+  line-height: 1.5;
+  font-size: var(--mobile-font-size-body);
+  color: var(--mobile-fg-subtle);
+}
+
+/* 읽어주고 있는 문장. 흘끗 보고 읽히려면 이게 제일 커야 한다. */
+/* 자막 영역 — 스택이 바닥 앵커라 글이 늘어나면 위로만 자라고, 아래 오브는
+   고정이다. 상한을 넘으면 스크롤이 생기고(JS가 최신 줄로 붙여 둔다), 긴 답도
+   읽을 수 있되 오브를 밀지 않는다. */
+.mobile-voice-stage__spoken-area {
+  align-self: end;
+  width: min(100%, 40ch);
+  max-height: 100%;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* 오브 아래 예약 영역 — 행 최소 높이는 그리드가 쥐고, 내용은 행 상단부터
+   찬다(align-self: start): 오브-라벨 간격이 행 여유와 무관하게 항상 row-gap
+   하나 — 자막-오브 간격과 같아진다. 들은 말은 자기 상한(3줄) 안에서
+   스크롤되므로 행이 늘지 않는다. */
+.mobile-voice-stage__under {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  align-self: start;
+  gap: var(--mobile-space-3);
+  width: 100%;
+  min-height: 0;
+}
+
+.mobile-voice-stage__spoken {
+  margin: 0;
+  font-size: var(--mobile-font-size-title);
+  line-height: 1.5;
+  color: var(--mobile-fg-default);
+  text-align: center;
+}
+
+/* 평상시 상태 피드백("듣는 중"·"생각 중") — 없애니 헷갈린다는 피드백으로
+   복원. 캡션은 너무 작다는 2차 피드백으로 본문 크기+볼드, 색은 연하게 유지. */
+.mobile-voice-stage__state {
+  margin: 0;
+  font-size: var(--mobile-font-size-body);
+  font-weight: 700;
+  color: var(--mobile-fg-subtle);
+}
+
+/* 동의 카드 등장 — 높이를 0에서 밀어 올려 오브가 데스크톱처럼 부드럽게
+   슬라이드해 자리를 내준다(툭 점프 방지). */
+.mobile-voice-stage__proposal {
+  overflow: hidden;
+  animation: mobile-voice-proposal-in 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes mobile-voice-proposal-in {
+  from {
+    max-height: 0;
+    opacity: 0;
+  }
+
+  to {
+    max-height: 220px;
+    opacity: 1;
+  }
+}
+
+.mobile-voice-stage__bottom {
+  display: flex;
+  justify-content: center;
+}
+
+.mobile-voice-stage__end {
+  background: var(--mobile-surface-2);
+  color: var(--mobile-fg-default);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-voice-stage__orb {
+    transform: none;
+    transition: none;
+  }
+
+  .mobile-voice-stage__orb.is-blocked {
+    animation: none;
+  }
+}
+
+/* 낭독만 막혔을 때 뜨는 복구 버튼. 입력은 멀쩡하므로 오브를 뺏지 않고 한 줄로
+   끼어든다 — 탭이 곧 제스처라 그 자리에서 자물쇠가 풀린다. */
+.mobile-voice-stage__unmute {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  padding: var(--mobile-space-4) var(--mobile-space-7);
+  border: 0;
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-accent-soft);
+  color: var(--mobile-accent);
+  font: inherit;
+  font-size: var(--mobile-font-size-body);
+  cursor: pointer;
+}
+
+/* 동작/비동작 신호 — 막히거나 마이크를 잃으면 브랜드 오브의 모든 모션을 멈춘다.
+   이게 없으면 halo/core/lobe가 계속 살아 움직여서 "돌고 있다"고 거짓말을 한다.
+   멈춘 오브 + 링이 곧 "지금은 안 되고 있다"는 뜻이고, 탭하면 다시 산다. */
+.mobile-voice-stage__orb.is-blocked .mobile-voice-stage__orb-level {
+  transform: none;
+}
+
+.mobile-voice-stage__orb.is-blocked .mobile-brand-blob,
+.mobile-voice-stage__orb.is-blocked .mobile-blob-halo,
+.mobile-voice-stage__orb.is-blocked .mobile-blob-core,
+.mobile-voice-stage__orb.is-blocked .mobile-blob-core::before,
+.mobile-voice-stage__orb.is-blocked .mobile-blob-lobe {
+  animation-play-state: paused;
+}
+
+/* 색까지 빠져야 "죽어 있다"가 한눈에 읽힌다. */
+.mobile-voice-stage__orb.is-blocked .mobile-brand-blob {
+  filter: grayscale(0.85);
+  opacity: 0.55;
+}
+
+/* 컴포저의 작은 마이크도 같은 규칙 — 막혔는데 맥동하면 그것도 거짓말이다. */
+.mobile-chat-icon-btn.is-live.is-stalled .mobile-icon {
+  animation: none;
+  opacity: 0.5;
+}
+
+/* ---- 마이크 권한 안내 시트 ---- */
+
+/* 스레드 위 인라인 알림이 아니라 시트인 이유: 플랫폼별 복구 경로는 두세 문장이라
+   좁은 flex 아이템에서 잘리고, 이건 기능을 막고 있는 상태라 사용자의 결정을
+   기다려야 한다. 웹에는 거부된 권한을 코드로 되돌릴 API가 없으므로 이 안내를
+   제대로 읽히게 하는 것이 유일한 탈출구다. */
+.mobile-voice-permission {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: var(--mobile-space-7);
+  padding-bottom: calc(env(safe-area-inset-bottom) + var(--mobile-space-7));
+  background: color-mix(in oklch, var(--mobile-surface-canvas) 72%, transparent);
+  backdrop-filter: var(--mobile-blur);
+}
+
+.mobile-voice-permission__sheet {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--mobile-space-5);
+  width: 100%;
+  max-width: 420px;
+  padding: var(--mobile-space-8);
+  border-radius: var(--mobile-radius-lg);
+  background: var(--mobile-surface-2);
+  box-shadow: var(--mobile-shadow-soft);
+}
+
+.mobile-voice-permission__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--mobile-radius-full);
+  background: var(--mobile-danger-soft);
+  color: var(--mobile-danger);
+}
+
+.mobile-voice-permission__title {
+  margin: 0;
+  font-size: var(--mobile-font-size-title);
+  color: var(--mobile-fg-strong);
+}
+
+/* 잘리지 않는 것이 이 시트의 존재 이유다 — 줄바꿈을 막지 않는다. */
+.mobile-voice-permission__body {
+  margin: 0;
+  font-size: var(--mobile-font-size-body);
+  line-height: 1.6;
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-voice-permission__actions {
+  display: flex;
+  gap: var(--mobile-space-3);
+  width: 100%;
+}
+
+.mobile-voice-permission__actions .mobile-button {
+  flex: 1 1 0;
+}
+
+/* "업데이트 예정"처럼 액션이 아닌 중립 딱지 — 액센트 대신 무채색으로 낮춘다. */
+.mobile-voice-permission__badge--muted {
+  background: var(--mobile-surface-3);
+  color: var(--mobile-fg-muted);
+}
+
+/* 마이크 탭 뒤 뜨는 모드 선택 목록(1:1 / 회의). */
+.mobile-voice-picker__options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+  width: 100%;
+}
+
+.mobile-voice-picker__option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--mobile-space-2);
+  width: 100%;
+  padding: var(--mobile-space-5);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-md);
+  background: var(--mobile-surface-1);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.mobile-voice-picker__option:hover,
+.mobile-voice-picker__option:focus-visible {
+  border-color: var(--mobile-accent);
+  background: var(--mobile-accent-soft);
+}
+
+/* 준비 중인 모드 — 눌리지 않고, 시각적으로도 뒤로 물린다. */
+.mobile-voice-picker__option--disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.mobile-voice-picker__option--disabled:hover,
+.mobile-voice-picker__option--disabled:focus-visible {
+  border-color: var(--mobile-border);
+  background: var(--mobile-surface-1);
+}
+
+.mobile-voice-picker__option-head {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  font-size: var(--mobile-font-size-body);
+  font-weight: 700;
+  color: var(--mobile-fg-strong);
+}
+
+.mobile-voice-picker__option-desc {
+  font-size: var(--mobile-font-size-body);
+  line-height: 1.6;
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-voice-picker__option-note {
+  font-size: var(--mobile-font-size-caption);
+  line-height: 1.5;
+  color: var(--mobile-fg-subtle);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-voice-stage__orb,
+  .mobile-voice-stage__orb-level {
+    transition: none;
+  }
+}
+
+/* 메시지 안의 첨부 — 마크다운 밖으로 빼내 데스크톱과 같은 모양으로 그린다.
+   이전에는 본문 마크다운 그대로라 이미지조차 평문 링크로 나왔다. */
+.mobile-chat-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+  margin-top: var(--mobile-space-4);
+}
+.mobile-chat-attachments__expired {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  margin: 0;
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-subtle);
+}
+.mobile-chat-attachments__images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--mobile-space-3);
+}
+.mobile-chat-attachments__thumb {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: var(--mobile-radius-xs);
+  background: var(--mobile-surface-inset);
+}
+/* 만료된 첨부는 링크를 죽인다 — 흐리게만 하고 클릭이 되면 나중에 실제
+   삭제를 켰을 때 404가 나면서 "보이는데 안 열리는" 상태가 된다. */
+.mobile-chat-attachments__dead {
+  display: inline-block;
+  opacity: 0.4;
+  pointer-events: none;
+}
+.mobile-chat-attachments__videos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+}
+.mobile-chat-attachments__video video {
+  display: block;
+  /* 말풍선 폭을 넘지 않게. 세로 영상이 화면을 다 먹지 않도록 높이도 묶는다. */
+  width: 100%;
+  max-height: 320px;
+  border-radius: var(--mobile-radius-xs);
+  background: var(--mobile-surface-inset);
+}
+.mobile-chat-attachments__video figcaption {
+  margin-top: var(--mobile-space-1);
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mobile-chat-attachments__files {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-2);
+}
+.mobile-chat-attachments__file {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  font-size: var(--mobile-font-size-body);
+  color: var(--mobile-accent);
+  text-decoration: none;
+  overflow: hidden;
+}
+.mobile-chat-attachments__file > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mobile-chat-attachments__file.is-dead {
+  color: var(--mobile-fg-subtle);
+  text-decoration: line-through;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* 채팅 대기 줄 — **스레드의 마지막 줄**이다(2026-08-14). 데스크톱도 같은 자리
+   (`.inspecting-chat-messages` 끝의 `charlie_loading_indicator`). 말풍선이 아니라
+   영수증 계열의 한 줄이라 조수의 발화로 읽히지 않는다.
+
+   좌우·아래 여백은 스레드가 준다(`.mobile-chat-thread`의 padding·gap) — 예전
+   컴포저 위 자리에서 쓰던 자체 패딩은 지웠다.
+
+   2단 구조: 1단은 기본 대기, 2단은 "한 단계 깊은 작업"(코드 탐색 / 영상).
+   데스크톱은 둘을 가로로 나란히 두지만 모바일은 폭이 없어 접힌다 — 대신
+   `└`로 매달아 같은 종속 관계를 세로로 만든다. */
+.mobile-chat-wait {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 바로 위가 내 말풍선이면 그 아래에 바짝 붙지 않는다 — 한 줄 띄어 "여기서부터
+   에이전트 영역"이 개행으로 읽히게 한다(사용자 지시 2026-08-14, 데스크톱
+   `[data-turn-status]` 규칙과 같은 추상 기능). 안 띄우면 로딩이 방금 내가 보낸
+   말의 꼬리처럼 보인다. */
+.mobile-chat-bubble.is-mine + .mobile-chat-wait {
+  /* 스레드 gap(8px)에 더해져 16px — 모바일 폭에서 데스크톱 24px과 같은 무게다. */
+  margin-top: var(--mobile-space-3);
+}
+
+.mobile-chat-wait__row {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-2);
+  min-height: 20px;
+  color: var(--mobile-fg-subtle);
+  font-size: var(--mobile-font-size-label);
+}
+
+/* 데스크톱과 같은 점자 스피너 글리프 순환(⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏). 점자 글리프는
+   본문 크기로 두면 점 몇 개라 거의 안 보인다 — 한 단계 키우고 폭을 고정해
+   프레임마다 라벨이 흔들리지 않게 한다. */
+.mobile-chat-wait__spinner {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  font-size: var(--mobile-font-size-lg);
+  line-height: 1;
+  color: var(--mobile-accent);
+}
+
+/* 데스크톱 `.thinking-indicator-orb`와 **같은 두 애니메이션**을 건다:
+   글리프 프레임(0.8s steps)과 호흡(2.4s). 프레임만 걸면 점자가 바뀌긴 해도
+   데스크톱처럼 살아 있는 느낌이 안 난다. */
+.mobile-chat-wait__spinner::before {
+  content: "⠋";
+  animation:
+    mobile-chat-wait-frames 0.8s steps(1, end) infinite,
+    mobile-chat-wait-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes mobile-chat-wait-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 0.82;
+  }
+}
+
+@keyframes mobile-chat-wait-frames {
+  0% { content: "⠋"; }
+  10% { content: "⠙"; }
+  20% { content: "⠹"; }
+  30% { content: "⠸"; }
+  40% { content: "⠼"; }
+  50% { content: "⠴"; }
+  60% { content: "⠦"; }
+  70% { content: "⠧"; }
+  80% { content: "⠇"; }
+  90% { content: "⠏"; }
+}
+
+/* 1단 라벨 — **한 톤 고정.** 그라데이션은 마지막 줄에만 건다. 두 줄 다 흐르면
+   어느 쪽이 지금 진행 중인 작업인지 눈이 못 고른다. 색은 오브와 같은 accent라
+   한 덩어리로 읽힌다. */
+.mobile-chat-wait__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--mobile-accent);
+  font-weight: var(--mobile-font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 2단 트리 마커. 1단 스피너와 같은 폭을 차지해 아래로 정렬이 맞는다. */
+.mobile-chat-wait__branch {
+  flex-shrink: 0;
+  width: 1em;
+  margin-inline-start: var(--mobile-space-2);
+  color: var(--mobile-fg-subtle);
+  font-size: var(--mobile-font-size-label);
+  line-height: 1;
+  opacity: 0.6;
+}
+
+/* 마지막 줄만 그라데이션이 흐른다 — 데스크톱 thinking 라벨과 같은 계열·같은
+   주기(1.8s linear)다. 흐르는 줄이 곧 "지금 도는 일"이다. */
+.mobile-chat-wait__label.is-deep {
+  color: var(--mobile-glow-3);
+  background-image: linear-gradient(
+    90deg,
+    var(--mobile-glow-1) 0%,
+    var(--mobile-glow-2) 25%,
+    var(--mobile-glow-3) 50%,
+    var(--mobile-glow-4) 75%,
+    var(--mobile-glow-5) 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: mobile-chat-wait-shimmer 1.8s linear infinite;
+}
+
+@keyframes mobile-chat-wait-shimmer {
+  0% {
+    background-position: 120% 50%;
+  }
+  100% {
+    background-position: -120% 50%;
+  }
+}
+
+.mobile-chat-wait__row.is-deep .mobile-icon {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  color: var(--mobile-glow-3);
+}
+
+/* 움직임을 줄이는 설정: 프레임 순환·셔머·파형을 모두 멈추고 색만 남긴다. */
+@media (prefers-reduced-motion: reduce) {
+  .mobile-chat-wait__spinner::before {
+    content: "⠿";
+    animation: none;
+  }
+
+  .mobile-chat-wait__label.is-deep {
+    animation: none;
+    background-image: none;
+    -webkit-text-fill-color: var(--mobile-glow-3);
+    color: var(--mobile-glow-3);
+  }
+}
+
+/* ── 외관(테마) 카드 — 데스크톱 외관 탭과 같은 구성 ─────────────────────── */
+.mobile-section__note {
+  margin: 0 0 var(--mobile-space-3);
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-theme-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+}
+
+.mobile-theme-card {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-space-4);
+  width: 100%;
+  padding: var(--mobile-space-4);
+  background: var(--mobile-surface-item);
+  border: var(--mobile-border-width) solid var(--mobile-border);
+  border-radius: var(--mobile-radius-sm);
+  text-align: left;
+  color: var(--mobile-fg-default);
+  cursor: pointer;
+}
+
+.mobile-theme-card.is-active {
+  border-color: var(--mobile-accent);
+}
+
+.mobile-theme-card__swatch {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 36px;
+  border-radius: var(--mobile-radius-xs, 6px);
+  overflow: hidden;
+}
+
+.mobile-theme-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.mobile-theme-card__label {
+  font-size: var(--mobile-font-size-body-strong);
+  font-weight: var(--mobile-font-weight-semibold);
+}
+
+.mobile-theme-card__desc {
+  font-size: var(--mobile-font-size-caption);
+  color: var(--mobile-fg-muted);
+}
+
+.mobile-theme-card__check {
+  flex: 0 0 auto;
+  color: var(--mobile-accent);
+  display: inline-flex;
+}
+
+/* 스와치 — 데스크톱 `.os-theme-preview-*`와 같은 그림. 테마와 무관하게
+   자기 색을 보여야 하므로 토큰이 아니라 고정값이다. */
+.mobile-theme-swatch--light {
+  background: linear-gradient(115deg, #faf7f2 0 58%, #ea5a1f 58% 74%, #faf7f2 74%);
+}
+.mobile-theme-swatch--dark {
+  background: linear-gradient(115deg, #201d1a 0 58%, #f08a33 58% 74%, #2a2622 74%);
+}
+.mobile-theme-swatch--light-cool {
+  background: linear-gradient(115deg, #f2f5f7 0 58%, #128577 58% 74%, #fbfdfd 74%);
+}
+.mobile-theme-swatch--dark-cool {
+  background: linear-gradient(115deg, #12161d 0 58%, #2fd4b5 58% 74%, #1b2028 74%);
+}
+.mobile-theme-swatch--game {
+  background: linear-gradient(115deg, #000000 0 52%, #b8302e 52% 66%, #68c486 66%);
+}
+.mobile-theme-swatch--wc-cool {
+  background:
+    radial-gradient(70% 80% at 30% 30%, rgb(63 133 146 / 0.55), transparent 70%),
+    radial-gradient(60% 70% at 75% 70%, rgb(85 144 143 / 0.4), transparent 72%),
+    #f4f0e7;
+}
+.mobile-theme-swatch--wc-warm {
+  background:
+    radial-gradient(70% 80% at 30% 30%, rgb(210 105 63 / 0.5), transparent 70%),
+    radial-gradient(60% 70% at 75% 70%, rgb(205 103 64 / 0.38), transparent 72%),
+    #fbf1e9;
+}
+.mobile-theme-swatch--pencil-cool {
+  background:
+    repeating-linear-gradient(52deg, rgb(63 109 140 / 0.4) 0 2px, transparent 2px 6px),
+    #f7f5ef;
+}
+.mobile-theme-swatch--pencil-warm {
+  background:
+    repeating-linear-gradient(52deg, rgb(168 88 60 / 0.4) 0 2px, transparent 2px 6px),
+    #fbf6ec;
+}
+
+/* ---- 미리 보내기: 아직 안 나간 말들 ----
+   보낸 말풍선과 같은 결이되 흐리게 — "아직 안 갔다"가 한눈에 보여야 한다.
+   ×는 왼쪽(말풍선이 오른쪽 정렬이라 바깥쪽이 왼쪽이다). */
+.mobile-chat-queued {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-2);
+  padding: 0 var(--mobile-space-2) var(--mobile-space-2);
+}
+
+.mobile-chat-queued__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mobile-space-2);
+  align-self: flex-end;
+  max-width: 85%;
+  opacity: 0.7;
+}
+
+.mobile-chat-queued__text {
+  border-radius: var(--mobile-radius-lg);
+  background: var(--mobile-surface-2);
+  padding: var(--mobile-space-2) var(--mobile-space-3);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.mobile-chat-queued__cancel {
+  flex: none;
+  border: 0;
+  background: none;
+  padding: var(--mobile-space-1);
+  color: var(--mobile-text-tertiary);
+}
+
+/* ---- 백그라운드 배지 (모바일의 오브 자리) ----
+   모바일엔 오브가 없다. 진행 중임을 아는 것이 먼저라 배지는 도는 동안 늘 보이고,
+   자세한 것은 눌렀을 때 편다(데스크톱 오브 카드의 hover와 같은 규칙). */
+.mobile-chat-work {
+  /* 헤더 아래 **우측 상단**에 뜬다(사용자 지시). 컴포저 껍데기가
+     `position: absolute; bottom: 0`이라 그 안에 두면 하단으로 내려간다 —
+     그래서 껍데기 밖 형제이고, 화면 기준으로 붙인다. */
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 3.75rem);
+  right: var(--mobile-space-3);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--mobile-space-2);
+}
+
+.mobile-chat-work__badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--mobile-surface-2);
+  color: var(--mobile-text-secondary);
+  box-shadow: var(--mobile-shadow-1, 0 1px 3px rgb(0 0 0 / 0.12));
+  animation: mobile-chat-work-pulse 1.8s ease-in-out infinite;
+}
+
+.mobile-chat-work__badge.is-open {
+  animation: none;
+  color: var(--mobile-text-primary);
+}
+
+/* 예약이 있으면 점 하나 — "뒤에 하나 더 있다"를 펴지 않고도 안다. */
+.mobile-chat-work__dot {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--mobile-accent, currentColor);
+}
+
+.mobile-chat-work__panel {
+  max-width: min(18rem, 70vw);
+  border-radius: var(--mobile-radius-lg);
+  background: var(--mobile-surface-2);
+  padding: var(--mobile-space-3);
+  box-shadow: var(--mobile-shadow-1, 0 1px 3px rgb(0 0 0 / 0.12));
+  font-size: 0.875rem;
+}
+
+.mobile-chat-work__row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.mobile-chat-work__row--next {
+  margin-top: var(--mobile-space-2);
+  padding-top: var(--mobile-space-2);
+  border-top: 1px solid var(--mobile-border, rgb(0 0 0 / 0.08));
+  opacity: 0.8;
+}
+
+/* 예약 줄의 제목 + × 한 줄. ×가 제목 오른쪽 끝에 붙어야 "이 줄을 뺀다"로
+   읽힌다 — 아래로 내려가면 무엇을 빼는 버튼인지 흐려진다. */
+.mobile-chat-work__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mobile-space-2);
+}
+
+.mobile-chat-work__cancel {
+  flex: none;
+  /* 글자 옆 아이콘 버튼이라 손가락 표적이 작아진다. 패널 안쪽 여백을 먹지
+     않도록 음수 마진으로 되물리면서 표적만 넓힌다. */
+  margin: calc(var(--mobile-space-1) * -1);
+  border: 0;
+  background: none;
+  padding: var(--mobile-space-1);
+  color: var(--mobile-text-tertiary);
+}
+
+.mobile-chat-work__note {
+  color: var(--mobile-text-tertiary);
+}
+
+@keyframes mobile-chat-work-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-chat-work__badge { animation: none; }
+}
+
+/* 결과 카드의 대상 줄 — 제목 아래 한 단 작게. */
+.mobile-chat-explore__target {
+  display: block;
+  color: var(--mobile-text-tertiary);
+  font-size: 0.8125rem;
+}
