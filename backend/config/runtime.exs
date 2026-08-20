@@ -89,9 +89,7 @@ if config_env() == :prod do
       You can generate one by calling: mix phx.gen.secret
       """
 
-  host =
-    System.get_env("PHX_HOST") ||
-      raise "environment variable PHX_HOST is missing"
+  host = System.get_env("PHX_HOST", "localhost")
 
   port =
     System.get_env("PORT")
