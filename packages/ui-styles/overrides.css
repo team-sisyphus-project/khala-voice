@@ -255,7 +255,20 @@
   opacity: 0.85;
 }
 
-.vr-tag--topic { font-weight: var(--mobile-font-weight-bold); }
+/* ── 토픽은 칩이 아니다 ─────────────────────────────────
+   회의 하나에 토픽 하나뿐이라(`docs/03-domain-model.md`) 칩으로 세울 이유가 없다.
+   라벨은 여러 개가 나란히 서니까 칩이 필요하지만, 토픽은 **글자 색**으로 구별한다 —
+   칩이 둘 다면 목록에서 어느 쪽이 토픽인지 읽히지 않는다. */
+.vr-tag--topic {
+  padding: 0;
+  background: none;
+  font-weight: var(--mobile-font-weight-bold);
+  font-size: var(--mobile-font-size-label);
+  color: var(--tag-fg, var(--mobile-fg));
+}
+
+button.vr-tag--topic { opacity: 0.55; }
+button.vr-tag--topic[aria-pressed="true"] { opacity: 1; box-shadow: none; text-decoration: underline; text-underline-offset: 3px; }
 .vr-tag[data-deleted="true"] { opacity: 0.55; text-decoration: line-through; }
 
 /* 고르지 않은 것은 흐리게. 켜진 것이 무엇인지 한눈에 보여야 한다. */
@@ -1595,3 +1608,60 @@ a.mobile-top-app-bar__icon-button { text-decoration: none; }
 /* 파형은 종이 위의 선이다 — 면으로 칠하지 않는다 */
 :is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_)
   .vr-recorder__wave { background-color: transparent; }
+
+/* ── 연필: 떠 있는 컨트롤도 종이로 ──────────────────────
+   처음에는 devkanban 이 딤·오버레이를 매체 밖에 둔 것을 따라 탭바·상단 원형
+   버튼·세그먼트를 빼 뒀는데, 그 결과 종이 위에 **유리 조각만 떠 있는** 화면이
+   됐다. 이 앱은 그것들이 화면을 덮는 것이 아니라 늘 같은 자리에 있는 가구라
+   같은 매체로 그린다.
+
+   전부 `[data-theme^="pencil"]` 안에 있다 — 다른 테마는 한 픽셀도 안 바뀐다. */
+
+:is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_)
+  :is(.bottom-nav, .mobile-segmented, .mobile-top-app-bar__icon-button, .mobile-top-app-bar__titles, .mobile-inline-failure, .vr-toggle-row, .mobile-context-sheet__panel) {
+  background-color: transparent;
+  background-image: none;
+  border: 1px solid transparent;
+  border-image: var(--pc-stroke) 46 / 13px / 5.4px round;
+  border-radius: 0;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* 탭바는 **콘텐츠 위에 떠 있다.** 투명하게 두면 아래 글자가 그대로 비쳐
+   읽을 수 없다 — 유리를 걷어낸 자리를 종이로 채운다. */
+:is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_):not(#_)
+  .bottom-nav {
+  background-color: var(--mobile-surface-canvas);
+  border-image-source: var(--pc-stroke5);
+}
+
+/* 획을 돌려 쓴다 — 한 종류면 화면의 모든 상자가 같은 선이 된다 */
+:is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_):not(#_)
+  .mobile-segmented { border-image-source: var(--pc-stroke4); }
+:is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_):not(#_)
+  .mobile-inline-failure { border-image-source: var(--pc-stroke6); }
+:is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_):not(#_)
+  .mobile-top-app-bar__icon-button { border-image-source: var(--pc-stroke7); }
+
+/* 고른 탭·세그먼트는 해칭 — 연필의 명암법이다 (칠하지 않는다) */
+:is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_):not(#_)
+  :is(.bottom-nav button[aria-current="page"], .bottom-nav a[aria-current="page"], .mobile-segmented__item.is-active) {
+  background-color: transparent;
+  background-image: repeating-linear-gradient(
+    52deg,
+    rgb(var(--pc-ink) / 0.3) 0 2px,
+    transparent 2px 5px
+  );
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--mobile-fg-default);
+}
+
+/* 시트 스크림은 매체 밖이다 — 화면을 덮는 것에 자산이 늘면 얼룩이 된다 */
+:is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_):not(#_):not(#_)
+  .mobile-context-sheet__scrim {
+  background-image: none;
+  border-image: none;
+}

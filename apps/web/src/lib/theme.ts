@@ -4,7 +4,9 @@ export const THEMES = [
   { id: "light", label: "라이트", icon: "light_mode" },
   { id: "dark", label: "다크", icon: "dark_mode" },
   { id: "pencil-warm", label: "연필", icon: "draw" },
-  { id: "game", label: "게임", icon: "videogame_asset" },
+  // 표시 이름만 "픽셀" 이다. id 는 `game` 그대로 — CSS(`game-skin.css`)와
+  // 계정 스키마(`@themes`)가 이 값에 걸려 있다.
+  { id: "game", label: "픽셀", icon: "videogame_asset" },
 ] as const;
 
 export type Theme = (typeof THEMES)[number]["id"];

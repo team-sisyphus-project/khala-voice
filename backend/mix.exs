@@ -101,7 +101,7 @@ defmodule VR.MixProject do
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["compile", "tailwind vr", "esbuild vr", "vr.copy_themes"],
+      "assets.build": ["compile", "tailwind vr", "esbuild vr"],
       "assets.deploy": [
         "tailwind vr --minify",
         "esbuild vr --minify",
