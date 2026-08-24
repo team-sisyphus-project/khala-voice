@@ -1,0 +1,3 @@
+database = true
+migrate = "/app/bin/vr eval 'VR.Release.migrate()'"
+healthcheck = "/healthz"

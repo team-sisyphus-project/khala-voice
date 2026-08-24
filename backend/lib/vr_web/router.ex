@@ -1,6 +1,8 @@
 defmodule VRWeb.Router do
   use VRWeb, :router
 
+  get "/healthz", VRWeb.HealthController, :show
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -268,6 +270,7 @@ defmodule VRWeb.Router do
       layout: false do
       live "/", DashboardLive, :index
       live "/accounts", AccountsLive, :index
+      live "/accounts/verify-mfa", MFAStepUpLive, :new
       live "/security", SecurityLive, :index
       live "/billing", BillingLive, :index
       live "/settings/:group", SettingsLive, :edit

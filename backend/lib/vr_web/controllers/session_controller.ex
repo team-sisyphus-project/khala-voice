@@ -90,9 +90,11 @@ defmodule VRWeb.SessionController do
           :ok ->
             conn
             |> clear_mfa_pending()
-            |> UserAuth.log_in_account(account, %{
-              "remember_me" => if(remember?, do: "true", else: "false")
-            })
+            |> UserAuth.log_in_account(
+              account,
+              %{"remember_me" => if(remember?, do: "true", else: "false")},
+              mfa_verified_at: DateTime.utc_now(:second)
+            )
 
           _ ->
             Accounts.record_login_attempt(account && account.email, client_ip(conn), false)
@@ -136,9 +138,11 @@ defmodule VRWeb.SessionController do
           # 백업 코드는 **지금만** 보여줄 수 있다. 해시로만 저장하기 때문이다.
           |> put_session(:mfa_backup_codes, backup_codes)
           |> put_flash(:info, "2단계 인증을 켰습니다. 백업 코드를 설정에서 확인하세요.")
-          |> UserAuth.log_in_account(updated, %{
-            "remember_me" => if(remember?, do: "true", else: "false")
-          })
+          |> UserAuth.log_in_account(
+            updated,
+            %{"remember_me" => if(remember?, do: "true", else: "false")},
+            mfa_verified_at: DateTime.utc_now(:second)
+          )
         else
           _ ->
             conn
