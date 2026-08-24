@@ -1,6 +1,8 @@
 defmodule VRWeb.Router do
   use VRWeb, :router
 
+  get "/healthz", VRWeb.HealthController, :show
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
