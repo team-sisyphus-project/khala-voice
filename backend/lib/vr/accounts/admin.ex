@@ -194,6 +194,9 @@ defmodule VR.Accounts.Admin do
 
   @recent_mfa_seconds 10 * 60
 
+  @doc "고위험 관리자 작업에 인정되는 MFA 확인 유효기간(초)."
+  def recent_mfa_seconds, do: @recent_mfa_seconds
+
   defp recent_mfa?(%AccountSession{id: session_id}, %Account{id: account_id}) do
     now = DateTime.utc_now(:second)
     cutoff = DateTime.add(now, -@recent_mfa_seconds, :second)
