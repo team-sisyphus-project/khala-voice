@@ -103,7 +103,9 @@ config :vr, Oban,
        # 매일 00:20 — 구독 기간 갱신 + 크레딧 지급
        {"20 0 * * *", VR.Workers.MonthlyGrantWorker},
        # 매일 00:30 — 만료된 크레딧 정리 (지급 뒤에 돈다)
-       {"30 0 * * *", VR.Workers.CreditExpiryWorker}
+       {"30 0 * * *", VR.Workers.CreditExpiryWorker},
+       # 매일 02:40 — 365일이 지난 관리자 계정 감사 이벤트 영구 삭제
+       {"40 2 * * *", VR.Workers.AdminAuditRetentionWorker}
      ]}
   ]
 

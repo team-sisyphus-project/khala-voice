@@ -5,6 +5,7 @@ defmodule VR.Accounts.AdminTest do
 
   alias VR.Accounts
   alias VR.Accounts.Admin
+  alias VR.AdminAudit
   alias VR.Config
 
   defp admin_fixture(attrs \\ %{}) do
@@ -83,6 +84,44 @@ defmodule VR.Accounts.AdminTest do
   end
 
   describe "승격" do
+    test "성공과 거부 시도를 마스킹된 구조화 이벤트로 남긴다" do
+      actor = admin_fixture(email: "Audit.Actor@Example.test")
+      target = account_fixture(email: "Audit.Target@Example.test")
+
+      assert {:error, :recent_mfa_required} = Admin.promote(target, actor)
+      assert {:ok, _promoted} = Admin.promote(target, actor, recent_session(actor))
+
+      assert {:ok, events} =
+               AdminAudit.search(
+                 action: "admin.promote",
+                 actor_account_id: actor.id,
+                 target_account_id: target.id
+               )
+
+      assert length(events) == 2
+      succeeded = Enum.find(events, &(&1.outcome == "succeeded"))
+      denied = Enum.find(events, &(&1.outcome == "denied"))
+
+      assert succeeded.outcome == "succeeded"
+      assert succeeded.reason == "completed"
+      assert succeeded.actor_email_masked == "a***@***.test"
+      assert succeeded.target_email_masked == "a***@***.test"
+      assert denied.outcome == "denied"
+      assert denied.reason == "recent_mfa_required"
+    end
+
+    test "감사 이벤트를 쓸 수 없으면 권한 변경도 롤백한다" do
+      actor = admin_fixture()
+      target = account_fixture()
+      Logger.metadata(request_id: String.duplicate("x", 256))
+
+      assert {:error, :audit_write_failed} =
+               Admin.promote(target, actor, recent_session(actor))
+
+      refute VR.Repo.reload!(target).is_admin
+      Logger.metadata(request_id: nil)
+    end
+
     test "최근 MFA가 없거나 10분을 넘기면 거부하고 최근 MFA 세션은 허용한다" do
       actor = admin_fixture()
       target = account_fixture()
