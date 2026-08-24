@@ -58,6 +58,14 @@ defmodule VR.Accounts.AdminTest do
   end
 
   describe "승격" do
+    test "일반 사용자가 직접 호출하면 거부한다" do
+      actor = account_fixture()
+      target = account_fixture()
+
+      assert {:error, :unauthorized} = Admin.promote(target, actor)
+      refute VR.Repo.reload!(target).is_admin
+    end
+
     test "일반 계정을 어드민으로 만든다" do
       actor = admin_fixture()
       target = account_fixture()
@@ -85,6 +93,14 @@ defmodule VR.Accounts.AdminTest do
   end
 
   describe "강등 — 잠금 방지" do
+    test "일반 사용자가 직접 호출하면 거부한다" do
+      actor = account_fixture()
+      target = admin_fixture()
+
+      assert {:error, :unauthorized} = Admin.demote(target, actor)
+      assert VR.Repo.reload!(target).is_admin
+    end
+
     test "마지막 어드민은 강등할 수 없다" do
       only_admin = admin_fixture()
       other = admin_fixture()
@@ -130,6 +146,14 @@ defmodule VR.Accounts.AdminTest do
   end
 
   describe "삭제 — 잠금 방지" do
+    test "일반 사용자가 직접 호출하면 거부한다" do
+      actor = account_fixture()
+      target = account_fixture()
+
+      assert {:error, :unauthorized} = Admin.delete_account(target, actor)
+      refute VR.Repo.reload!(target).deleted_at
+    end
+
     test "자기 자신은 삭제할 수 없다" do
       actor = admin_fixture()
       assert {:error, :cannot_delete_self} = Admin.delete_account(actor, actor)

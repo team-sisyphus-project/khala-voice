@@ -100,6 +100,7 @@ defmodule VR.Accounts.Admin do
   @doc "다른 계정을 어드민으로 승격한다."
   def promote(%Account{} = target, %Account{} = actor) do
     cond do
+      not actor.is_admin -> {:error, :unauthorized}
       target.deleted_at -> {:error, :account_deleted}
       target.is_admin -> {:ok, target}
       true -> set_admin(target, actor, true)
@@ -113,6 +114,7 @@ defmodule VR.Accounts.Admin do
   """
   def demote(%Account{} = target, %Account{} = actor) do
     cond do
+      not actor.is_admin -> {:error, :unauthorized}
       not target.is_admin -> {:ok, target}
       target.id == actor.id -> {:error, :cannot_demote_self}
       count_admins() <= 1 -> {:error, :last_admin}
@@ -149,6 +151,9 @@ defmodule VR.Accounts.Admin do
   """
   def delete_account(%Account{} = target, %Account{} = actor) do
     cond do
+      not actor.is_admin ->
+        {:error, :unauthorized}
+
       target.id == actor.id ->
         {:error, :cannot_delete_self}
 
