@@ -170,6 +170,29 @@ defmodule VR.Accounts.AdminTest do
   end
 
   describe "강등 — 잠금 방지" do
+    test "성공과 거부 시도를 마스킹된 구조화 이벤트로 남긴다" do
+      actor = admin_fixture(email: "Demote.Actor@Ops.example")
+      target = admin_fixture(email: "Demote.Target@People.example")
+
+      assert {:error, :recent_mfa_required} = Admin.demote(target, actor)
+      assert {:ok, _demoted} = Admin.demote(target, actor, recent_session(actor))
+
+      assert {:ok, events} =
+               AdminAudit.search(
+                 action: "admin.demote",
+                 actor_account_id: actor.id,
+                 target_account_id: target.id
+               )
+
+      assert Enum.map(events, &{&1.outcome, &1.reason}) |> Enum.sort() ==
+               [{"denied", "recent_mfa_required"}, {"succeeded", "completed"}]
+
+      assert Enum.all?(events, fn event ->
+               event.actor_email_masked == "d***@***.example" and
+                 event.target_email_masked == "d***@***.example"
+             end)
+    end
+
     test "최근 MFA가 없거나 만료되면 거부하고 최근 MFA 세션은 허용한다" do
       actor = admin_fixture()
       target = admin_fixture()
@@ -238,6 +261,30 @@ defmodule VR.Accounts.AdminTest do
   end
 
   describe "삭제 — 잠금 방지" do
+    test "성공과 거부 시도를 삭제 전 이메일의 마스킹된 구조화 이벤트로 남긴다" do
+      actor = admin_fixture(email: "Delete.Actor@Ops.example")
+      target = account_fixture(email: "Delete.Target@People.example")
+
+      assert {:error, :recent_mfa_required} = Admin.delete_account(target, actor)
+      assert {:ok, deleted} = Admin.delete_account(target, actor, recent_session(actor))
+      assert deleted.email =~ "deleted.invalid"
+
+      assert {:ok, events} =
+               AdminAudit.search(
+                 action: "account.delete",
+                 actor_account_id: actor.id,
+                 target_account_id: target.id
+               )
+
+      assert Enum.map(events, &{&1.outcome, &1.reason}) |> Enum.sort() ==
+               [{"denied", "recent_mfa_required"}, {"succeeded", "completed"}]
+
+      assert Enum.all?(events, fn event ->
+               event.actor_email_masked == "d***@***.example" and
+                 event.target_email_masked == "d***@***.example"
+             end)
+    end
+
     test "최근 MFA가 없거나 만료되면 거부하고 최근 MFA 세션은 허용한다" do
       actor = admin_fixture()
       target = account_fixture()
