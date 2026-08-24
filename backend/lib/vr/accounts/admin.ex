@@ -27,6 +27,7 @@ defmodule VR.Accounts.Admin do
 
   alias Ecto.Multi
   alias VR.Accounts.{Account, AccountSession, AccountToken}
+  alias VR.Config
   alias VR.Friends.{FriendInvitation, Friendship}
   alias VR.Repo
 
@@ -216,7 +217,7 @@ defmodule VR.Accounts.Admin do
   `{:ok, account, password}` — 비밀번호는 **이때 한 번만** 볼 수 있다.
   해시로만 저장하므로 나중에 조회할 수 없다.
 
-  비밀번호는 `BOOTSTRAP_ADMIN_PASSWORD` 환경변수에서 읽고,
+  비밀번호는 공통 설정 계층의 `app.bootstrap_admin_password`에서 읽고,
   없으면 무작위로 만든다. **코드에 기본 비밀번호를 두지 않는다** —
   이 리포는 공개되므로 기본값이 있으면 모든 배포본이 같은 열쇠를 갖게 된다.
   """
@@ -226,10 +227,10 @@ defmodule VR.Accounts.Admin do
     else
       # 이메일도 기본값을 두지 않는다. 모든 배포본이 같은 주소를 쓰면
       # 그 자체가 공격 대상이 된다.
-      email = opts[:email] || System.get_env("BOOTSTRAP_ADMIN_EMAIL")
+      email = opts[:email] || Config.fetch("app.bootstrap_admin_email")
 
       password =
-        opts[:password] || System.get_env("BOOTSTRAP_ADMIN_PASSWORD") || random_password()
+        opts[:password] || Config.fetch("app.bootstrap_admin_password") || random_password()
 
       if email in [nil, ""] do
         {:error, :email_required}

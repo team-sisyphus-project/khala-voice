@@ -334,6 +334,28 @@ defmodule VR.Config.Registry do
       feature: :mail,
       help: "메일에 들어가는 링크의 기준 주소. 예: https://voice.example.com"
     },
+    %{
+      key: "app.bootstrap_admin_email",
+      group: :app,
+      label: "초기 관리자 이메일",
+      env: "BOOTSTRAP_ADMIN_EMAIL",
+      type: :string,
+      secret: false,
+      required: false,
+      feature: nil,
+      help: "최초 관리자 계정을 만들 때만 사용한다"
+    },
+    %{
+      key: "app.bootstrap_admin_password",
+      group: :app,
+      label: "초기 관리자 비밀번호",
+      env: "BOOTSTRAP_ADMIN_PASSWORD",
+      type: :string,
+      secret: true,
+      required: false,
+      feature: nil,
+      help: "최초 관리자 계정을 만들 때만 사용한다. 비우면 안전한 무작위 비밀번호를 만든다"
+    },
 
     # ── 칼라 연동 ───────────────────────────────────────────
     # 시크릿이 없다. 칼라는 공개 클라이언트라(PKCE) client_secret 을 쓰지 않고,

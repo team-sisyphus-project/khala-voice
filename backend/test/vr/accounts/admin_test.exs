@@ -5,6 +5,7 @@ defmodule VR.Accounts.AdminTest do
 
   alias VR.Accounts
   alias VR.Accounts.Admin
+  alias VR.Config
 
   defp admin_fixture(attrs \\ %{}) do
     account = account_fixture(attrs)
@@ -13,6 +14,21 @@ defmodule VR.Accounts.AdminTest do
   end
 
   describe "부트스트랩" do
+    test "공통 설정 계층에서 이메일과 비밀번호를 읽는다" do
+      {:ok, _} = Config.put("app.bootstrap_admin_email", "configured@test.local")
+      {:ok, _} = Config.put("app.bootstrap_admin_password", "configured-password-1234")
+
+      assert {:ok, account, "configured-password-1234"} =
+               Admin.ensure_bootstrap_admin()
+
+      assert account.email == "configured@test.local"
+
+      assert Accounts.get_account_by_email_and_password(
+               "configured@test.local",
+               "configured-password-1234"
+             )
+    end
+
     test "어드민이 없으면 만든다" do
       assert {:ok, account, password} = Admin.ensure_bootstrap_admin(email: "boot@test.local")
 
