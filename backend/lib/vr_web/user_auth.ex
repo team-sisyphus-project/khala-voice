@@ -27,11 +27,12 @@ defmodule VRWeb.UserAuth do
   @max_age 60 * 60 * 24 * 60
 
   @doc "로그인 처리. 세션을 만들고 쿠키를 심는다."
-  def log_in_account(conn, account, params \\ %{}) do
+  def log_in_account(conn, account, params \\ %{}, opts \\ []) do
     {:ok, token, _session} =
       Accounts.create_session(account, %{
         user_agent: get_req_header(conn, "user-agent") |> List.first(),
-        ip_address: client_ip(conn)
+        ip_address: client_ip(conn),
+        mfa_verified_at: opts[:mfa_verified_at]
       })
 
     # 삭제 예약 상태였다면 로그인으로 취소된다
@@ -192,10 +193,19 @@ defmodule VRWeb.UserAuth do
   end
 
   defp assign_current_account(socket, session) do
-    Phoenix.Component.assign_new(socket, :current_account, fn ->
+    socket
+    |> Phoenix.Component.assign_new(:current_account, fn ->
       with token when is_binary(token) <- session["account_token"],
            {:ok, account, _} <- Accounts.get_account_by_session_token(token) do
         account
+      else
+        _ -> nil
+      end
+    end)
+    |> Phoenix.Component.assign_new(:current_session, fn ->
+      with token when is_binary(token) <- session["account_token"],
+           {:ok, _, current_session} <- Accounts.get_account_by_session_token(token) do
+        current_session
       else
         _ -> nil
       end

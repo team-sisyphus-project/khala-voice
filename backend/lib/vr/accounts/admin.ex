@@ -27,10 +27,10 @@ defmodule VR.Accounts.Admin do
 
   alias Ecto.Multi
   alias VR.Accounts.{Account, AccountSession, AccountToken}
+  alias VR.AdminAudit
+  alias VR.Config
   alias VR.Friends.{FriendInvitation, Friendship}
   alias VR.Repo
-
-  require Logger
 
   # ── 조회 ─────────────────────────────────────────────────
 
@@ -98,11 +98,22 @@ defmodule VR.Accounts.Admin do
   # ── 권한 변경 ────────────────────────────────────────────
 
   @doc "다른 계정을 어드민으로 승격한다."
-  def promote(%Account{} = target, %Account{} = actor) do
+  def promote(%Account{} = target, %Account{} = actor, session \\ nil) do
     cond do
-      target.deleted_at -> {:error, :account_deleted}
-      target.is_admin -> {:ok, target}
-      true -> set_admin(target, actor, true)
+      not actor.is_admin ->
+        audited_result("admin.promote", target, actor, :unauthorized)
+
+      not recent_mfa?(session, actor) ->
+        audited_result("admin.promote", target, actor, :recent_mfa_required)
+
+      target.deleted_at ->
+        audited_result("admin.promote", target, actor, :account_deleted)
+
+      target.is_admin ->
+        audited_result("admin.promote", target, actor, :already_admin, {:ok, target})
+
+      true ->
+        set_admin(target, actor, true, "admin.promote")
     end
   end
 
@@ -111,28 +122,40 @@ defmodule VR.Accounts.Admin do
 
   마지막 어드민이거나 자기 자신이면 거부한다.
   """
-  def demote(%Account{} = target, %Account{} = actor) do
+  def demote(%Account{} = target, %Account{} = actor, session \\ nil) do
     cond do
-      not target.is_admin -> {:ok, target}
-      target.id == actor.id -> {:error, :cannot_demote_self}
-      count_admins() <= 1 -> {:error, :last_admin}
-      true -> set_admin(target, actor, false)
+      not actor.is_admin ->
+        audited_result("admin.demote", target, actor, :unauthorized)
+
+      not recent_mfa?(session, actor) ->
+        audited_result("admin.demote", target, actor, :recent_mfa_required)
+
+      not target.is_admin ->
+        audited_result("admin.demote", target, actor, :not_admin, {:ok, target})
+
+      target.id == actor.id ->
+        audited_result("admin.demote", target, actor, :cannot_demote_self)
+
+      count_admins() <= 1 ->
+        audited_result("admin.demote", target, actor, :last_admin)
+
+      true ->
+        set_admin(target, actor, false, "admin.demote")
     end
   end
 
-  defp set_admin(target, actor, value) do
-    result =
-      target
-      |> Ecto.Changeset.change(%{is_admin: value})
-      |> Repo.update()
-
-    with {:ok, updated} <- result do
-      Logger.info(
-        "[Admin] #{actor.email} 이(가) #{updated.email} 의 어드민 권한을 " <>
-          "#{if value, do: "부여", else: "회수"}했습니다"
-      )
-
-      {:ok, updated}
+  defp set_admin(target, actor, value, action) do
+    Multi.new()
+    |> Multi.update(:account, Ecto.Changeset.change(target, %{is_admin: value}))
+    |> Multi.insert(
+      :audit_event,
+      audit_changeset(action, target, actor, "succeeded", "completed")
+    )
+    |> Repo.transaction()
+    |> case do
+      {:ok, %{account: updated}} -> {:ok, updated}
+      {:error, :audit_event, _reason, _changes} -> {:error, :audit_write_failed}
+      {:error, _step, reason, _changes} -> {:error, reason}
     end
   end
 
@@ -147,21 +170,43 @@ defmodule VR.Accounts.Admin do
   `DeletionWorker` 와 같은 방식으로 익명화한다 — 이메일을 남기면
   삭제의 의미가 없고, 같은 주소로 재가입도 막힌다.
   """
-  def delete_account(%Account{} = target, %Account{} = actor) do
+  def delete_account(%Account{} = target, %Account{} = actor, session \\ nil) do
     cond do
+      not actor.is_admin ->
+        audited_result("account.delete", target, actor, :unauthorized)
+
+      not recent_mfa?(session, actor) ->
+        audited_result("account.delete", target, actor, :recent_mfa_required)
+
       target.id == actor.id ->
-        {:error, :cannot_delete_self}
+        audited_result("account.delete", target, actor, :cannot_delete_self)
 
       target.is_admin and count_admins() <= 1 ->
-        {:error, :last_admin}
+        audited_result("account.delete", target, actor, :last_admin)
 
       target.deleted_at ->
-        {:error, :already_deleted}
+        audited_result("account.delete", target, actor, :already_deleted)
 
       true ->
         do_delete(target, actor)
     end
   end
+
+  @recent_mfa_seconds 10 * 60
+
+  defp recent_mfa?(%AccountSession{id: session_id}, %Account{id: account_id}) do
+    now = DateTime.utc_now(:second)
+    cutoff = DateTime.add(now, -@recent_mfa_seconds, :second)
+
+    Repo.exists?(
+      from s in AccountSession,
+        where:
+          s.id == ^session_id and s.account_id == ^account_id and s.is_active == true and
+            s.expires_at > ^now and s.mfa_verified_at >= ^cutoff and s.mfa_verified_at <= ^now
+    )
+  end
+
+  defp recent_mfa?(_, _), do: false
 
   defp do_delete(target, actor) do
     now = DateTime.utc_now(:second)
@@ -192,15 +237,48 @@ defmodule VR.Accounts.Admin do
         is_bootstrap: false
       })
     )
+    |> Multi.insert(
+      :audit_event,
+      audit_changeset("account.delete", target, actor, "succeeded", "completed")
+    )
     |> Repo.transaction()
     |> case do
       {:ok, %{account: deleted}} ->
-        Logger.info("[Admin] #{actor.email} 이(가) 계정 #{target.email} 을 삭제했습니다")
         {:ok, deleted}
+
+      {:error, :audit_event, _reason, _changes} ->
+        {:error, :audit_write_failed}
 
       {:error, _step, reason, _} ->
         {:error, reason}
     end
+  end
+
+  defp audited_result(action, target, actor, reason, result \\ nil) do
+    outcome = if match?({:ok, _}, result), do: "succeeded", else: "denied"
+
+    case AdminAudit.record(audit_attrs(action, target, actor, outcome, Atom.to_string(reason))) do
+      {:ok, _event} -> result || {:error, reason}
+      {:error, _changeset} -> {:error, :audit_write_failed}
+    end
+  end
+
+  defp audit_changeset(action, target, actor, outcome, reason) do
+    action
+    |> audit_attrs(target, actor, outcome, reason)
+    |> AdminAudit.changeset()
+  end
+
+  defp audit_attrs(action, target, actor, outcome, reason) do
+    %{
+      action: action,
+      outcome: outcome,
+      reason: reason,
+      actor_account_id: actor.id,
+      target_account_id: target.id,
+      actor_email: actor.email,
+      target_email: target.email
+    }
   end
 
   # ── 부트스트랩 ───────────────────────────────────────────
@@ -211,7 +289,7 @@ defmodule VR.Accounts.Admin do
   `{:ok, account, password}` — 비밀번호는 **이때 한 번만** 볼 수 있다.
   해시로만 저장하므로 나중에 조회할 수 없다.
 
-  비밀번호는 `BOOTSTRAP_ADMIN_PASSWORD` 환경변수에서 읽고,
+  비밀번호는 공통 설정 계층의 `app.bootstrap_admin_password`에서 읽고,
   없으면 무작위로 만든다. **코드에 기본 비밀번호를 두지 않는다** —
   이 리포는 공개되므로 기본값이 있으면 모든 배포본이 같은 열쇠를 갖게 된다.
   """
@@ -221,10 +299,10 @@ defmodule VR.Accounts.Admin do
     else
       # 이메일도 기본값을 두지 않는다. 모든 배포본이 같은 주소를 쓰면
       # 그 자체가 공격 대상이 된다.
-      email = opts[:email] || System.get_env("BOOTSTRAP_ADMIN_EMAIL")
+      email = opts[:email] || Config.fetch("app.bootstrap_admin_email")
 
       password =
-        opts[:password] || System.get_env("BOOTSTRAP_ADMIN_PASSWORD") || random_password()
+        opts[:password] || Config.fetch("app.bootstrap_admin_password") || random_password()
 
       if email in [nil, ""] do
         {:error, :email_required}

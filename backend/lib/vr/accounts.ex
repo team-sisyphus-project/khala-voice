@@ -247,6 +247,15 @@ defmodule VR.Accounts do
     end
   end
 
+  @doc "서버가 확인한 MFA 성공 시각을 현재 로그인 세션에 기록한다."
+  def mark_session_mfa_verified(%AccountSession{account_id: account_id} = session, account_id) do
+    session
+    |> Ecto.Changeset.change(%{mfa_verified_at: DateTime.utc_now(:second)})
+    |> Repo.update()
+  end
+
+  def mark_session_mfa_verified(%AccountSession{}, _account_id), do: {:error, :session_mismatch}
+
   @doc """
   세션 토큰으로 계정을 찾는다. 유효하면 마지막 활동 시각을 갱신한다.
 
