@@ -52,15 +52,15 @@ defmodule VRWeb.Admin.AccountsLive do
   end
 
   def handle_event("promote", %{"id" => id}, socket) do
-    apply_action(socket, id, &Admin.promote/2, "어드민 권한을 부여했습니다")
+    apply_action(socket, id, &Admin.promote/3, "어드민 권한을 부여했습니다")
   end
 
   def handle_event("demote", %{"id" => id}, socket) do
-    apply_action(socket, id, &Admin.demote/2, "어드민 권한을 회수했습니다")
+    apply_action(socket, id, &Admin.demote/3, "어드민 권한을 회수했습니다")
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
-    apply_action(socket, id, &Admin.delete_account/2, "계정을 삭제했습니다")
+    apply_action(socket, id, &Admin.delete_account/3, "계정을 삭제했습니다")
   end
 
   defp apply_action(socket, id, fun, success_message) do
@@ -72,14 +72,25 @@ defmodule VRWeb.Admin.AccountsLive do
         {:noreply, put_flash(socket, :error, "계정을 찾지 못했습니다")}
 
       true ->
-        case fun.(target, actor) do
+        case fun.(target, actor, socket.assigns.current_session) do
           {:ok, _} ->
             {:noreply, socket |> put_flash(:info, success_message) |> load()}
 
           {:error, reason} ->
-            {:noreply, socket |> put_flash(:error, message_for(reason)) |> load()}
+            handle_action_error(socket, reason)
         end
     end
+  end
+
+  defp handle_action_error(socket, :recent_mfa_required) do
+    {:noreply,
+     socket
+     |> put_flash(:error, message_for(:recent_mfa_required))
+     |> push_navigate(to: ~p"/_admin/accounts/verify-mfa")}
+  end
+
+  defp handle_action_error(socket, reason) do
+    {:noreply, socket |> put_flash(:error, message_for(reason)) |> load()}
   end
 
   defp message_for(:last_admin),
@@ -89,6 +100,7 @@ defmodule VRWeb.Admin.AccountsLive do
   defp message_for(:cannot_delete_self), do: "자기 계정은 설정 화면에서 삭제 예약을 쓰세요"
   defp message_for(:account_deleted), do: "이미 삭제된 계정입니다"
   defp message_for(:already_deleted), do: "이미 삭제된 계정입니다"
+  defp message_for(:recent_mfa_required), do: "계속하려면 MFA를 다시 확인해 주세요."
   defp message_for(_), do: "처리하지 못했습니다"
 
   @impl true

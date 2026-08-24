@@ -268,6 +268,7 @@ defmodule VRWeb.Router do
       layout: false do
       live "/", DashboardLive, :index
       live "/accounts", AccountsLive, :index
+      live "/accounts/verify-mfa", MFAStepUpLive, :new
       live "/security", SecurityLive, :index
       live "/billing", BillingLive, :index
       live "/settings/:group", SettingsLive, :edit

@@ -99,9 +99,10 @@ defmodule VR.Accounts.Admin do
   # ── 권한 변경 ────────────────────────────────────────────
 
   @doc "다른 계정을 어드민으로 승격한다."
-  def promote(%Account{} = target, %Account{} = actor) do
+  def promote(%Account{} = target, %Account{} = actor, session \\ nil) do
     cond do
       not actor.is_admin -> {:error, :unauthorized}
+      not recent_mfa?(session, actor) -> {:error, :recent_mfa_required}
       target.deleted_at -> {:error, :account_deleted}
       target.is_admin -> {:ok, target}
       true -> set_admin(target, actor, true)
@@ -113,9 +114,10 @@ defmodule VR.Accounts.Admin do
 
   마지막 어드민이거나 자기 자신이면 거부한다.
   """
-  def demote(%Account{} = target, %Account{} = actor) do
+  def demote(%Account{} = target, %Account{} = actor, session \\ nil) do
     cond do
       not actor.is_admin -> {:error, :unauthorized}
+      not recent_mfa?(session, actor) -> {:error, :recent_mfa_required}
       not target.is_admin -> {:ok, target}
       target.id == actor.id -> {:error, :cannot_demote_self}
       count_admins() <= 1 -> {:error, :last_admin}
@@ -150,10 +152,13 @@ defmodule VR.Accounts.Admin do
   `DeletionWorker` 와 같은 방식으로 익명화한다 — 이메일을 남기면
   삭제의 의미가 없고, 같은 주소로 재가입도 막힌다.
   """
-  def delete_account(%Account{} = target, %Account{} = actor) do
+  def delete_account(%Account{} = target, %Account{} = actor, session \\ nil) do
     cond do
       not actor.is_admin ->
         {:error, :unauthorized}
+
+      not recent_mfa?(session, actor) ->
+        {:error, :recent_mfa_required}
 
       target.id == actor.id ->
         {:error, :cannot_delete_self}
@@ -168,6 +173,22 @@ defmodule VR.Accounts.Admin do
         do_delete(target, actor)
     end
   end
+
+  @recent_mfa_seconds 10 * 60
+
+  defp recent_mfa?(%AccountSession{id: session_id}, %Account{id: account_id}) do
+    now = DateTime.utc_now(:second)
+    cutoff = DateTime.add(now, -@recent_mfa_seconds, :second)
+
+    Repo.exists?(
+      from s in AccountSession,
+        where:
+          s.id == ^session_id and s.account_id == ^account_id and s.is_active == true and
+            s.expires_at > ^now and s.mfa_verified_at >= ^cutoff and s.mfa_verified_at <= ^now
+    )
+  end
+
+  defp recent_mfa?(_, _), do: false
 
   defp do_delete(target, actor) do
     now = DateTime.utc_now(:second)

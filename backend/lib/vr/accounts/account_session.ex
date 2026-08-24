@@ -28,6 +28,7 @@ defmodule VR.Accounts.AccountSession do
     field :user_agent, :string
     field :ip_address, :string
     field :last_activity_at, :utc_datetime
+    field :mfa_verified_at, :utc_datetime
     field :expires_at, :utc_datetime
     field :is_active, :boolean, default: true
 
@@ -54,6 +55,7 @@ defmodule VR.Accounts.AccountSession do
         user_agent: truncate(attrs[:user_agent], 300),
         ip_address: truncate(attrs[:ip_address], 45),
         last_activity_at: now,
+        mfa_verified_at: attrs[:mfa_verified_at],
         expires_at: DateTime.add(now, @validity_days, :day),
         is_active: true
       })

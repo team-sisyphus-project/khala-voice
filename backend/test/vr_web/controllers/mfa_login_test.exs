@@ -53,6 +53,11 @@ defmodule VRWeb.MFALoginTest do
 
       assert get_session(conn, :account_token)
       assert redirected_to(conn) == "/go/meetings"
+
+      assert {:ok, ^admin, session} =
+               VR.Accounts.get_account_by_session_token(get_session(conn, :account_token))
+
+      assert session.mfa_verified_at
       # 대기 상태는 정리된다
       refute get_session(conn, :mfa_pending_account_id)
     end
