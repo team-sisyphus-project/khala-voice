@@ -39,6 +39,57 @@ if config_env() in [:dev, :test] do
   end
 end
 
+# ── 포트 해석 ─────────────────────────────────────────────────────
+#
+#  PORT / HTTPS_PORT 는 **선택** 환경변수다. 없거나 비어 있으면 기본값을 쓴다.
+#  DATABASE_URL · SECRET_KEY_BASE 처럼 "없으면 동작이 틀리는" 값이 아니라
+#  "없으면 기본값이면 되는" 값이기 때문이다.
+#
+#  다만 값이 **있는데 형식이 틀린** 경우(PORT=8080a, PORT=0 …)는 그대로 멈춘다.
+#  기본값으로 조용히 삼키면 "떴는데 헬스체크만 실패" 가 되어 원인 추적이 비싸진다.
+#  비어 있는 것은 "안 정했다", 형식이 틀린 것은 "잘못 정했다" — 다르게 대한다.
+#
+#  이 규칙은 여기 한 곳에만 있다. config/dev.exs 는 포트를 직접 읽지 않고,
+#  아래 :dev 분기가 dev.exs 의 Endpoint 설정 위에 포트만 덮어쓴다.
+#  (릴리즈에는 config.exs / prod.exs / runtime.exs 만 실려 가므로 규칙을
+#   별도 파일로 빼면 부팅 시점에 파일을 찾지 못한다. 그래서 파일 분리 대신
+#   "한 파일 안의 한 함수" 로 단일 출처를 지킨다.)
+port_from_env = fn name, default ->
+  case System.get_env(name) do
+    nil ->
+      default
+
+    raw ->
+      case String.trim(raw) do
+        "" ->
+          default
+
+        trimmed ->
+          case Integer.parse(trimmed) do
+            {n, ""} when n > 0 and n <= 65_535 ->
+              n
+
+            _ ->
+              raise """
+              환경변수 #{name} 의 값이 올바른 포트 번호가 아닙니다: #{inspect(raw)}
+              1~65535 사이의 정수여야 합니다.
+              값을 비워 두면 기본값 #{default} 을 사용합니다.
+              """
+          end
+      end
+  end
+end
+
+# 개발 환경의 포트도 같은 규칙을 탄다.
+# dev.exs 가 이미 잡아 둔 ip/certfile 등은 유지되고 port 만 병합된다.
+if config_env() == :dev do
+  config :vr, VRWeb.Endpoint, http: [port: port_from_env.("PORT", 4000)]
+
+  if System.get_env("DEV_BIND_ALL") == "true" do
+    config :vr, VRWeb.Endpoint, https: [port: port_from_env.("HTTPS_PORT", 4001)]
+  end
+end
+
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration
@@ -91,10 +142,8 @@ if config_env() == :prod do
 
   host = System.get_env("PHX_HOST", "localhost")
 
-  port =
-    System.get_env("PORT")
-    |> then(&(&1 || raise("environment variable PORT is missing")))
-    |> String.to_integer()
+  # PORT 는 선택값이다 — 플랫폼이 주입하면 그 값이 이기고, 없으면 4000.
+  port = port_from_env.("PORT", 4000)
 
   config :vr, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
