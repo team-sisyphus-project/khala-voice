@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Recorder } from "@core/recorder";
-import type { RecorderResult, RecorderState } from "@core/recorder";
+import type {
+  MicPermissionState,
+  RecorderError,
+  RecorderResult,
+  RecorderState,
+} from "@core/recorder";
 
 export interface UseRecorderOptions {
   maxDurationSeconds?: number;
@@ -17,7 +22,18 @@ export interface UseRecorderResult {
   remainingSeconds: number;
   /** 0~1. 파형 애니메이션용 */
   peak: number;
-  error: { code: string; message: string } | null;
+  /** 마지막 실패. 원인 · 이 기기에서 할 일 · 다시 눌러도 되는가를 함께 담는다 */
+  error: RecorderError | null;
+  /** 브라우저가 보고하는 권한 상태. Safari 는 늘 `unknown` */
+  permission: MicPermissionState;
+  /**
+   * 이 기기에서 지금 녹음을 시작할 수 있는가.
+   *
+   * **`false` 는 확실히 막혔을 때만이다.** 모르면(`unknown`) 시작할 수 있다고
+   * 본다 — Safari 에서 막혔다고 단정해 버튼을 잠그면, 실제로는 권한 창이 뜰
+   * 사용자까지 길이 막힌다.
+   */
+  canStart: boolean;
   /** 마이크가 끊겨 자동 종료된 적이 있는가 */
   wasInterrupted: boolean;
   isActive: boolean;
@@ -53,7 +69,8 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderResult
   const [elapsedSeconds, setElapsed] = useState(0);
   const [remainingSeconds, setRemaining] = useState(maxDurationSeconds);
   const [peak, setPeak] = useState(0);
-  const [error, setError] = useState<{ code: string; message: string } | null>(null);
+  const [error, setError] = useState<RecorderError | null>(null);
+  const [permission, setPermission] = useState<MicPermissionState>("unknown");
   const [wasInterrupted, setWasInterrupted] = useState(false);
 
   // 콜백이 바뀌어도 리스너를 다시 붙이지 않는다
@@ -168,6 +185,36 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderResult
     return () => window.removeEventListener("resize", onResize);
   }, [state, drawIdle]);
 
+  /**
+   * 권한 상태를 화면이 늘 알고 있게 한다.
+   *
+   * 엔진 인스턴스는 [녹음] 을 눌러야 만들어지므로, 그것만 믿으면 **누르기 전까지는**
+   * 마이크가 차단됐는지 알 수 없다. 버튼과 상태 표시기는 누르기 전에 이미
+   * 사실대로 말해야 한다.
+   *
+   * 사용자가 다른 탭의 브라우저 설정에서 차단을 푸는 순간도 여기로 들어온다.
+   * 허용으로 바뀌면 붙들고 있던 오류를 치운다 — 고쳐 놓고도 빨간 띠가 남아
+   * 있으면 아직 막힌 줄 안다.
+   */
+  useEffect(() => {
+    let alive = true;
+
+    void Recorder.probePermission().then((state) => {
+      if (alive) setPermission(state);
+    });
+
+    const stop = Recorder.watchPermission((state) => {
+      if (!alive) return;
+      setPermission(state);
+      if (state === "granted") setError(null);
+    });
+
+    return () => {
+      alive = false;
+      stop();
+    };
+  }, []);
+
   // 테마가 바뀌면 다음 프레임에서 새 색을 읽는다
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -228,10 +275,13 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderResult
       }
     });
 
-    recorder.events.on("error", ({ code, message }) => {
-      setError({ code, message });
-      if (code === "interrupted") setWasInterrupted(true);
+    recorder.events.on("error", (failure) => {
+      setError(failure);
+      if (failure.permission) setPermission(failure.permission);
+      if (failure.code === "interrupted") setWasInterrupted(true);
     });
+
+    recorder.events.on("permissionchange", ({ state }) => setPermission(state));
 
     recorder.events.on("complete", (result) => {
       void releaseWakeLock();
@@ -288,6 +338,9 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderResult
     remainingSeconds,
     peak,
     error,
+    permission,
+    // 확실히 막힌 것만 막는다. `unknown`(Safari)은 열어 둔다.
+    canStart: permission !== "denied",
     wasInterrupted,
     isActive: state === "recording" || state === "paused",
     start,

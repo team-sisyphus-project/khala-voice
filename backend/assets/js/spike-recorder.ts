@@ -11,8 +11,15 @@
  * UI 를 최소로 만들어 실기기에서 먼저 확인한다.
  */
 
-import { Recorder, checkEnvironment, extensionFor } from "../../../packages/core/src/recorder";
-import type { RecorderErrorCode } from "../../../packages/core/src/recorder";
+import {
+  Recorder,
+  checkEnvironment,
+  detectPlatform,
+  extensionFor,
+  micErrorTitle,
+  micRecoveryGuide,
+} from "../../../packages/core/src/recorder";
+import type { RecorderError } from "../../../packages/core/src/recorder";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -30,6 +37,8 @@ const els = {
 };
 
 let recorder: Recorder | null = null;
+/** 환경 자체가 안 되면 권한이 풀려도 버튼을 되살리면 안 된다. */
+let environmentOk = true;
 let wakeLock: WakeLockSentinel | null = null;
 let visibilityEvents = 0;
 
@@ -60,11 +69,35 @@ function reportEnvironment() {
   rows.push(`MediaRecorder: ${typeof MediaRecorder !== "undefined" ? "✅" : "❌"}`);
   rows.push(`IndexedDB: ${typeof indexedDB !== "undefined" ? "✅" : "❌"}`);
   rows.push(`WakeLock: ${"wakeLock" in navigator ? "✅" : "— 미지원"}`);
+  rows.push(`Permissions API: ${navigator.permissions ? "✅" : "— 미지원(Safari)"}`);
+
+  // 권한 안내가 기기를 제대로 알아보는지 여기서 눈으로 확인한다.
+  // 실기기 검증에서 "안내가 엉뚱한 메뉴를 가리킨다" 를 잡아내는 자리다.
+  const platform = detectPlatform();
+  rows.push(
+    `판별: ${platform.browser} / ${platform.engine} / ${platform.os}` +
+      `${platform.webview ? " · 인앱 브라우저" : ""}${platform.standalone ? " · PWA" : ""}`,
+  );
   rows.push(`UA: ${navigator.userAgent}`);
 
   els.env.innerHTML = rows.map((r) => `<div>${r}</div>`).join("");
 
+  // 지금 권한이 어떤 상태인지도 적어 둔다. 차단이면 [녹음 시작] 은 눌러야
+  // 소용이 없고, 그 사실을 누르기 전에 알아야 한다.
+  void Recorder.probePermission().then((state) => {
+    els.env.innerHTML += `<div>마이크 권한: ${state}</div>`;
+    if (state === "denied" && environmentOk) {
+      els.record.disabled = true;
+      describeError({
+        code: "permission_blocked",
+        message: micRecoveryGuide("permission_blocked").cause,
+        recovery: micRecoveryGuide("permission_blocked"),
+      });
+    }
+  });
+
   if (!env.ok) {
+    environmentOk = false;
     log(env.message, "error");
     els.record.disabled = true;
 
@@ -180,9 +213,18 @@ function bind(rec: Recorder) {
     log(`최대 시간(${fmt(durationSeconds)}) 도달 — 자동 종료`, "warn");
   });
 
-  rec.events.on("error", ({ code, message }) => {
-    log(`오류 [${code}] ${message}`, code === "interrupted" ? "warn" : "error");
-    describeError(code);
+  rec.events.on("error", (failure) => {
+    const { code, message, permission } = failure;
+    log(
+      `오류 [${code}] ${message}${permission ? ` (권한: ${permission})` : ""}`,
+      code === "interrupted" ? "warn" : "error",
+    );
+    describeError(failure);
+  });
+
+  rec.events.on("permissionchange", ({ state }) => {
+    log(`권한 상태 변경: ${state}`, state === "denied" ? "error" : "ok");
+    els.record.disabled = !environmentOk || state === "denied";
   });
 
   rec.events.on("complete", ({ blob, mimeType, durationSeconds, startedAtUnix }) => {
@@ -209,17 +251,19 @@ function bind(rec: Recorder) {
   });
 }
 
-function describeError(code: RecorderErrorCode) {
-  const hints: Record<RecorderErrorCode, string> = {
-    insecure_context: "https 주소로 접속하세요. http 로는 마이크를 쓸 수 없습니다.",
-    permission_denied: "브라우저 설정에서 이 사이트의 마이크 권한을 허용하세요.",
-    no_device: "마이크가 연결되어 있는지 확인하세요.",
-    unsupported: "이 브라우저는 녹음을 지원하지 않습니다.",
-    interrupted: "전화·다른 앱·백그라운드 전환으로 마이크가 회수되었습니다. ← 이번 검증의 핵심 케이스",
-    unknown: "",
-  };
+/**
+ * 실패 원인과 이 기기에서 할 일을 그대로 찍는다.
+ *
+ * 문구를 여기서 다시 쓰지 않는다 — 앱과 스파이크가 서로 다른 해결책을 말하면
+ * 실기기 검증 결과를 앱에 그대로 옮길 수 없다. 안내표는 엔진 한 곳에만 있다.
+ */
+function describeError(failure: Pick<RecorderError, "code" | "recovery">) {
+  const guide = failure.recovery ?? micRecoveryGuide(failure.code);
 
-  if (hints[code]) log(`↳ ${hints[code]}`, "warn");
+  log(`↳ ${micErrorTitle(failure.code)} — ${guide.cause}`, "warn");
+  guide.steps.forEach((step, i) => log(`   ${i + 1}. ${step}`, "info"));
+
+  if (!guide.retryable) log("   ↳ 다시 눌러도 권한 창은 뜨지 않습니다.", "error");
 }
 
 els.record.addEventListener("click", async () => {
