@@ -53,6 +53,10 @@ defmodule VR.AccountsTest do
       assert VR.IdGenerator.valid?(account.id, :account)
     end
 
+    test "새 계정의 기본 테마는 라이트다" do
+      assert account_fixture().theme == "light"
+    end
+
     test "비밀번호를 평문으로 저장하지 않는다" do
       account = account_fixture()
       assert is_nil(account.password)

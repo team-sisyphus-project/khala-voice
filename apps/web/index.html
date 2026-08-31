@@ -2,7 +2,10 @@
 <html lang="ko">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
     <meta name="theme-color" content="#ffffff" />
 
     <!-- Material Symbols Rounded — LiveView(root.html.heex)와 같은 세트 -->
@@ -28,8 +31,7 @@
       // index.html 이라 그럴 수 없다. localStorage 캐시로 먼저 칠하고,
       // 앱이 뜨면 /api/me 값으로 정정한다.
       //
-      // devkanban 토큰은 :root 기본값이 **라이트**다. 기본 테마는 다크라서
-      // 이 스크립트가 없으면 다크 사용자에게 흰 화면이 한 프레임 번쩍인다.
+        // devkanban 토큰과 첫 방문 기본값은 모두 라이트다.
       (() => {
         const root = document.documentElement;
 
@@ -40,7 +42,7 @@
         }
 
         // 테마는 전부 번들 안에 있다 (`packages/ui-styles`). 따로 받지 않는다.
-        root.setAttribute("data-theme", localStorage.getItem("vr:theme") || "dark");
+        root.setAttribute("data-theme", localStorage.getItem("vr:theme") || "light");
       })();
     </script>
   </head>

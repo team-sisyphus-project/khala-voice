@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { Notice } from "@/components/ui";
-import { Button, Icon, Row, Section } from "@/ui";
+import { Button, Icon, Row } from "@/ui";
 import type { KhalaStatus, MCPToken } from "@core/api";
 
 /**
@@ -50,7 +50,8 @@ function KhalaCard() {
   }
 
   return (
-    <Section title="칼라" card>
+    <div className="vr-settings-subgroup">
+      <h3 className="vr-settings-subgroup__title">칼라</h3>
       {status.connected ? (
         <>
           <Row
@@ -77,7 +78,7 @@ function KhalaCard() {
           </a>
         </>
       )}
-    </Section>
+    </div>
   );
 }
 
@@ -119,7 +120,8 @@ function MCPCard() {
   }
 
   return (
-    <Section title="외부에서 읽기 (MCP)" card>
+    <div className="vr-settings-subgroup">
+      <h3 className="vr-settings-subgroup__title">외부에서 읽기 (MCP)</h3>
       <p className="vr-note vr-note--small">
         다른 AI 나 도구가 내 아카이브를 <strong>읽기만</strong> 할 수 있는 토큰입니다.
         녹음·수정·오디오는 주지 않습니다.
@@ -157,6 +159,6 @@ function MCPCard() {
       <Button variant="secondary" icon="add" onClick={() => void create()} pending={busy}>
         읽기 토큰 만들기
       </Button>
-    </Section>
+    </div>
   );
 }
