@@ -16,6 +16,10 @@ const baseStylesSource = readFileSync(
   fileURLToPath(new URL("../../../../packages/ui-styles/devkanban/base.css", import.meta.url)),
   "utf8",
 );
+const liveViewStylesSource = readFileSync(
+  fileURLToPath(new URL("../../../../backend/assets/css/app.css", import.meta.url)),
+  "utf8",
+);
 const indexSource = readFileSync(fileURLToPath(new URL("../../index.html", import.meta.url)), "utf8");
 
 describe("settings integration contract", () => {
@@ -37,9 +41,17 @@ describe("settings integration contract", () => {
     expect(scopedStyles).toContain("var(--mobile-surface-item)");
 
     const cardStyles = stylesSource.match(/\.mobile-section--card\s*{[^}]+}/s)?.[0];
+    expect(cardStyles).not.toMatch(/#[\da-f]{3,8}\b|(?:rgb|hsl|oklch)\(/i);
+    expect(cardStyles).not.toMatch(/(?:^|[\s:(,])-?\d*\.?\d+px\b/m);
     expect(cardStyles).toContain("var(--mobile-radius-md)");
     expect(cardStyles).toContain("var(--mobile-border-width)");
     expect(cardStyles).toContain("var(--mobile-shadow-card)");
+
+    const accountCardStyles = liveViewStylesSource.match(/\.vr-card\s*{[^}]+}/s)?.[0];
+    expect(accountCardStyles).not.toMatch(/#[\da-f]{3,8}\b|(?:rgb|hsl|oklch)\(/i);
+    expect(accountCardStyles).not.toMatch(/(?:^|[\s:(,])-?\d*\.?\d+px\b/m);
+    expect(accountCardStyles).toContain("var(--mobile-radius-md)");
+    expect(accountCardStyles).toContain("var(--mobile-shadow-card)");
   });
 
   it("keeps settings reachable on both application surfaces", () => {
