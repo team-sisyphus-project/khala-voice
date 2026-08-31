@@ -8,7 +8,13 @@ import { RecordingPrefsSheet } from "./RecordingPrefsSheet";
 import { usePrefs } from "@/hooks/usePrefs";
 import { useAccount } from "@/hooks/useAccount";
 import { languageLabel, resolveLanguage } from "@/lib/prefs";
-import type { RecorderResult, RecorderState } from "@core/recorder";
+import { micErrorTitle, micRecoveryGuide } from "@core/recorder";
+import type {
+  MicPermissionState,
+  RecorderError,
+  RecorderResult,
+  RecorderState,
+} from "@core/recorder";
 import type { Meeting } from "@core/api";
 
 /**
@@ -86,6 +92,17 @@ export function RecorderPanel({
     setSessionId(null);
   }, [recorder.error, sessionId, discardSession]);
 
+  /**
+   * 골라 둔 마이크가 사라졌을 때 기본 장치로 되돌린다.
+   *
+   * 이 상태는 스스로 낫지 않는다 — 저장된 `micDeviceId` 가 계속 없는 장치를
+   * 가리켜서 [녹음] 을 몇 번을 눌러도 같은 자리에서 실패한다. 되돌릴 길을
+   * 화면에 두지 않으면 사용자는 녹음 설정 어딘가에 원인이 있다는 걸 모른다.
+   */
+  const fallbackToDefaultMic = useCallback(() => {
+    setPrefs({ micDeviceId: null });
+  }, [setPrefs]);
+
   useEffect(() => {
     uploader.start();
 
@@ -147,16 +164,28 @@ export function RecorderPanel({
       )}
 
       {recorder.error && (
-        <Notice kind="error" icon="error" title="녹음 오류" className="mb-4">
-          {recorder.error.message}
-        </Notice>
+        <MicTrouble
+          error={recorder.error}
+          onRetry={handleStart}
+          onUseDefaultMic={prefs.micDeviceId ? fallbackToDefaultMic : undefined}
+        />
+      )}
+
+      {/*
+        오류가 아직 없어도 **누르기 전에** 말해야 하는 것이 있다. 권한이 이미
+        차단된 기기에서 [녹음] 은 눌러봐야 아무 창도 뜨지 않고 실패한다.
+      */}
+      {!recorder.error && !recorder.canStart && canRecord && (
+        <MicTrouble error={blockedBeforeStart(recorder.permission)} />
       )}
 
       {prepareError && (
         <Notice kind="error" icon="error" className="mb-4">{prepareError}</Notice>
       )}
 
-      {recorder.wasInterrupted && (
+      {/* 중단은 `error` 로도 들어와 MicTrouble 이 절차까지 보여준다.
+          여기는 그게 없을 때만 서는 자리다 — 같은 말을 두 번 하지 않는다. */}
+      {recorder.wasInterrupted && !recorder.error && (
         <Notice kind="warn" icon="phone_disabled" title="녹음이 중단되었습니다" className="mb-4">
           전화나 다른 앱이 마이크를 가져갔습니다. 그때까지 녹음된 내용은 저장했습니다.
         </Notice>
@@ -192,6 +221,16 @@ export function RecorderPanel({
             {recorder.state === "paused" && "일시정지"}
             {recorder.state === "requesting" && "마이크 준비 중"}
             {recorder.state === "stopping" && "저장 중"}
+            {/*
+              쉬는 자리에서도 **왜 못 누르는지**를 여기서 말한다. 예전에는
+              버튼만 흐려지고 이 줄은 비어 있어서, 색이 죽은 게 권한 때문인지
+              회의 상태 때문인지 화면 어디에도 없었다.
+            */}
+            {!recorder.isActive && recorder.state !== "requesting" && recorder.state !== "stopping" && (
+              <span style={idleHintTone(recorder.canStart)}>
+                {idleHint(recorder.canStart, recorder.state, recorder.error)}
+              </span>
+            )}
           </div>
         </div>
 
@@ -206,7 +245,9 @@ export function RecorderPanel({
 
         {/* 녹음 상태는 색과 파형으로만 드러난다. 소리로도 알려야 한다. */}
         <div className="vr-sr-only" role="status" aria-live="assertive">
-          {recordingStatus(recorder.state)}
+          {recorder.error
+            ? `${micErrorTitle(recorder.error.code)}. ${recorder.error.message}`
+            : recordingStatus(recorder.state)}
         </div>
 
         {/*
@@ -237,11 +278,19 @@ export function RecorderPanel({
             <button
               className="vr-rec-button"
               onClick={handleStart}
-              disabled={!canRecord || preparing || recorder.state === "requesting"}
-              aria-label="녹음 시작"
+              // 확실히 막힌 것만 잠근다. Safari 처럼 상태를 모르는 곳에서는
+              // 눌러 봐야 알 수 있으므로 열어 둔다.
+              disabled={
+                !canRecord || preparing || recorder.state === "requesting" || !recorder.canStart
+              }
+              data-blocked={!recorder.canStart ? "true" : undefined}
+              // 버튼이 흐려진 이유를 보조기술에도 남긴다.
+              // `disabled` 만으로는 "왜" 가 전달되지 않는다.
+              aria-label={recorder.canStart ? "녹음 시작" : "녹음 시작 — 마이크가 차단되어 있습니다"}
+              aria-describedby={!recorder.canStart ? MIC_TROUBLE_ID : undefined}
               type="button"
             >
-              <Icon name="mic" />
+              <Icon name={recorder.canStart ? "mic" : "mic_off"} />
             </button>
           ) : (
             <button
@@ -312,6 +361,110 @@ export function RecorderPanel({
       )}
     </div>
   );
+}
+
+/** 알림 띠와 [녹음] 버튼을 잇는 id. 버튼이 흐려진 이유를 보조기술이 읽게 한다. */
+const MIC_TROUBLE_ID = "vr-mic-trouble";
+
+/**
+ * 마이크가 왜 안 되는지, 이 기기에서 무엇을 눌러야 풀리는지.
+ *
+ * ## 왜 문구를 여기서 만들지 않나
+ *
+ * 원인·절차·"다시 시도가 통하는가" 는 전부 `@core/recorder` 의 안내표에서 온다.
+ * 화면마다 자기 문구를 쓰기 시작하면 데스크톱과 모바일이 서로 다른 해결책을
+ * 말하게 되고, 어느 쪽이 맞는지 아무도 모르게 된다.
+ *
+ * ## [다시 시도] 를 아무 때나 띄우지 않는다
+ *
+ * 차단이 굳은 상태에서 이 버튼을 띄우면 사용자는 같은 자리를 반복해서 누르다
+ * 앱이 고장 났다고 결론 낸다. 권한 창이 실제로 다시 뜰 수 있을 때만 띄운다.
+ */
+function MicTrouble({
+  error,
+  onRetry,
+  onUseDefaultMic,
+}: {
+  error: RecorderError;
+  onRetry?: () => void;
+  onUseDefaultMic?: () => void;
+}) {
+  const recovery = error.recovery;
+  const tone = error.code === "interrupted" ? "warn" : "error";
+  const retryable = recovery?.retryable ?? true;
+
+  return (
+    <div id={MIC_TROUBLE_ID}>
+      <Notice
+        kind={tone}
+        icon={error.code === "interrupted" ? "phone_disabled" : "mic_off"}
+        title={micErrorTitle(error.code)}
+        className="mb-4"
+      >
+        <span>{error.message}</span>
+
+        {recovery && recovery.steps.length > 0 && (
+          <>
+            <span className="vr-mic-trouble__lead">
+              {recovery.needsSettings ? "설정에서 이렇게 풉니다" : "이렇게 해 보세요"}
+            </span>
+            <ol className="vr-mic-trouble__steps">
+              {recovery.steps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+          </>
+        )}
+
+        {(onRetry || onUseDefaultMic) && (
+          <span className="vr-mic-trouble__actions">
+            {onRetry && retryable && (
+              <Button variant="secondary" fit icon="refresh" onClick={onRetry}>
+                다시 시도
+              </Button>
+            )}
+            {onUseDefaultMic && error.code === "device_unavailable" && (
+              <Button variant="secondary" fit icon="mic" onClick={onUseDefaultMic}>
+                기본 마이크로 바꾸기
+              </Button>
+            )}
+          </span>
+        )}
+      </Notice>
+    </div>
+  );
+}
+
+/**
+ * 아직 눌러 보지도 않았는데 이미 막혀 있는 경우.
+ *
+ * `getUserMedia` 를 부르지 않았으니 예외가 없다. 그래도 화면은 같은 말을 해야
+ * 한다 — 안내는 엔진이 실패했을 때와 **같은 표**에서 나온다.
+ */
+function blockedBeforeStart(permission: MicPermissionState): RecorderError {
+  const recovery = micRecoveryGuide("permission_blocked");
+
+  return {
+    code: "permission_blocked",
+    message: recovery.cause,
+    permission,
+    recovery,
+  };
+}
+
+/** 쉬는 상태에서 타이머 아래에 붙는 한 줄. 못 누르는 이유를 여기서 말한다. */
+function idleHint(
+  canStart: boolean,
+  state: RecorderState,
+  error: RecorderError | null,
+): string {
+  if (!canStart) return "마이크 차단됨";
+  if (state === "error" && error) return micErrorTitle(error.code);
+  return "";
+}
+
+function idleHintTone(canStart: boolean): React.CSSProperties | undefined {
+  return canStart ? undefined : { color: "var(--mobile-danger)", fontWeight: 600 };
 }
 
 /**

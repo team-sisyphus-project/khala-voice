@@ -25,6 +25,15 @@ VR.Config.fetch(:storage, :access_key_id)
 | R4 | 어드민 UI는 저장된 비밀값을 되돌려 보여주지 않는다. 마스킹 + "설정됨/미설정"만 표시 |
 | R5 | `CLOAK_KEY`가 없으면 **부팅 실패**. 기본 키를 만들지 않는다 |
 
+> **R1 · R2 의 적용 범위 — 부팅 파라미터는 예외다.**
+> 두 규칙은 `VR.Config`가 다루는 **자격증명**에 대한 것이다.
+> `PORT` · `HTTPS_PORT` · `POOL_SIZE` 처럼 Repo 가 뜨기 전에 필요한
+> 부팅 파라미터는 DB 를 읽을 수 없으므로 `config/runtime.exs` 에서
+> `System.get_env` 로 직접 읽고 리터럴 기본값을 갖는다.
+> 이들은 비밀값이 아니고, 없다고 해서 꺼야 할 기능도 없다.
+> 새 항목을 이 예외에 넣으려면 "Repo 이전에 필요한가"를 먼저 답해야 한다.
+> 자격증명이면 답은 항상 `VR.Config.Registry` 다.
+
 ## 시크릿 사고 방지
 
 | 장치 | 내용 |
@@ -137,7 +146,7 @@ DATABASE_URL=
 SECRET_KEY_BASE=
 CLOAK_KEY=                    # openssl rand -base64 32
 PHX_HOST=
-PORT=
+PORT=                          # 선택 — 비우면 4000
 APP_BASE_URL=
 
 # ── 스토리지 (S3) ──────────────────────────

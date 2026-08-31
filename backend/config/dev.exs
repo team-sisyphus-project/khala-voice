@@ -31,8 +31,11 @@ config :vr, VR.Repo,
 bind_all? = System.get_env("DEV_BIND_ALL") == "true"
 dev_ip = if bind_all?, do: {0, 0, 0, 0}, else: {127, 0, 0, 1}
 
+# port 는 여기서 읽지 않는다. PORT / HTTPS_PORT 해석 규칙은
+# config/runtime.exs 한 곳에만 있고, runtime.exs 가 아래 설정 위에 port 를 덮어쓴다.
+# (규칙이 두 파일에 복제되면 한쪽만 고쳐지는 드리프트가 생긴다)
 config :vr, VRWeb.Endpoint,
-  http: [ip: dev_ip, port: String.to_integer(System.get_env("PORT") || "4000")],
+  http: [ip: dev_ip],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
@@ -46,7 +49,7 @@ if bind_all? do
   config :vr, VRWeb.Endpoint,
     https: [
       ip: {0, 0, 0, 0},
-      port: String.to_integer(System.get_env("HTTPS_PORT") || "4001"),
+      # port 는 runtime.exs 가 채운다 (기본 4001)
       cipher_suite: :strong,
       certfile: "priv/cert/selfsigned.pem",
       keyfile: "priv/cert/selfsigned_key.pem"

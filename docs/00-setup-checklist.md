@@ -123,7 +123,8 @@
 | `DATABASE_URL` | ✅ | |
 | `SECRET_KEY_BASE` | ✅ | `mix phx.gen.secret` |
 | **`CLOAK_KEY`** | ✅ | `openssl rand -base64 32` — **없으면 부팅 실패** |
-| `PHX_HOST` / `PORT` / `APP_BASE_URL` | ✅ | |
+| `PHX_HOST` / `APP_BASE_URL` | ✅ | |
+| `PORT` | — | **선택.** 비우면 `4000`. 배포 플랫폼이 주입하면 그 값이 이깁니다 |
 
 > `CLOAK_KEY`를 잃어버리면 **DB에 저장된 모든 키를 복호화할 수 없습니다.**
 > 배포 환경의 시크릿 매니저에 별도 보관하세요. 키를 바꾸려면 기존 값을

@@ -71,11 +71,54 @@ sequenceDiagram
 | 파형 | `AudioContext` + `AnalyserNode(fftSize: 256)` → 캔버스 |
 | 최대 길이 | 3시간. 남은 시간 카운트다운 표시 |
 | 장치 선택 | `enumerateDevices()` — 권한 없으면 라벨이 비어 힌트 표시 |
+| 권한 진단 | `navigator.permissions.query({name:"microphone"})` — 지원 안 하면 `unknown` |
 | 언어 | ko-KR / en-US / ja-JP / cmn-Hans-CN / cmn-Hant-TW / es-ES |
 | 이탈 방지 | 녹음 중 · 업로드 중 `beforeunload` 경고 |
 | 잠금 | 녹음 중에는 마이크 · 언어 변경 불가 |
 
 > **모노 강제 이유**: Google STT의 화자분리는 단일 채널만 지원한다.
+
+### 마이크 권한 — 왜 실패를 잘게 나누는가
+
+`getUserMedia` 가 던지는 것은 대부분 `NotAllowedError` **하나**다.
+그런데 사용자가 실제로 해야 할 일은 상황마다 전혀 다르다.
+전부 "마이크 사용이 거부되었습니다" 로 뭉치면 사용자는 같은 버튼만 반복해서
+누르다 이탈한다. 녹음이 제품의 전부인 앱에서 이건 치명적이다.
+
+| 코드 | 언제 | 사용자가 할 일 | 다시 시도가 통하는가 |
+|---|---|---|---|
+| `permission_dismissed` | 권한 창을 그냥 닫음 | 다시 누른다 | ✅ |
+| `permission_blocked` | "차단" 을 눌러 굳음 | 브라우저 사이트 설정 | ❌ 창이 안 뜬다 |
+| `permission_denied` | 거부됐는데 굳었는지는 모름 (Safari) | 한 번 더 눌러 보고, 안 되면 설정 | 애매 — 그래서 둘 다 안내 |
+| `system_denied` | OS 개인정보 설정에서 브라우저가 차단됨 | **시스템** 설정 | ❌ |
+| `embed_blocked` | iframe `allow` 없음 · 인앱 브라우저 정책 | 새 탭 / 다른 브라우저로 열기 | ❌ |
+| `device_busy` | 다른 앱이 마이크 점유 (`NotReadableError`) | 줌·통화 종료 | ✅ |
+| `device_unavailable` | 골라 둔 마이크가 사라짐 (`OverconstrainedError`) | 기본 마이크로 되돌리기 | ❌ 그대로는 안 된다 |
+| `no_device` | 입력 장치 자체가 없음 | 연결 확인 | ✅ |
+
+판정은 두 단계다.
+
+1. `classifyMediaError` — 예외 이름 + **메시지**로 나눈다.
+   Chrome 은 위 다섯 상황을 전부 `NotAllowedError` 로 주고 메시지로만 구분한다
+   (`Permission denied` / `dismissed` / `denied by system` / `permissions policy`).
+2. `refinePermissionCode` — 거부 **직후** Permissions API 를 한 번 더 읽어
+   `denied` 면 `permission_blocked`, `prompt` 면 `permission_dismissed` 로 올린다.
+
+**모르면 모른다고 둔다.** Safari 는 `permissions.query({name:"microphone"})`
+자체를 던진다. 거기서 "차단됨" 으로 단정하면 실제로는 권한 창이 뜰 사용자까지
+버튼이 잠긴다. `unknown` 은 "시작할 수 있다" 쪽으로 센다.
+
+### 안내 문구는 한 곳에서만 나온다
+
+원인 · 절차 · "다시 시도가 통하는가" 는 전부
+`packages/core/src/recorder/permission.ts` 의 `micRecoveryGuide(code, platform)`
+가 만든다. 화면(데스크톱 · 모바일 · 스파이크 페이지)은 자기 문구를 쓰지 않는다 —
+쓰기 시작하면 같은 상황에서 서로 다른 해결책을 말하게 되고,
+어느 쪽이 맞는지 아무도 모르게 된다.
+
+절차는 기기마다 다르다 (`detectPlatform`).
+UA 스니핑을 쓰는 유일한 자리인데, **설정 UI 의 위치**는 기능 판별로 알 수 없기
+때문이다. 여기서 틀려도 나빠지는 것은 안내 문구뿐이고 동작은 그대로다.
 
 ### 일시정지 정책 — 통일 필요
 
