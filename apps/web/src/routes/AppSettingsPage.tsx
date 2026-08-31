@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { AppShell } from "@/components/AppShell";
 import { NotificationSetting } from "@/components/NotificationSetting";
@@ -31,6 +32,7 @@ import { Button, Icon, Row, Section } from "@/ui";
  * 계정 설정까지 들어가는 것은 iOS 문법이 아니다.
  */
 export function AppSettingsPage() {
+  const { t } = useTranslation();
   const routes = useRoutes();
   const [prefs, setPrefs] = usePrefs();
   const { account, setAccount } = useAccount();
@@ -48,8 +50,8 @@ export function AppSettingsPage() {
   }
 
   return (
-    <AppShell active="settings" title="설정">
-      <Section title="화면" card>
+    <AppShell active="settings" title={t("settings.title")}>
+      <Section title={t("settings.displaySection")} card>
         <div className="vr-theme-grid">
           {THEMES.map((item) => (
             <button
@@ -69,16 +71,15 @@ export function AppSettingsPage() {
         <LocaleField account={account} onChange={setAccount} />
       </Section>
 
-      <Section title="녹음" card>
+      <Section title={t("settings.recordingSection")} card>
         <Row
-          title="마이크"
-          meta={prefs.micDeviceId ? "고른 장치" : "기본 장치"}
+          title={t("settings.microphone")}
+          meta={prefs.micDeviceId ? t("settings.micSelected") : t("settings.micDefault")}
           chevron
           onClick={() => setEditingPrefs(true)}
         />
         <p className="vr-note vr-note--small">
-          마이크는 <strong>이 기기에서만</strong> 적용됩니다. 회의실 PC 와 폰은 각자 다른
-          마이크를 씁니다.
+          <Trans t={t} i18nKey="settings.micNote" components={{ strong: <strong /> }} />
         </p>
 
         {/* 언어는 계정에 있다 — 기기를 바꿔도 따라온다 */}
@@ -92,8 +93,8 @@ export function AppSettingsPage() {
 
       <Section card>
         <Link className="vr-nav-row" to={routes.billing}>
-          <span className="vr-nav-row__title">크레딧 보기</span>
-          <span className="vr-nav-row__meta">잔액과 사용 내역</span>
+          <span className="vr-nav-row__title">{t("settings.creditsTitle")}</span>
+          <span className="vr-nav-row__meta">{t("settings.creditsMeta")}</span>
           <Icon name="chevron_right" />
         </Link>
       </Section>
@@ -102,24 +103,24 @@ export function AppSettingsPage() {
 
       <Section card>
         <a className="vr-nav-row" href={routes.account}>
-          <span className="vr-nav-row__title">계정 설정</span>
-          <span className="vr-nav-row__meta">프로필 · 비밀번호 · 로그인된 기기</span>
+          <span className="vr-nav-row__title">{t("settings.accountTitle")}</span>
+          <span className="vr-nav-row__meta">{t("settings.accountMeta")}</span>
           <Icon name="chevron_right" />
         </a>
       </Section>
 
-      <Section title="홈 화면에 추가" card>
+      <Section title={t("settings.installSection")} card>
         {standalone ? (
           <Notice kind="ok" icon="check_circle">
-            이미 앱으로 실행 중입니다.
+            {t("settings.installedAlready")}
           </Notice>
         ) : installable ? (
           <>
             <p className="vr-note vr-note--small">
-              주소창 없이 열리고, 녹음 화면으로 바로 들어갑니다.
+              {t("settings.installBenefit")}
             </p>
             <Button full onClick={() => void promptInstall()}>
-              지금 추가
+              {t("settings.installNow")}
             </Button>
           </>
         ) : (
@@ -127,15 +128,17 @@ export function AppSettingsPage() {
              버튼을 띄울 수 없으니 손으로 하는 방법을 적어 둔다. */
           <ol className="vr-note vr-note--small" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.8 }}>
             <li>
-              <strong>iPhone · iPad</strong> — 공유 버튼(
-              <Icon name="ios_share" />
-              ) → &ldquo;홈 화면에 추가&rdquo;
+              <Trans
+                t={t}
+                i18nKey="settings.installIos"
+                components={{ strong: <strong />, icon: <Icon name="ios_share" /> }}
+              />
             </li>
             <li>
-              <strong>Android</strong> — 메뉴(⋮) → &ldquo;홈 화면에 추가&rdquo;
+              <Trans t={t} i18nKey="settings.installAndroid" components={{ strong: <strong /> }} />
             </li>
             <li>
-              <strong>데스크톱</strong> — 주소창 오른쪽 설치 아이콘
+              <Trans t={t} i18nKey="settings.installDesktop" components={{ strong: <strong /> }} />
             </li>
           </ol>
         )}

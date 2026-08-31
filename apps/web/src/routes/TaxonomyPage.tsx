@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { api } from "@/lib/api";
 import { useRoutes } from "@/lib/routes";
@@ -24,6 +25,7 @@ const COLORS: ColorKey[] = [
  * 걸리지 않는다. 그래서 삭제 확인에 "몇 개가 풀리는지" 를 보여준다.
  */
 export function TaxonomyPage() {
+  const { t } = useTranslation();
   const routes = useRoutes();
   const navigate = useNavigate();
   const [topics, setTopics] = useState<Topic[] | null>(null);
@@ -36,11 +38,11 @@ export function TaxonomyPage() {
       setTopics(t.topics);
       setLabels(l.labels);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "분류를 불러오지 못했습니다");
+      setError(e instanceof Error ? e.message : t("taxonomy.loadError"));
       setTopics([]);
       setLabels([]);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -49,19 +51,19 @@ export function TaxonomyPage() {
   return (
     <AppShell
       active="archive"
-      title="분류 관리"
-      subtitle="토픽과 라벨로 회의를 정리합니다"
+      title={t("taxonomy.title")}
+      subtitle={t("taxonomy.subtitle")}
       onBack={() => navigate(routes.archive)}
     >
       {error && <Notice kind="error" icon="error" className="mb-4">{error}</Notice>}
 
       {topics === null || labels === null ? (
-        <Spinner label="불러오는 중" />
+        <Spinner label={t("common.loading")} />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <Section
-            title="토픽"
-            hint="회의 하나에 토픽 하나. 순서를 바꿀 수 있습니다."
+            title={t("taxonomy.topicTitle")}
+            hint={t("taxonomy.topicHint")}
             items={topics}
             kind="topic"
             nameMax={30}
@@ -77,8 +79,8 @@ export function TaxonomyPage() {
           />
 
           <Section
-            title="라벨"
-            hint="회의 하나에 라벨 여러 개. 이름순으로 정렬됩니다."
+            title={t("taxonomy.labelTitle")}
+            hint={t("taxonomy.labelHint")}
             items={labels}
             kind="label"
             nameMax={20}
@@ -119,6 +121,7 @@ function Section({
   onChanged: () => void;
   setError: (message: string | null) => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [color, setColor] = useState<ColorKey>("blue");
   const [editing, setEditing] = useState<string | null>(null);
@@ -132,7 +135,7 @@ function Section({
       await action();
       onChanged();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "저장하지 못했습니다");
+      setError(e instanceof Error ? e.message : t("taxonomy.saveError"));
     } finally {
       setBusy(false);
     }
@@ -166,17 +169,17 @@ function Section({
             value={name}
             maxLength={nameMax}
             onChange={(e) => setName(e.target.value)}
-            placeholder={`${title} 이름`}
-            aria-label={`새 ${title} 이름`}
+            placeholder={t(`taxonomy.${kind}NamePlaceholder`)}
+            aria-label={t(`taxonomy.${kind}NewName`)}
           />
           <ColorPicker value={color} onChange={setColor} />
           <button type="submit" className="mobile-button mobile-button--primary mobile-button--fit" disabled={busy}>
-            추가
+            {t("taxonomy.add")}
           </button>
         </form>
 
         {items.length === 0 ? (
-          <EmptyState icon="sell" title={`아직 ${title}이 없습니다`} desc="위에서 추가하세요." />
+          <EmptyState icon="sell" title={t(`taxonomy.${kind}Empty`)} desc={t("taxonomy.emptyDesc")} />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", marginTop: 12 }}>
             {items.map((item, index) => (
@@ -207,7 +210,7 @@ function Section({
                   <>
                     <Tag item={item} kind={kind} />
                     <span className="mobile-row__meta" style={{ fontSize: 12 }}>
-                      회의 {item.meeting_count ?? 0}개
+                      {t("taxonomy.meetings", { count: item.meeting_count ?? 0 })}
                     </span>
 
                     <div style={{ marginLeft: "auto", display: "flex", gap: 2 }}>
@@ -215,7 +218,7 @@ function Section({
                         <>
                           <IconButton
                             icon="arrow_upward"
-                            label="위로"
+                            label={t("taxonomy.moveUp")}
                             disabled={index === 0 || busy}
                             onClick={() =>
                               void run(() => onMove(swap(items.map((x) => x.id), index, index - 1)))
@@ -223,7 +226,7 @@ function Section({
                           />
                           <IconButton
                             icon="arrow_downward"
-                            label="아래로"
+                            label={t("taxonomy.moveDown")}
                             disabled={index === items.length - 1 || busy}
                             onClick={() =>
                               void run(() => onMove(swap(items.map((x) => x.id), index, index + 1)))
@@ -231,10 +234,10 @@ function Section({
                           />
                         </>
                       )}
-                      <IconButton icon="edit" label="고치기" onClick={() => setEditing(item.id)} />
+                      <IconButton icon="edit" label={t("taxonomy.edit")} onClick={() => setEditing(item.id)} />
                       <IconButton
                         icon="delete"
-                        label="지우기"
+                        label={t("taxonomy.remove")}
                         danger
                         disabled={busy}
                         onClick={() =>
@@ -244,7 +247,7 @@ function Section({
                             const ok =
                               count === 0 ||
                               window.confirm(
-                                `"${item.name}" 을 지우면 회의 ${count}개에서 이 분류가 떨어집니다. 계속할까요?`,
+                                t("taxonomy.deleteConfirm", { name: item.name, count }),
                               );
 
                             if (!ok) return;
@@ -275,6 +278,7 @@ function EditRow({
   onSave: (body: { name: string; color: ColorKey }) => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(item.name);
   const [color, setColor] = useState<ColorKey>(item.color);
 
@@ -295,12 +299,12 @@ function EditRow({
         maxLength={nameMax}
         onChange={(e) => setName(e.target.value)}
         autoFocus
-        aria-label="이름"
+        aria-label={t("taxonomy.nameAria")}
       />
       <ColorPicker value={color} onChange={setColor} />
-      <button type="submit" className="mobile-button mobile-button--primary mobile-button--fit">저장</button>
+      <button type="submit" className="mobile-button mobile-button--primary mobile-button--fit">{t("common.save")}</button>
       <button type="button" className="mobile-button mobile-button--ghost mobile-button--fit" onClick={onCancel}>
-        취소
+        {t("common.cancel")}
       </button>
     </form>
   );
@@ -313,8 +317,9 @@ function ColorPicker({
   value: ColorKey;
   onChange: (color: ColorKey) => void;
 }) {
+  const { t } = useTranslation();
   return (
-    <div style={{ display: "flex", gap: 3, alignItems: "center" }} role="radiogroup" aria-label="색">
+    <div style={{ display: "flex", gap: 3, alignItems: "center" }} role="radiogroup" aria-label={t("taxonomy.colorAria")}>
       {COLORS.map((key) => (
         <button
           key={key}

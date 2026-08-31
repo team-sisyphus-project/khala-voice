@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
+import i18n from "@/i18n";
 import { GuestApiClient, GuestApiError } from "@core/api";
 import type { Meeting, RecordingSession, ShareGate, SummarySource } from "@core/api";
 import { TranscriptView } from "@/components/TranscriptView";
@@ -28,6 +30,7 @@ function storageKey(token: string) {
  * 게스트 전용 뷰를 따로 만들면 두 벌이 갈라진다.
  */
 export function SharePage() {
+  const { t } = useTranslation();
   const { token = "" } = useParams();
   const navigate = useNavigate();
   const player = useAudioPlayer();
@@ -108,7 +111,7 @@ export function SharePage() {
       <Shell>
         <Card>
           <CardBody>
-            <EmptyState icon="link_off" title={fatal} desc="링크를 준 사람에게 새 링크를 요청하세요." />
+            <EmptyState icon="link_off" title={fatal} desc={t("share.fatalDesc")} />
           </CardBody>
         </Card>
       </Shell>
@@ -137,7 +140,7 @@ export function SharePage() {
   if (!gate) {
     return (
       <Shell>
-        <Spinner label="확인 중" />
+        <Spinner label={t("share.checking")} />
       </Shell>
     );
   }
@@ -147,12 +150,12 @@ export function SharePage() {
       <Card>
         <CardBody>
           <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--text-primary)" }}>
-            공유된 회의록
+            {t("share.sharedTitle")}
           </h1>
           <p className="vr-note" style={{ marginTop: 6 }}>
             {gate.granted_role === "contributor"
-              ? "전사와 화자를 편집할 수 있습니다."
-              : "읽기 전용으로 열람합니다."}
+              ? t("share.roleContributor")
+              : t("share.roleViewer")}
           </p>
 
           {error && <Notice kind="error" icon="error" className="mb-4">{error}</Notice>}
@@ -173,6 +176,7 @@ function ShareGateForm({
   busy: boolean;
   onSubmit: (form: { display_name?: string; email?: string; pincode?: string }) => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [pincode, setPincode] = useState("");
@@ -190,7 +194,7 @@ function ShareGateForm({
       }}
     >
       {gate.require_name && (
-        <Field label="이름">
+        <Field label={t("share.fieldName")}>
           <input
             className="mobile-field__input"
             data-surface="sunken"
@@ -205,7 +209,7 @@ function ShareGateForm({
       )}
 
       {gate.require_email && (
-        <Field label="이메일">
+        <Field label={t("share.fieldEmail")}>
           <input
             type="email"
             className="mobile-field__input"
@@ -219,7 +223,7 @@ function ShareGateForm({
       )}
 
       {gate.require_pincode && (
-        <Field label="PIN 6자리">
+        <Field label={t("share.fieldPin")}>
           <input
             className="mobile-field__input"
             data-surface="sunken"
@@ -234,7 +238,7 @@ function ShareGateForm({
       )}
 
       <button type="submit" className="mobile-button mobile-button--primary mobile-button--full" disabled={busy}>
-        {busy ? "여는 중…" : "회의록 열기"}
+        {busy ? t("share.opening") : t("share.openNotes")}
       </button>
     </form>
   );
@@ -255,6 +259,7 @@ function MeetingView({
   error: string | null;
   onLeave: () => void;
 }) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<"summary" | "transcript">("summary");
 
   const sessions = meeting.recording_sessions ?? [];
@@ -276,17 +281,17 @@ function MeetingView({
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
             <div style={{ minWidth: 0 }}>
               <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--text-primary)" }}>
-                {meeting.title || "제목 없음"}
+                {meeting.title || t("common.untitled")}
               </h1>
               <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
                 <Chip kind="info">{meeting.role}</Chip>
                 {meeting.total_duration_seconds > 0 && (
-                  <Chip kind="neutral">총 {formatDuration(meeting.total_duration_seconds)}</Chip>
+                  <Chip kind="neutral">{t("share.totalDuration", { duration: formatDuration(meeting.total_duration_seconds) })}</Chip>
                 )}
               </div>
             </div>
 
-            <button className="mobile-button mobile-button--ghost mobile-button--fit" onClick={onLeave}>나가기</button>
+            <button className="mobile-button mobile-button--ghost mobile-button--fit" onClick={onLeave}>{t("share.leave")}</button>
           </div>
         </CardBody>
       </Card>
@@ -297,14 +302,14 @@ function MeetingView({
           onClick={() => setTab("summary")}
           aria-pressed={tab === "summary"}
         >
-          요약
+          {t("share.tabSummary")}
         </button>
         <button
           className={tab === "transcript" ? "mobile-button mobile-button--secondary mobile-button--fit" : "mobile-button mobile-button--secondary mobile-button--fit"}
           onClick={() => setTab("transcript")}
           aria-pressed={tab === "transcript"}
         >
-          전사 {transcribed.length > 0 && `(${transcribed.length})`}
+          {t("share.tabTranscript")} {transcribed.length > 0 && `(${transcribed.length})`}
         </button>
       </div>
 
@@ -340,7 +345,7 @@ function MeetingView({
                       }
                       onClick={() => onSelect(session.id)}
                     >
-                      녹음 {session.session_index}
+                      {t("share.recordingIndex", { index: session.session_index })}
                     </button>
                   ))}
                 </div>
@@ -356,7 +361,7 @@ function MeetingView({
               />
             </>
           ) : (
-            <EmptyState icon="format_quote" title="아직 전사된 녹음이 없습니다" />
+            <EmptyState icon="format_quote" title={t("share.noTranscript")} />
           )}
         </CardBody>
       </Card>
@@ -391,10 +396,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function describe(error: unknown): string {
   if (error instanceof GuestApiError) {
-    if (error.status === 404) return "링크를 찾을 수 없습니다";
-    if (error.status === 410) return "만료되었거나 이미 사용된 링크입니다";
+    if (error.status === 404) return i18n.t("share.linkNotFound");
+    if (error.status === 410) return i18n.t("share.linkExpired");
     return error.message;
   }
 
-  return error instanceof Error ? error.message : "열지 못했습니다";
+  return error instanceof Error ? error.message : i18n.t("share.openFailed");
 }

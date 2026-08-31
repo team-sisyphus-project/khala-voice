@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Recorder, micErrorTitle } from "@core/recorder";
 import type { MicDevice, MicListResult, RecorderError } from "@core/recorder";
 import { Button, Icon, Sheet } from "@/ui";
@@ -35,6 +36,7 @@ export function RecordingPrefsSheet({
   onAccountChange: (account: CurrentAccount) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [devices, setDevices] = useState<MicDevice[]>([]);
   const [needsPermission, setNeeds] = useState(false);
   const [trouble, setTrouble] = useState<
@@ -94,19 +96,19 @@ export function RecordingPrefsSheet({
   }
 
   return (
-    <Sheet title="녹음 설정" onClose={onClose}>
+    <Sheet title={t("recordingPrefs.title")} onClose={onClose}>
       <div className="vr-filter">
         <LanguageField account={account} onChange={onAccountChange} />
 
-        <span className="vr-filter__label">마이크</span>
+        <span className="vr-filter__label">{t("recordingPrefs.micLabel")}</span>
 
         {needsPermission && !trouble && (
           <>
             <p className="vr-note vr-note--small">
-              장치 이름을 보려면 마이크 권한이 필요합니다. 권한을 준 뒤 목록이 채워집니다.
+              {t("recordingPrefs.permissionNote")}
             </p>
             <Button icon="mic" onClick={() => void grant()}>
-              마이크 권한 주기
+              {t("recordingPrefs.grant")}
             </Button>
           </>
         )}
@@ -130,22 +132,22 @@ export function RecordingPrefsSheet({
             {/* 다시 물어볼 수 있을 때만 버튼을 둔다 — 굳은 차단에서는 눌러도 창이 안 뜬다 */}
             {trouble.recovery?.retryable && (
               <Button icon="mic" onClick={() => void grant()}>
-                다시 시도
+                {t("common.retry")}
               </Button>
             )}
           </div>
         )}
 
-        {loading && <p className="vr-note vr-note--small">찾는 중…</p>}
+        {loading && <p className="vr-note vr-note--small">{t("recordingPrefs.searching")}</p>}
 
         {!loading && devices.length === 0 && !trouble && (
-          <p className="vr-note vr-note--small">쓸 수 있는 마이크를 찾지 못했습니다.</p>
+          <p className="vr-note vr-note--small">{t("recordingPrefs.noneFound")}</p>
         )}
 
         <div className="vr-scope">
           <MicOption
-            label="기본 장치"
-            hint="브라우저와 OS 가 고르는 마이크"
+            label={t("recordingPrefs.defaultDevice")}
+            hint={t("recordingPrefs.defaultDeviceHint")}
             active={micDeviceId === null}
             onClick={() => onMicChange(null)}
           />
@@ -162,7 +164,7 @@ export function RecordingPrefsSheet({
 
         <div className="vr-filter__actions">
           <Button full onClick={onClose}>
-            완료
+            {t("common.done")}
           </Button>
         </div>
       </div>

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
+import i18n from "@/i18n";
 import { api } from "@/lib/api";
 import { useRoutes } from "@/lib/routes";
 import { formatBytes, formatDuration, formatDateTime } from "@/lib/format";
@@ -38,6 +40,7 @@ type MeetingDetailPageProps = {
 };
 
 export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPageProps = {}) {
+  const { t } = useTranslation();
   const routes = useRoutes();
   const params = useParams();
   const id = meetingId ?? params.id ?? "";
@@ -71,9 +74,9 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
       const data = await api.getMeeting(id);
       setMeeting(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "회의를 불러오지 못했습니다");
+      setError(e instanceof Error ? e.message : t("meetingDetail.loadError"));
     }
-  }, [id]);
+  }, [id, t]);
 
   useEffect(() => {
     void load();
@@ -123,9 +126,9 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
     waitingFrom.current = null;
 
     if (summaryErrorAt && summaryErrorAt !== before.errorAt) {
-      setError("요약을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      setError(t("meetingDetail.summaryFailed"));
     }
-  }, [summaryStamp, summaryErrorAt, summarizing]);
+  }, [summaryStamp, summaryErrorAt, summarizing, t]);
 
   /** 화자·전사 편집을 저장한다. 화면은 먼저 바꾸고 서버는 뒤따른다. */
   const saveTranscript = useCallback(
@@ -155,11 +158,11 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
         await api.updateSpeakers(session.id, patch);
       } catch {
         // 저장에 실패하면 서버 값으로 되돌린다
-        setError("편집을 저장하지 못했습니다");
+        setError(t("meetingDetail.saveEditError"));
         void load();
       }
     },
-    [load],
+    [load, t],
   );
 
   /** 요약을 큐잉한다. 완료는 아래 폴링이 따라간다. */
@@ -179,7 +182,7 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
     } catch (e) {
       setSummarizing(false);
       waitingFrom.current = null;
-      setError(e instanceof Error ? e.message : "요약을 시작하지 못했습니다");
+      setError(e instanceof Error ? e.message : t("meetingDetail.summarizeStartError"));
     }
   }
 
@@ -189,7 +192,7 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
     const href = session?.audio_href;
 
     if (!session || !href) {
-      setError("이 발언의 녹음 파일을 찾을 수 없습니다");
+      setError(t("meetingDetail.clipNotFound"));
       return;
     }
 
@@ -199,16 +202,16 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
 
   if (error && !meeting) {
     return (
-      <AppShell active="meetings" title="회의">
-        <Notice tone="error" title="열지 못했습니다">{error}</Notice>
+      <AppShell active="meetings" title={t("meetingDetail.title")}>
+        <Notice tone="error" title={t("meetingDetail.openFailedTitle")}>{error}</Notice>
       </AppShell>
     );
   }
 
   if (!meeting) {
     return (
-      <AppShell active="meetings" title={asTab ? "새 회의" : "회의"} onBack={asTab ? undefined : () => navigate(routes.archive)}>
-        <EmptyState title="불러오는 중" />
+      <AppShell active="meetings" title={asTab ? t("meetingDetail.newMeeting") : t("meetingDetail.title")} onBack={asTab ? undefined : () => navigate(routes.archive)}>
+        <EmptyState title={t("meetingDetail.loading")} />
       </AppShell>
     );
   }
@@ -221,7 +224,7 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
   return (
     <AppShell
       active="meetings"
-      title={asTab ? "새 회의" : meeting.title || "제목 없음"}
+      title={asTab ? t("meetingDetail.newMeeting") : meeting.title || t("common.untitled")}
       onBack={asTab ? undefined : () => navigate(routes.archive)}
       // 녹음 탭만 한 화면에 딱 맞춘다. 나머지 탭은 내용이 길어 스크롤해야 한다.
       fill={tab === "record"}
@@ -234,8 +237,8 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
             className="mobile-top-app-bar__icon-button"
             href={`/api/meetings/${meeting.id}/export.md`}
             download
-            aria-label="마크다운으로 내보내기"
-            title="내보내기"
+            aria-label={t("meetingDetail.exportAria")}
+            title={t("meetingDetail.exportTitle")}
           >
             <Icon name="download" />
           </a>
@@ -244,8 +247,8 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
             <button
               className="mobile-top-app-bar__icon-button"
               onClick={() => setSharing(true)}
-              aria-label="공유 링크"
-              title="공유"
+              aria-label={t("meetingDetail.shareAria")}
+              title={t("meetingDetail.shareTitle")}
               type="button"
             >
               <Icon name="share" />
@@ -258,8 +261,8 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
             <button
               className="mobile-top-app-bar__icon-button"
               onClick={() => setSendingKhala(true)}
-              aria-label="칼라로 보내기"
-              title="칼라로 보내기"
+              aria-label={t("meetingDetail.khalaSendAria")}
+              title={t("meetingDetail.khalaSendTitle")}
               type="button"
             >
               <Icon name="send" />
@@ -281,9 +284,9 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
           className="vr-meeting-title"
           onClick={() => !readOnly && setEditing(true)}
           disabled={readOnly}
-          aria-label={readOnly ? undefined : "제목과 분류 바꾸기"}
+          aria-label={readOnly ? undefined : t("meetingDetail.editTitleAria")}
         >
-          <span className="vr-meeting-title__text">{meeting.title || "제목 없음"}</span>
+          <span className="vr-meeting-title__text">{meeting.title || t("common.untitled")}</span>
           {!readOnly && <Icon name="edit" />}
         </button>
       )}
@@ -297,15 +300,15 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
         value={tab}
         onChange={setTab}
         options={[
-          { value: "record" as Tab, label: "녹음" },
-          { value: "sessions" as Tab, label: sessions.length > 0 ? `세션 ${sessions.length}` : "세션" },
+          { value: "record" as Tab, label: t("meetingDetail.tabRecord") },
+          { value: "sessions" as Tab, label: sessions.length > 0 ? t("meetingDetail.tabSessionsCount", { count: sessions.length }) : t("meetingDetail.tabSessions") },
           {
             value: "transcript" as Tab,
-            label: transcribed.length > 0 ? `전사 ${transcribed.length}` : "전사",
+            label: transcribed.length > 0 ? t("meetingDetail.tabTranscriptCount", { count: transcribed.length }) : t("meetingDetail.tabTranscript"),
           },
-          { value: "summary" as Tab, label: "요약" },
+          { value: "summary" as Tab, label: t("meetingDetail.tabSummary") },
           // Viewer 에게는 바꿀 것이 없다. 패널도 스스로 한 번 더 검열한다.
-          ...(readOnly ? [] : [{ value: "info" as Tab, label: "정보" }]),
+          ...(readOnly ? [] : [{ value: "info" as Tab, label: t("meetingDetail.tabInfo") }]),
         ]}
       />
 
@@ -345,8 +348,7 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
 
               {transcribed.length > 1 && (
                 <Notice tone="info">
-                  긴 녹음이 나뉘어 전사됐습니다. <strong>조각마다 화자 번호가 따로</strong> 매겨지므로
-                  조각 1의 화자 1과 조각 2의 화자 1이 다른 사람일 수 있습니다.
+                  <Trans t={t} i18nKey="meetingDetail.splitNotice" components={{ strong: <strong /> }} />
                 </Notice>
               )}
 
@@ -363,8 +365,8 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
                 />
               ) : (
                 <EmptyState
-                  title="아직 전사된 녹음이 없습니다"
-                  description="세션 탭에서 전사를 시작하세요."
+                  title={t("meetingDetail.noTranscriptTitle")}
+                  description={t("meetingDetail.noTranscriptDesc")}
                 />
               )}
             </>
@@ -417,7 +419,9 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
 
 function partLabel(session: RecordingSession): string {
   const part = session.metadata?.["part"] as { label?: string } | undefined;
-  return part?.label ? `녹음 ${session.session_index} · ${part.label}` : `녹음 ${session.session_index}`;
+  return part?.label
+    ? i18n.t("meetingDetail.partLabelNamed", { index: session.session_index, label: part.label })
+    : i18n.t("meetingDetail.partLabel", { index: session.session_index });
 }
 
 function SessionList({
@@ -431,6 +435,7 @@ function SessionList({
   onChanged: () => void;
   onPlay: (session: RecordingSession) => void;
 }) {
+  const { t } = useTranslation();
   const [busy, setBusy] = useState<string | null>(null);
 
   async function transcribe(id: string) {
@@ -444,7 +449,7 @@ function SessionList({
   }
 
   if (sessions.length === 0) {
-    return <EmptyState title="아직 녹음이 없습니다" description="녹음 탭에서 시작하세요." />;
+    return <EmptyState title={t("meetingDetail.noSessionsTitle")} description={t("meetingDetail.noSessionsDesc")} />;
   }
 
   return (
@@ -480,10 +485,10 @@ function SessionList({
                   pending={busy === session.id}
                 >
                   {session.status === "failed"
-                    ? "다시 전사"
+                    ? t("meetingDetail.retranscribeFailed")
                     : session.status === "completed"
-                      ? "재전사"
-                      : "전사"}
+                      ? t("meetingDetail.retranscribe")
+                      : t("meetingDetail.transcribe")}
                 </Button>
               )}
 
@@ -523,16 +528,16 @@ function statusIcon(status: SessionStatus): string {
 function sessionLabel(status: SessionStatus): string {
   switch (status) {
     case "recording":
-      return "녹음 중";
+      return i18n.t("meetingDetail.sessionRecording");
     case "uploaded":
-      return "업로드됨";
+      return i18n.t("meetingDetail.sessionUploaded");
     case "splitting":
-      return "분할 중";
+      return i18n.t("meetingDetail.sessionSplitting");
     case "transcribing":
-      return "전사 중";
+      return i18n.t("meetingDetail.sessionTranscribing");
     case "completed":
-      return "완료";
+      return i18n.t("meetingDetail.sessionCompleted");
     case "failed":
-      return "실패";
+      return i18n.t("meetingDetail.sessionFailed");
   }
 }
