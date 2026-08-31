@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { DEFAULT_UI_LOCALE, SUPPORTED_UI_LOCALES } from "@/i18n";
 import type { UiLocale } from "@/i18n";
@@ -39,6 +40,7 @@ export function LocaleField({
   account: CurrentAccount | null;
   onChange: (account: CurrentAccount) => void;
 }) {
+  const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,7 +56,7 @@ export function LocaleField({
       // 화면이 다음 새로고침이 아니라 지금 다시 그려진다.
       onChange(await api.updateLocale(next));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "언어를 저장하지 못했습니다");
+      setError(e instanceof Error ? e.message : t("locale.saveError"));
     } finally {
       setSaving(false);
     }
@@ -62,14 +64,14 @@ export function LocaleField({
 
   return (
     <div className="vr-filter__group">
-      <span className="vr-filter__label">화면 언어</span>
+      <span className="vr-filter__label">{t("locale.label")}</span>
 
       <select
         className="mobile-field__input"
         value={value}
         disabled={saving || account === null}
         onChange={(e) => void pick(e.target.value)}
-        aria-label="화면 언어"
+        aria-label={t("locale.label")}
       >
         {SUPPORTED_UI_LOCALES.map((locale) => (
           <option key={locale} value={locale}>
@@ -79,8 +81,7 @@ export function LocaleField({
       </select>
 
       <p className="vr-note vr-note--small">
-        <strong>앱 화면</strong>이 보이는 언어입니다. 회의를 전사할 언어와는 별개이고,
-        모든 기기에 함께 적용됩니다.
+        <Trans t={t} i18nKey="locale.note" components={{ strong: <strong /> }} />
       </p>
 
       {error && (

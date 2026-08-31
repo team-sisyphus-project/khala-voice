@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { timeLabel } from "@core/domain";
 import type { AudioPlayer } from "@/hooks/useAudioPlayer";
 import { Icon } from "@/ui";
@@ -9,6 +10,7 @@ import { Icon } from "@/ui";
  * **출처: sisyphus** — 세션마다 `<audio>` 를 두면 둘이 동시에 울린다.
  */
 export function AudioPlayerBar({ player, label }: { player: AudioPlayer; label?: string }) {
+  const { t } = useTranslation();
   const open = player.sessionId !== null;
 
   // 본문이 플레이어 뒤로 숨지 않도록 아래 여백을 확보한다
@@ -26,12 +28,12 @@ export function AudioPlayerBar({ player, label }: { player: AudioPlayer; label?:
     player.durationMs > 0 ? Math.min(100, (player.currentMs / player.durationMs) * 100) : 0;
 
   return (
-    <div className="vr-player" role="region" aria-label="오디오 재생">
+    <div className="vr-player" role="region" aria-label={t("player.regionAria")}>
       <button
         type="button"
         className="vr-player__btn"
         onClick={player.toggle}
-        aria-label={player.playing ? "일시정지" : "재생"}
+        aria-label={player.playing ? t("player.pause") : t("player.play")}
       >
         <Icon name={player.playing ? "pause" : "play_arrow"} />
       </button>
@@ -41,7 +43,7 @@ export function AudioPlayerBar({ player, label }: { player: AudioPlayer; label?:
       <div
         className="vr-player__bar"
         role="slider"
-        aria-label="재생 위치"
+        aria-label={t("player.seekAria")}
         aria-valuemin={0}
         aria-valuemax={Math.round(player.durationMs)}
         aria-valuenow={Math.round(player.currentMs)}
@@ -71,7 +73,7 @@ export function AudioPlayerBar({ player, label }: { player: AudioPlayer; label?:
         type="button"
         className="mobile-button mobile-button--ghost mobile-button--fit"
         onClick={player.stop}
-        aria-label="닫기"
+        aria-label={t("common.close")}
       >
         <Icon name="close" />
       </button>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { isStandalone, onInstallAvailability, promptInstall } from "@/lib/pwa";
 import { Icon } from "@/ui";
 
@@ -16,6 +17,7 @@ const DISMISSED_KEY = "vr:install-dismissed";
  * 대신 설정 화면에 수동 안내를 둔다.
  */
 export function InstallBanner() {
+  const { t } = useTranslation();
   const [available, setAvailable] = useState(false);
   const [dismissed, setDismissed] = useState(
     () => localStorage.getItem(DISMISSED_KEY) === "true",
@@ -26,13 +28,13 @@ export function InstallBanner() {
   if (!available || dismissed || isStandalone()) return null;
 
   return (
-    <div className="vr-install" role="region" aria-label="앱 설치">
+    <div className="vr-install" role="region" aria-label={t("install.regionAria")}>
       <Icon name="install_mobile" />
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 600, fontSize: 14 }}>홈 화면에 추가</div>
+        <div style={{ fontWeight: 600, fontSize: 14 }}>{t("install.title")}</div>
         <div className="vr-note vr-note--small">
-          주소창 없이 열리고, 녹음 화면으로 바로 들어갑니다.
+          {t("install.desc")}
         </div>
       </div>
 
@@ -40,12 +42,12 @@ export function InstallBanner() {
         className="mobile-button mobile-button--primary mobile-button--fit"
         onClick={() => void promptInstall()}
       >
-        추가
+        {t("install.add")}
       </button>
 
       <button
         className="mobile-button mobile-button--ghost mobile-button--fit"
-        aria-label="닫기"
+        aria-label={t("common.close")}
         onClick={() => {
           localStorage.setItem(DISMISSED_KEY, "true");
           setDismissed(true);

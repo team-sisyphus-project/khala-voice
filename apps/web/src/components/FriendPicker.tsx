@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { displayName } from "@core/domain";
 import type { CurrentAccount, Friend } from "@core/api";
 import { Icon } from "@/ui";
@@ -34,6 +35,7 @@ export function FriendPicker({
   label: string;
   onChange: (ids: string[]) => void;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<string[]>(selected);
   const committed = useRef<string[]>(selected);
@@ -105,7 +107,7 @@ export function FriendPicker({
         <>
           <div className="vr-menu__backdrop" onClick={close} />
           <div className="vr-menu vr-menu--inline" role="listbox" aria-multiselectable={multiple}>
-            <div className="vr-menu__title">친구</div>
+            <div className="vr-menu__title">{t("friends.title")}</div>
             <div className="vr-menu__list">
               {friends.map((friend) => {
                 const active = current.includes(friend.id);
@@ -131,7 +133,7 @@ export function FriendPicker({
 
             {multiple && (
               <button type="button" className="mobile-button mobile-button--primary mobile-button--fit" onClick={close}>
-                완료
+                {t("common.done")}
               </button>
             )}
           </div>
@@ -155,6 +157,7 @@ export function FriendTokens({
   disabled?: boolean;
   onRemove: (id: string) => void;
 }) {
+  const { t } = useTranslation();
   if (ids.length === 0) return null;
 
   return (
@@ -165,13 +168,13 @@ export function FriendTokens({
         return (
           <span key={id} className="vr-token" data-unknown={name === null || undefined}>
             {/* 친구를 끊은 뒤 남은 옛 id. 숨기면 지울 수도 없어 영원히 남는다. */}
-            {name ?? "알 수 없는 사용자"}
+            {name ?? t("friends.unknownUser")}
             <button
               type="button"
               className="vr-token__x"
               onClick={() => onRemove(id)}
               disabled={disabled}
-              aria-label={`${name ?? id} 빼기`}
+              aria-label={t("friends.removeAria", { name: name ?? id })}
             >
               <Icon name="close" />
             </button>

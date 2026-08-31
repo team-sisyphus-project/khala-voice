@@ -1,4 +1,5 @@
 import { api } from "@/lib/api";
+import i18n from "@/i18n";
 
 /**
  * 웹 푸시 구독.
@@ -25,17 +26,17 @@ export async function pushState(): Promise<PushState> {
 
 /** 구독한다. 실패하면 이유를 문자열로 돌려준다. */
 export async function enablePush(): Promise<{ ok: true } | { ok: false; reason: string }> {
-  if (!supported()) return { ok: false, reason: "이 브라우저는 알림을 지원하지 않습니다" };
+  if (!supported()) return { ok: false, reason: i18n.t("push.unsupported") };
 
   const status = await api.pushStatus();
 
   if (!status.enabled || !status.public_key) {
-    return { ok: false, reason: "서버에 알림이 설정되지 않았습니다" };
+    return { ok: false, reason: i18n.t("push.notConfigured") };
   }
 
   const permission = await Notification.requestPermission();
   if (permission !== "granted") {
-    return { ok: false, reason: "알림 권한이 필요합니다" };
+    return { ok: false, reason: i18n.t("push.permissionRequired") };
   }
 
   const registration = await navigator.serviceWorker.ready;

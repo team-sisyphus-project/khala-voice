@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { useRoutes } from "@/lib/routes";
 import { Tag } from "@/components/Tag";
@@ -27,6 +28,7 @@ export function MeetingInfoTab({
   onError: (message: string | null) => void;
   onLostAccess: () => void;
 }) {
+  const { t } = useTranslation();
   const routes = useRoutes();
   const [topics, setTopics] = useState<Topic[]>([]);
   const [labels, setLabels] = useState<Label[]>([]);
@@ -48,7 +50,7 @@ export function MeetingInfoTab({
     try {
       onSaved(await api.updateMeeting(meeting.id, { title: next }));
     } catch (e) {
-      onError(e instanceof Error ? e.message : "제목을 저장하지 못했습니다");
+      onError(e instanceof Error ? e.message : t("meetingInfo.titleSaveError"));
     }
   }, [meeting.id, meeting.title, title, onSaved, onError]);
 
@@ -72,7 +74,7 @@ export function MeetingInfoTab({
       try {
         onSaved(await api.updateMeeting(meeting.id, body));
       } catch (e) {
-        onError(e instanceof Error ? e.message : "저장하지 못했습니다");
+        onError(e instanceof Error ? e.message : t("common.saveError"));
       } finally {
         setSaving(false);
       }
@@ -86,37 +88,37 @@ export function MeetingInfoTab({
           보여주고 있어서, 본문에 또 두면 같은 글자가 두 벌로 보인다. */}
       {canEdit && (
         <section>
-          <h3 className="mobile-section__title">제목</h3>
+          <h3 className="mobile-section__title">{t("meetingInfo.titleLabel")}</h3>
           <input
             className="mobile-field__input"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onBlur={saveTitle}
-            placeholder="회의 제목"
-            aria-label="회의 제목"
+            placeholder={t("meetingInfo.titlePlaceholder")}
+            aria-label={t("meetingInfo.titlePlaceholder")}
           />
         </section>
       )}
 
       {canEdit && (
         <section>
-          <h3 className="mobile-section__title">분류</h3>
+          <h3 className="mobile-section__title">{t("meetingInfo.taxonomyLabel")}</h3>
 
           {topics.length === 0 && labels.length === 0 ? (
             <EmptyState
               icon="sell"
-              title="아직 분류가 없습니다"
-              desc="분류 화면에서 토픽과 라벨을 만들면 여기서 붙일 수 있습니다."
+              title={t("meetingInfo.noTaxonomyTitle")}
+              desc={t("meetingInfo.noTaxonomyDesc")}
             >
               <a className="mobile-button mobile-button--secondary mobile-button--fit" href={routes.taxonomy}>
-                분류 만들기
+                {t("meetingInfo.createTaxonomy")}
               </a>
             </EmptyState>
           ) : (
             <>
               {topics.length > 0 && (
                 <div className="vr-filter__row" style={{ marginTop: 8 }}>
-                  <span className="mobile-field__label">토픽</span>
+                  <span className="mobile-field__label">{t("meetingInfo.topic")}</span>
                   {topics.map((topic) => (
                     <Tag
                       key={topic.id}
@@ -135,7 +137,7 @@ export function MeetingInfoTab({
 
               {labels.length > 0 && (
                 <div className="vr-filter__row" style={{ marginTop: 8 }}>
-                  <span className="mobile-field__label">라벨</span>
+                  <span className="mobile-field__label">{t("meetingInfo.label")}</span>
                   {labels.map((label) => {
                     const on = meeting.label_ids.includes(label.id);
 
@@ -161,7 +163,7 @@ export function MeetingInfoTab({
 
           {saving && (
             <p className="vr-note" style={{ fontSize: 12, marginTop: 8 }} aria-live="polite">
-              저장 중…
+              {t("common.saving")}
             </p>
           )}
         </section>
@@ -179,7 +181,7 @@ export function MeetingInfoTab({
 
       {meeting.role === "contributor" && (
         <Notice kind="info" icon="info">
-          공개 범위와 공유 링크는 <strong>Reviewer</strong> 만 바꿀 수 있습니다.
+          <Trans t={t} i18nKey="meetingInfo.reviewerOnlyNote" components={{ strong: <strong /> }} />
         </Notice>
       )}
     </div>

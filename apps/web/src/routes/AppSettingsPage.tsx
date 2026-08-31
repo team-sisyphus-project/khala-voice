@@ -62,7 +62,7 @@ export function AppSettingsPage() {
               onClick={() => void pickTheme(item.id)}
             >
               <Icon name={item.icon} />
-              <span>{item.label}</span>
+              <span>{t(`theme.${item.id}`)}</span>
             </button>
           ))}
         </div>

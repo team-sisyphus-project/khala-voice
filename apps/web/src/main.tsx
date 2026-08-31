@@ -22,7 +22,7 @@ registerServiceWorker();
 installPressFeedback();
 
 const root = document.getElementById("root");
-if (!root) throw new Error("#root 를 찾을 수 없습니다");
+if (!root) throw new Error("Root element #root not found");
 
 createRoot(root).render(
   <StrictMode>
