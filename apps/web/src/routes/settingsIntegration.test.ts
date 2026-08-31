@@ -21,6 +21,12 @@ const liveViewStylesSource = readFileSync(
   "utf8",
 );
 const indexSource = readFileSync(fileURLToPath(new URL("../../index.html", import.meta.url)), "utf8");
+const rootLayoutSource = readFileSync(
+  fileURLToPath(
+    new URL("../../../../backend/lib/vr_web/components/layouts/root.html.heex", import.meta.url),
+  ),
+  "utf8",
+);
 
 describe("settings integration contract", () => {
   it("renders every declared setting and uses token-backed section cards", () => {
@@ -62,6 +68,9 @@ describe("settings integration contract", () => {
   it("prevents double-tap and pinch zoom at mobile viewports", () => {
     expect(baseStylesSource).toMatch(/html,\s*body\s*{[^}]*touch-action:\s*manipulation;/s);
     expect(indexSource).toContain(
+      'content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"',
+    );
+    expect(rootLayoutSource).toContain(
       'content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"',
     );
   });
