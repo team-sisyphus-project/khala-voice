@@ -1431,6 +1431,32 @@ a.mobile-top-app-bar__icon-button { text-decoration: none; }
   color: var(--mobile-on-accent);
 }
 
+/* 설정의 네 대분류 카드 안에서 기존 항목을 작은 의미 단위로 나눈다. */
+.vr-settings-section > .mobile-section__body > div + div,
+.vr-settings-subgroup + .vr-settings-subgroup {
+  border-top: var(--mobile-border-width) var(--mobile-border-style) var(--mobile-border);
+  padding-top: var(--mobile-space-5);
+}
+
+.vr-settings-subgroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mobile-space-3);
+}
+
+.vr-settings-subgroup__title {
+  color: var(--mobile-fg-muted);
+  font-size: var(--mobile-font-size-caption);
+  font-weight: var(--mobile-font-weight-semibold);
+  line-height: var(--mobile-line-height-tight);
+}
+
+.vr-install-guide {
+  margin: 0;
+  padding-inline-start: var(--mobile-space-8);
+  line-height: var(--mobile-line-height-relaxed);
+}
+
 /* 다음 화면으로 넘어가는 행. `Row` 는 버튼이라 링크에는 이걸 쓴다. */
 .vr-nav-row {
   display: grid;

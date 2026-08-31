@@ -24,7 +24,7 @@ export function NotificationSetting() {
 
   if (state === "unsupported") {
     return (
-      <p className="vr-note" style={{ fontSize: 12 }}>
+      <p className="vr-note vr-note--small">
         이 브라우저는 알림을 지원하지 않습니다.
       </p>
     );

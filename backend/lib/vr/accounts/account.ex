@@ -77,7 +77,7 @@ defmodule VR.Accounts.Account do
     field :is_bootstrap, :boolean, default: false
 
     # 사용자별 화면 테마. 시스템 어드민 설정이 아니다.
-    field :theme, :string, default: "dark"
+    field :theme, :string, default: "light"
     # 기본 전사 언어. **nil = 자동**(브라우저 언어를 따라간다).
     # UI 언어(`locale`)와 다른 값이다 — 전사는 STT 코드(`cmn-Hans-CN` 등)를 쓴다.
     field :transcribe_language, :string

@@ -16,4 +16,8 @@ defmodule VRWeb.PageControllerTest do
 
     assert response(conn, 200) == "ok"
   end
+
+  test "로그인 전 화면의 기본 테마는 라이트다" do
+    assert VRWeb.Layouts.theme(%{}) == "light"
+  end
 end

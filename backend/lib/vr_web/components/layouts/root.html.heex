@@ -2,7 +2,10 @@
 <html lang="ko" data-theme={theme(assigns)}>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
     <meta name="csrf-token" content={get_csrf_token()} />
     <meta name="theme-color" content="#ffffff" />
 
@@ -48,7 +51,7 @@
 
         const server = root.getAttribute("data-theme");
         const cached = localStorage.getItem("vr:theme");
-        const theme = server || cached || "dark";
+        const theme = server || cached || "light";
 
         root.setAttribute("data-theme", theme);
         if (server) localStorage.setItem("vr:theme", server);
