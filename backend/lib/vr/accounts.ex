@@ -207,6 +207,16 @@ defmodule VR.Accounts do
   end
 
   @doc """
+  UI 표시 언어(`locale`)만 바꾼다. 설정 화면을 거치지 않고 즉시 저장할 때 쓴다.
+
+  **전사 언어(`transcribe_language`)와 다른 값이다.** 영어로 앱을 쓰면서
+  한국어 회의를 녹음하는 것이 흔하다 — 둘을 묶으면 그때마다 함께 바꿔야 한다.
+  """
+  def update_locale(%Account{} = account, locale) do
+    account |> Account.locale_changeset(locale) |> Repo.update()
+  end
+
+  @doc """
   기본 전사 언어를 바꾼다. `nil` 이면 자동(브라우저 언어)으로 되돌린다.
 
   **대화(UI) 언어(`locale`)와 다른 값이다.** 한국어로 앱을 쓰면서 영어 회의를

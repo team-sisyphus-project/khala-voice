@@ -31,6 +31,19 @@ defmodule VRWeb.API.MeController do
   end
 
   @doc """
+  UI 표시 언어 변경. 설정 화면을 거치지 않고 즉시 저장한다.
+
+  전사 언어(`transcribe_language`)와 별개다 — UI 언어만 바꾼다.
+  """
+  def update_locale(conn, %{"locale" => locale}) do
+    account = conn.assigns.current_account
+
+    with {:ok, updated} <- Accounts.update_locale(account, locale) do
+      json(conn, JSONView.account(updated))
+    end
+  end
+
+  @doc """
   기본 전사 언어 변경. 빈 값이면 자동(브라우저 언어)으로 되돌린다.
 
   녹음할 때마다 고르게 하지 않는다 — 대부분 늘 같은 언어로 회의하고,
