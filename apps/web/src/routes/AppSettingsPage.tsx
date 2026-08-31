@@ -8,6 +8,7 @@ import { Notice } from "@/components/ui";
 import { usePrefs } from "@/hooks/usePrefs";
 import { useAccount } from "@/hooks/useAccount";
 import { LanguageField } from "@/components/LanguageField";
+import { LocaleField } from "@/components/LocaleField";
 import { useRoutes } from "@/lib/routes";
 import { isStandalone, onInstallAvailability, promptInstall } from "@/lib/pwa";
 import { applyTheme, cachedTheme, THEMES } from "@/lib/theme";
@@ -63,6 +64,9 @@ export function AppSettingsPage() {
             </button>
           ))}
         </div>
+
+        {/* UI 언어는 계정에 있다(`locale`) — 기기를 바꿔도 따라온다. 전사 언어와 별개다. */}
+        <LocaleField account={account} onChange={setAccount} />
       </Section>
 
       <Section title="녹음" card>
