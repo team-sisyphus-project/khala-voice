@@ -1413,7 +1413,7 @@ a.mobile-top-app-bar__icon-button { text-decoration: none; }
   display: flex;
   align-items: center;
   gap: var(--mobile-space-2);
-  min-height: 44px;
+  min-height: var(--mobile-touch-target);
   padding: 0 var(--mobile-space-4);
   border: var(--mobile-border-width) var(--mobile-border-style) var(--mobile-border);
   border-radius: var(--mobile-radius-sm);
@@ -1463,7 +1463,7 @@ a.mobile-top-app-bar__icon-button { text-decoration: none; }
   grid-template-columns: 1fr auto;
   align-items: center;
   gap: 0 var(--mobile-space-3);
-  min-height: 44px;
+  min-height: var(--mobile-touch-target);
   text-decoration: none;
   color: var(--mobile-fg);
 }
