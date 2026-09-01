@@ -64,6 +64,7 @@ export const ko: UiCatalog = {
     noneFound: "쓸 수 있는 마이크를 찾지 못했습니다.",
     defaultDevice: "기본 장치",
     defaultDeviceHint: "브라우저와 OS 가 고르는 마이크",
+    micFallback: "마이크 {{index}}",
   },
 
   ui: {
@@ -290,6 +291,113 @@ export const ko: UiCatalog = {
     srPaused: "녹음을 일시정지했습니다",
     srStopping: "녹음을 마무리하는 중입니다",
     srError: "녹음이 중단되었습니다",
+
+    // 마이크 안내 문안. core(@core/recorder)가 낸 로케일-프리 키를 셸이 번역한다.
+    guide: {
+      title: {
+        permission_blocked: "마이크가 차단되어 있습니다",
+        permission_dismissed: "마이크 권한을 받지 못했습니다",
+        permission_denied: "마이크 사용이 거부되었습니다",
+        system_denied: "시스템에서 마이크가 꺼져 있습니다",
+        embed_blocked: "삽입된 화면에서는 마이크를 쓸 수 없습니다",
+        device_busy: "마이크를 다른 앱이 쓰고 있습니다",
+        device_unavailable: "선택한 마이크를 찾을 수 없습니다",
+        no_device: "마이크를 찾지 못했습니다",
+        insecure_context: "보안 연결(HTTPS)이 아닙니다",
+        unsupported: "이 브라우저는 녹음을 지원하지 않습니다",
+        interrupted: "녹음이 중단되었습니다",
+        unknown: "녹음 오류",
+      },
+      cause: {
+        webview: "인앱 브라우저에서는 마이크를 쓸 수 없습니다.",
+        permission_dismissed: "마이크 권한 창을 닫았습니다. 아직 허용도 차단도 아닙니다.",
+        permission_blocked:
+          "이 사이트의 마이크가 차단되어 있습니다. 다시 눌러도 권한 창이 뜨지 않습니다.",
+        permission_denied: "마이크 사용이 거부되었습니다.",
+        system_denied: "운영체제 설정에서 브라우저의 마이크 접근이 꺼져 있습니다.",
+        embed_blocked: "이 페이지가 다른 사이트 안에 삽입되어 있어 마이크가 막혔습니다.",
+        device_busy: "마이크는 있지만 다른 앱이 쓰고 있어 열 수 없습니다.",
+        device_unavailable: "선택해 둔 마이크를 찾을 수 없습니다. 뽑혔거나 꺼진 것 같습니다.",
+        no_device: "쓸 수 있는 마이크가 없습니다.",
+        insecure_context: "HTTPS 가 아니면 브라우저가 마이크를 열어주지 않습니다.",
+        unsupported: "이 브라우저는 녹음을 지원하지 않습니다.",
+        unsupported_webview: "인앱 브라우저는 녹음을 지원하지 않습니다.",
+        interrupted: "녹음 중 마이크 연결이 끊겼습니다. 그때까지의 녹음은 저장했습니다.",
+        unknown: "마이크를 열지 못했습니다.",
+      },
+      env: {
+        notBrowser: "브라우저 환경이 아닙니다",
+        insecure:
+          "HTTPS 가 아니면 마이크를 쓸 수 없습니다. localhost 이거나 https 주소로 접속해야 합니다.",
+        noGetUserMedia: "이 브라우저는 마이크 녹음을 지원하지 않습니다",
+        noMediaRecorder: "이 브라우저는 MediaRecorder 를 지원하지 않습니다",
+      },
+      step: {
+        refreshPage: "설정을 바꾼 뒤 이 페이지를 새로고침합니다.",
+        retry: "[다시 시도] 를 누릅니다.",
+        siteIosAa:
+          "주소창 왼쪽의 'ᴀA' 를 누르고 [웹사이트 설정] → [마이크] 를 [허용] 으로 바꿉니다.",
+        siteIosSettings:
+          "그래도 안 되면 iOS [설정] → [Safari] → [마이크] 를 [확인] 또는 [허용] 으로 바꿉니다.",
+        siteWebkitMenu:
+          "Safari 메뉴 → [설정] → [웹사이트] → [마이크] 에서 이 사이트를 [허용] 으로 바꿉니다.",
+        siteGeckoLock:
+          "주소창 왼쪽 자물쇠를 누르고 [마이크] 옆의 차단 표시(✕)를 눌러 해제합니다.",
+        siteAndroidLock: "주소창 왼쪽 자물쇠 → [권한] → [마이크] 를 [허용] 으로 바꿉니다.",
+        siteAndroidAppSettings:
+          "안드로이드 [설정] → [애플리케이션] → 브라우저 → [권한] → [마이크] 도 허용인지 확인합니다.",
+        siteChromiumIcon:
+          "주소창 오른쪽 끝의 차단된 마이크 아이콘(또는 주소창 왼쪽 아이콘)을 누릅니다.",
+        siteChromiumAllow:
+          "[마이크]를 [허용]으로 바꿉니다. ({{menu}} 설정 → 개인 정보 보호 및 보안 → 사이트 설정 → 마이크 에서도 바꿀 수 있습니다.)",
+        systemMacosOpen: "[시스템 설정] → [개인정보 보호 및 보안] → [마이크] 를 엽니다.",
+        systemMacosEnable: "브라우저 항목을 켭니다.",
+        systemMacosRestart: "브라우저를 완전히 종료했다가 다시 엽니다.",
+        systemWindowsOpen: "[설정] → [개인 정보 및 보안] → [마이크] 를 엽니다.",
+        systemWindowsEnable: "[앱이 마이크에 액세스하도록 허용] 과 [데스크톱 앱...] 을 모두 켭니다.",
+        systemWindowsRestart: "브라우저를 다시 시작합니다.",
+        systemIosOpen: "iOS [설정] → [개인정보 보호 및 보안] → [마이크] 를 엽니다.",
+        systemIosEnable: "브라우저 항목을 켭니다.",
+        systemAndroidOpen:
+          "안드로이드 [설정] → [애플리케이션] → 브라우저 → [권한] → [마이크] 를 [허용] 으로 바꿉니다.",
+        systemOtherOpen: "운영체제의 개인정보 설정에서 브라우저의 마이크 접근을 켭니다.",
+        systemOtherRestart: "브라우저를 다시 시작합니다.",
+        openInBrowserIosMenu: "오른쪽 아래(또는 위) [···] 메뉴를 누릅니다.",
+        openInBrowserIosSafari: "[Safari로 열기] 를 누릅니다.",
+        openInBrowserIosRecord: "Safari 에서 다시 녹음을 시작합니다.",
+        openInBrowserOtherMenu: "오른쪽 위 [⋮] 또는 [···] 메뉴를 누릅니다.",
+        openInBrowserOtherChrome: "[다른 브라우저로 열기] 또는 [Chrome으로 열기] 를 누릅니다.",
+        openInBrowserOtherRecord: "Chrome 에서 다시 녹음을 시작합니다.",
+        dismissedRetry: "[다시 시도] 를 누르면 권한 창이 한 번 더 뜹니다.",
+        dismissedAllow: "창이 뜨면 [허용] 을 누릅니다.",
+        deniedRetry: "[다시 시도] 를 눌러 권한 창이 뜨는지 봅니다.",
+        deniedWebkitHint: "창이 뜨지 않으면 아래 방법으로 사이트 권한을 바꿉니다.",
+        embedOpenNewTab: "이 페이지를 새 탭에서 직접 엽니다.",
+        busyMobileEndCall: "통화 중이라면 통화를 끝냅니다.",
+        busyMobileCloseApps: "다른 녹음·통화 앱을 완전히 종료합니다.",
+        busyDesktopCloseApps: "화상회의·녹음 앱(줌·팀즈·디스코드 등)을 종료합니다.",
+        busyDesktopCloseTabs: "다른 탭에서 이 사이트나 회의 서비스를 열어 두었다면 닫습니다.",
+        unavailableBluetooth: "블루투스 헤드셋이라면 연결을 확인합니다.",
+        unavailableSwitchDefault:
+          "[기본 마이크로 바꾸기] 를 누르거나 녹음 설정에서 다른 마이크를 고릅니다.",
+        noDeviceMobileReplug: "헤드셋을 뺐다 다시 꽂아 봅니다.",
+        noDeviceDesktopCheck: "마이크나 헤드셋이 꽂혀 있는지 확인합니다.",
+        noDeviceDesktopOsSound: "OS 사운드 설정에서 입력 장치가 잡히는지 확인합니다.",
+        insecureHttps: "주소를 `https://` 로 바꿔 다시 접속합니다.",
+        insecureLocalhost: "실기기 테스트 중이라면 `localhost` 또는 https 터널 주소로 접속합니다.",
+        unsupportedIos: "iOS 14.3 이상에서 Safari 로 접속합니다.",
+        unsupportedOther: "최신 Chrome · Edge · Safari 로 접속합니다.",
+        interruptedMobileAfterCall: "통화가 끝난 뒤 다시 녹음을 시작합니다.",
+        interruptedMobileKeepScreen: "긴 회의는 화면을 켜 둔 채로 두면 끊길 확률이 줄어듭니다.",
+        interruptedDesktopCheck: "마이크 연결을 확인한 뒤 다시 녹음을 시작합니다.",
+        defaultRefreshFail: "계속 실패하면 페이지를 새로고침합니다.",
+      },
+      msg: {
+        recordError: "녹음 중 오류가 발생했습니다",
+        emptyRecording: "녹음된 데이터가 없습니다",
+        interrupted: "마이크 연결이 끊겼습니다. 지금까지 녹음된 내용을 저장합니다.",
+      },
+    },
   },
 
   visibility: {

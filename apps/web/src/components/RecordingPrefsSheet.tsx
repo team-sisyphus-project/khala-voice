@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Recorder, micErrorTitle } from "@core/recorder";
+import { Recorder } from "@core/recorder";
 import type { MicDevice, MicListResult, RecorderError } from "@core/recorder";
+import { errorTitle, guideText } from "@/lib/recorderGuide";
 import { Button, Icon, Sheet } from "@/ui";
 import { LanguageField } from "@/components/LanguageField";
 import type { CurrentAccount } from "@core/api";
@@ -117,14 +118,14 @@ export function RecordingPrefsSheet({
           <div className="vr-mic-trouble" role="alert">
             <p className="vr-mic-trouble__title">
               <Icon name="mic_off" />
-              {micErrorTitle(trouble.code)}
+              {errorTitle(t, trouble.code)}
             </p>
-            <p className="vr-note vr-note--small">{trouble.message}</p>
+            <p className="vr-note vr-note--small">{guideText(t, trouble.message)}</p>
 
             {trouble.recovery && trouble.recovery.steps.length > 0 && (
               <ol className="vr-mic-trouble__steps">
                 {trouble.recovery.steps.map((step) => (
-                  <li key={step}>{step}</li>
+                  <li key={step.key}>{guideText(t, step)}</li>
                 ))}
               </ol>
             )}
@@ -155,7 +156,9 @@ export function RecordingPrefsSheet({
           {devices.map((device) => (
             <MicOption
               key={device.deviceId}
-              label={device.label}
+              // 라벨은 권한 전에는 비어 있다 — 그때의 "마이크 N" 대체 표기는
+              // core 가 아니라 셸이 만든다(core 는 로케일 문안 비생성).
+              label={device.label || t("recordingPrefs.micFallback", { index: device.index })}
               active={micDeviceId === device.deviceId}
               onClick={() => onMicChange(device.deviceId)}
             />

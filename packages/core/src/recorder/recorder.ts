@@ -9,7 +9,7 @@ import {
   refinePermissionCode,
   watchMicPermission,
 } from "./permission";
-import type { MicPermissionState, Platform, RecoveryGuide } from "./permission";
+import type { GuideMessage, MicPermissionState, Platform, RecoveryGuide } from "./permission";
 import type {
   MicListResult,
   MicPermissionRequestResult,
@@ -192,7 +192,9 @@ export class Recorder {
     return {
       devices: inputs.map((d, i) => ({
         deviceId: d.deviceId,
-        label: d.label || `마이크 ${i + 1}`,
+        // 라벨이 비었을 때의 대체 표기는 셸이 `index` 로 만든다 — core 는 문안 비생성.
+        label: d.label,
+        index: i + 1,
       })),
       // 차단된 상태에서는 물어봐야 소용이 없다
       needsPermission: labelsHidden && permission !== "denied",
@@ -397,7 +399,7 @@ export class Recorder {
     };
 
     this.#recorder.onerror = (event) => {
-      this.#fail("unknown", event, undefined, "녹음 중 오류가 발생했습니다");
+      this.#fail("unknown", event, undefined, { key: "msg.recordError" });
     };
 
     this.#recorder.onstop = () => this.#finish();
@@ -415,7 +417,7 @@ export class Recorder {
 
     // 빈 녹음은 올려봐야 전사도 못 하고 크레딧만 쓴다
     if (blob.size === 0) {
-      this.#fail("unknown", undefined, undefined, "녹음된 데이터가 없습니다");
+      this.#fail("unknown", undefined, undefined, { key: "msg.emptyRecording" });
       return;
     }
 
@@ -505,7 +507,7 @@ export class Recorder {
 
         this.events.emit("error", {
           code: "interrupted",
-          message: "마이크 연결이 끊겼습니다. 지금까지 녹음된 내용을 저장합니다.",
+          message: { key: "msg.interrupted" },
           recovery: micRecoveryGuide("interrupted", this.#platform),
         });
 
@@ -552,7 +554,7 @@ export class Recorder {
     code: RecorderErrorCode,
     cause?: unknown,
     permission?: MicPermissionState,
-    override?: string,
+    override?: GuideMessage,
   ): void {
     const recovery: RecoveryGuide = micRecoveryGuide(code, this.#platform);
 

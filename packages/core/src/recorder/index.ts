@@ -15,6 +15,7 @@ export {
 export type {
   BrowserKind,
   EngineKind,
+  GuideMessage,
   MicPermissionState,
   OsKind,
   PermissionErrorCode,

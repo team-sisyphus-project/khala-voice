@@ -71,6 +71,7 @@ export const en = {
     noneFound: "No usable microphone found.",
     defaultDevice: "Default device",
     defaultDeviceHint: "The microphone the browser and OS pick",
+    micFallback: "Microphone {{index}}",
   },
 
   ui: {
@@ -297,6 +298,136 @@ export const en = {
     srPaused: "Recording paused",
     srStopping: "Finishing the recording",
     srError: "Recording was interrupted",
+
+    /**
+     * Mic-guidance copy. `@core/recorder` is framework/i18n-free (Rule 4): it
+     * emits locale-free keys + params (`GuideMessage`), and the shell translates
+     * them here via `lib/recorderGuide.guideText`. Keys mirror the codes/platform
+     * branches decided in core — same boundary as `visibility.scopes.{mode}`.
+     */
+    guide: {
+      title: {
+        permission_blocked: "The microphone is blocked",
+        permission_dismissed: "Didn't get microphone permission",
+        permission_denied: "Microphone access was denied",
+        system_denied: "The microphone is off in system settings",
+        embed_blocked: "Microphone unavailable in an embedded view",
+        device_busy: "Another app is using the microphone",
+        device_unavailable: "Can't find the selected microphone",
+        no_device: "No microphone found",
+        insecure_context: "Not a secure (HTTPS) connection",
+        unsupported: "This browser doesn't support recording",
+        interrupted: "Recording was interrupted",
+        unknown: "Recording error",
+      },
+      cause: {
+        webview: "You can't use the microphone in an in-app browser.",
+        permission_dismissed:
+          "You closed the microphone permission prompt. It's neither allowed nor blocked yet.",
+        permission_blocked:
+          "The microphone is blocked for this site. Pressing again won't bring up the prompt.",
+        permission_denied: "Microphone access was denied.",
+        system_denied:
+          "The browser's microphone access is turned off in your system settings.",
+        embed_blocked:
+          "This page is embedded in another site, so the microphone is blocked.",
+        device_busy:
+          "There's a microphone, but another app is using it, so it can't be opened.",
+        device_unavailable:
+          "Can't find the microphone you selected. It looks unplugged or turned off.",
+        no_device: "There's no usable microphone.",
+        insecure_context:
+          "Browsers won't open the microphone unless the connection is HTTPS.",
+        unsupported: "This browser doesn't support recording.",
+        unsupported_webview: "In-app browsers don't support recording.",
+        interrupted:
+          "The microphone was disconnected while recording. What was recorded until then is saved.",
+        unknown: "Couldn't open the microphone.",
+      },
+      env: {
+        notBrowser: "Not a browser environment.",
+        insecure:
+          "You can't use the microphone without HTTPS. Connect via localhost or an https address.",
+        noGetUserMedia: "This browser doesn't support microphone recording.",
+        noMediaRecorder: "This browser doesn't support MediaRecorder.",
+      },
+      step: {
+        refreshPage: "Reload this page after changing the setting.",
+        retry: "Press [Retry].",
+        siteIosAa:
+          "Tap ‘ᴀA’ at the left of the address bar, then set [Website Settings] → [Microphone] to [Allow].",
+        siteIosSettings:
+          "If that doesn't help, set iOS [Settings] → [Safari] → [Microphone] to [Ask] or [Allow].",
+        siteWebkitMenu:
+          "Open the Safari menu → [Settings] → [Websites] → [Microphone] and set this site to [Allow].",
+        siteGeckoLock:
+          "Click the padlock at the left of the address bar and clear the block (✕) next to [Microphone].",
+        siteAndroidLock:
+          "Tap the padlock at the left of the address bar → [Permissions] → set [Microphone] to [Allow].",
+        siteAndroidAppSettings:
+          "Also confirm Android [Settings] → [Apps] → your browser → [Permissions] → [Microphone] is allowed.",
+        siteChromiumIcon:
+          "Click the blocked microphone icon at the right end of the address bar (or the icon on the left).",
+        siteChromiumAllow:
+          "Set [Microphone] to [Allow]. (You can also change it under {{menu}} Settings → Privacy and security → Site settings → Microphone.)",
+        systemMacosOpen: "Open [System Settings] → [Privacy & Security] → [Microphone].",
+        systemMacosEnable: "Turn on your browser.",
+        systemMacosRestart: "Quit the browser completely, then reopen it.",
+        systemWindowsOpen: "Open [Settings] → [Privacy & security] → [Microphone].",
+        systemWindowsEnable:
+          "Turn on both [Let apps access your microphone] and [Let desktop apps access your microphone].",
+        systemWindowsRestart: "Restart the browser.",
+        systemIosOpen: "Open iOS [Settings] → [Privacy & Security] → [Microphone].",
+        systemIosEnable: "Turn on your browser.",
+        systemAndroidOpen:
+          "Set Android [Settings] → [Apps] → your browser → [Permissions] → [Microphone] to [Allow].",
+        systemOtherOpen:
+          "Turn on microphone access for your browser in your OS privacy settings.",
+        systemOtherRestart: "Restart the browser.",
+        openInBrowserIosMenu: "Tap the [···] menu at the bottom (or top) right.",
+        openInBrowserIosSafari: "Tap [Open in Safari].",
+        openInBrowserIosRecord: "Start recording again in Safari.",
+        openInBrowserOtherMenu: "Tap the [⋮] or [···] menu at the top right.",
+        openInBrowserOtherChrome: "Tap [Open in another browser] or [Open in Chrome].",
+        openInBrowserOtherRecord: "Start recording again in Chrome.",
+        dismissedRetry: "Press [Retry] to bring up the permission prompt once more.",
+        dismissedAllow: "When the prompt appears, tap [Allow].",
+        deniedRetry: "Press [Retry] and see whether the permission prompt appears.",
+        deniedWebkitHint:
+          "If the prompt doesn't appear, change the site permission with the steps below.",
+        embedOpenNewTab: "Open this page directly in a new tab.",
+        busyMobileEndCall: "If you're on a call, end the call.",
+        busyMobileCloseApps: "Fully close other recording or calling apps.",
+        busyDesktopCloseApps:
+          "Close video-call or recording apps (Zoom, Teams, Discord, etc.).",
+        busyDesktopCloseTabs:
+          "If this site or a meeting service is open in another tab, close it.",
+        unavailableBluetooth: "If it's a Bluetooth headset, check the connection.",
+        unavailableSwitchDefault:
+          "Press [Switch to the default mic] or pick another microphone in the recording settings.",
+        noDeviceMobileReplug: "Unplug your headset and plug it back in.",
+        noDeviceDesktopCheck: "Check that a microphone or headset is plugged in.",
+        noDeviceDesktopOsSound:
+          "Check that the input device appears in your OS sound settings.",
+        insecureHttps: "Reconnect using an `https://` address.",
+        insecureLocalhost:
+          "If you're testing on a device, connect via `localhost` or an https tunnel address.",
+        unsupportedIos: "Connect with Safari on iOS 14.3 or later.",
+        unsupportedOther: "Connect with an up-to-date Chrome, Edge, or Safari.",
+        interruptedMobileAfterCall: "Start recording again once the call ends.",
+        interruptedMobileKeepScreen:
+          "For long meetings, keeping the screen on lowers the chance of disconnection.",
+        interruptedDesktopCheck:
+          "Check the microphone connection, then start recording again.",
+        defaultRefreshFail: "If it keeps failing, reload the page.",
+      },
+      msg: {
+        recordError: "An error occurred while recording.",
+        emptyRecording: "There's no recorded data.",
+        interrupted:
+          "The microphone was disconnected. Saving what has been recorded so far.",
+      },
+    },
   },
 
   visibility: {

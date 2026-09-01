@@ -44,11 +44,30 @@ export interface Platform {
   webview: boolean;
 }
 
+/**
+ * 화면에 그대로 박히지 않는, **로케일-프리 문안 지시자**.
+ *
+ * `packages/core` 는 프레임워크·i18n 비의존이어야 한다(프로젝트 규칙 4). 그래서
+ * 여기서는 번역된 문자열이 아니라 **안정적인 키**(어떤 안내인지)와 **보간 파라미터**
+ * (기기·상황에 따라 달라지는 값)만 낸다. 실제 번역은 UI 셸이 `t()` 로 한다 —
+ * `@core/domain` 의 `VIEW_SCOPES` 를 web 이 `visibility.scopes.{mode}` 키로 렌더하는
+ * 것과 같은 경계다.
+ *
+ * `key` 는 네임스페이스 없는 순수 키다(예: `cause.permission_blocked`). 카탈로그
+ * 접두사(`recorder.guide.`)는 셸이 붙인다 — core 가 카탈로그 레이아웃을 알 필요가 없다.
+ */
+export interface GuideMessage {
+  /** 안정적인 로케일-프리 카탈로그 키. */
+  key: string;
+  /** 보간 파라미터. 로케일과 무관한 값만(브라우저 메뉴명·개수 등). */
+  params?: Record<string, string | number>;
+}
+
 export interface RecoveryGuide {
   /** 무엇이 막았는지 한 줄로. */
-  cause: string;
+  cause: GuideMessage;
   /** 이 기기에서 순서대로 할 일. 비어 있으면 안내할 조작이 없다는 뜻. */
-  steps: string[];
+  steps: GuideMessage[];
   /**
    * 페이지 안에서 "다시 시도" 가 의미 있는가.
    *
@@ -57,6 +76,11 @@ export interface RecoveryGuide {
   retryable: boolean;
   /** 브라우저·OS 설정을 직접 열어야 하는가. */
   needsSettings: boolean;
+}
+
+/** `GuideMessage` 를 짧게 만든다. 파라미터가 없으면 키만 담는다. */
+function m(key: string, params?: Record<string, string | number>): GuideMessage {
+  return params ? { key, params } : { key };
 }
 
 // ── 플랫폼 판별 ────────────────────────────────────────────
@@ -358,92 +382,73 @@ export function refinePermissionCode(
 // ── 안내문 ────────────────────────────────────────────────
 
 /** 브라우저 사이트 권한을 여는 길. 안내의 절반은 "어디를 누르는가" 다. */
-function siteSettingsSteps(platform: Platform): string[] {
+function siteSettingsSteps(platform: Platform): GuideMessage[] {
   const { engine, os, browser } = platform;
 
   if (os === "ios") {
-    return [
-      "주소창 왼쪽의 'ᴀA' 를 누르고 [웹사이트 설정] → [마이크] 를 [허용] 으로 바꿉니다.",
-      "그래도 안 되면 iOS [설정] → [Safari] → [마이크] 를 [확인] 또는 [허용] 으로 바꿉니다.",
-      "설정을 바꾼 뒤 이 페이지를 새로고침합니다.",
-    ];
+    return [m("step.siteIosAa"), m("step.siteIosSettings"), m("step.refreshPage")];
   }
 
   if (engine === "webkit") {
-    return [
-      "Safari 메뉴 → [설정] → [웹사이트] → [마이크] 에서 이 사이트를 [허용] 으로 바꿉니다.",
-      "설정을 바꾼 뒤 이 페이지를 새로고침합니다.",
-    ];
+    return [m("step.siteWebkitMenu"), m("step.refreshPage")];
   }
 
   if (engine === "gecko") {
-    return [
-      "주소창 왼쪽 자물쇠를 누르고 [마이크] 옆의 차단 표시(✕)를 눌러 해제합니다.",
-      "설정을 바꾼 뒤 이 페이지를 새로고침합니다.",
-    ];
+    return [m("step.siteGeckoLock"), m("step.refreshPage")];
   }
 
   if (os === "android") {
     return [
-      "주소창 왼쪽 자물쇠 → [권한] → [마이크] 를 [허용] 으로 바꿉니다.",
-      "안드로이드 [설정] → [애플리케이션] → 브라우저 → [권한] → [마이크] 도 허용인지 확인합니다.",
-      "설정을 바꾼 뒤 이 페이지를 새로고침합니다.",
+      m("step.siteAndroidLock"),
+      m("step.siteAndroidAppSettings"),
+      m("step.refreshPage"),
     ];
   }
 
+  // Edge 도 Samsung 도 Chromium 이지만, 설정 메뉴 이름은 브라우저마다 다르다.
   const menu = browser === "edge" ? "Edge" : "Chrome";
   return [
-    `주소창 오른쪽 끝의 차단된 마이크 아이콘(또는 주소창 왼쪽 아이콘)을 누릅니다.`,
-    `[마이크]를 [허용]으로 바꿉니다. (${menu} 설정 → 개인 정보 보호 및 보안 → 사이트 설정 → 마이크 에서도 바꿀 수 있습니다.)`,
-    "설정을 바꾼 뒤 이 페이지를 새로고침합니다.",
+    m("step.siteChromiumIcon"),
+    m("step.siteChromiumAllow", { menu }),
+    m("step.refreshPage"),
   ];
 }
 
 /** OS 개인정보 설정을 여는 길. 브라우저 설정을 아무리 만져도 여기서 막히면 안 열린다. */
-function systemSettingsSteps(platform: Platform): string[] {
+function systemSettingsSteps(platform: Platform): GuideMessage[] {
   switch (platform.os) {
     case "macos":
       return [
-        "[시스템 설정] → [개인정보 보호 및 보안] → [마이크] 를 엽니다.",
-        "브라우저 항목을 켭니다.",
-        "브라우저를 완전히 종료했다가 다시 엽니다.",
+        m("step.systemMacosOpen"),
+        m("step.systemMacosEnable"),
+        m("step.systemMacosRestart"),
       ];
     case "windows":
       return [
-        "[설정] → [개인 정보 및 보안] → [마이크] 를 엽니다.",
-        "[앱이 마이크에 액세스하도록 허용] 과 [데스크톱 앱...] 을 모두 켭니다.",
-        "브라우저를 다시 시작합니다.",
+        m("step.systemWindowsOpen"),
+        m("step.systemWindowsEnable"),
+        m("step.systemWindowsRestart"),
       ];
     case "ios":
-      return [
-        "iOS [설정] → [개인정보 보호 및 보안] → [마이크] 를 엽니다.",
-        "브라우저 항목을 켭니다.",
-        "이 페이지를 새로고침합니다.",
-      ];
+      return [m("step.systemIosOpen"), m("step.systemIosEnable"), m("step.refreshPage")];
     case "android":
-      return [
-        "안드로이드 [설정] → [애플리케이션] → 브라우저 → [권한] → [마이크] 를 [허용] 으로 바꿉니다.",
-        "이 페이지를 새로고침합니다.",
-      ];
+      return [m("step.systemAndroidOpen"), m("step.refreshPage")];
     default:
-      return [
-        "운영체제의 개인정보 설정에서 브라우저의 마이크 접근을 켭니다.",
-        "브라우저를 다시 시작합니다.",
-      ];
+      return [m("step.systemOtherOpen"), m("step.systemOtherRestart")];
   }
 }
 
-function openInBrowserSteps(platform: Platform): string[] {
+function openInBrowserSteps(platform: Platform): GuideMessage[] {
   return platform.os === "ios"
     ? [
-        "오른쪽 아래(또는 위) [···] 메뉴를 누릅니다.",
-        "[Safari로 열기] 를 누릅니다.",
-        "Safari 에서 다시 녹음을 시작합니다.",
+        m("step.openInBrowserIosMenu"),
+        m("step.openInBrowserIosSafari"),
+        m("step.openInBrowserIosRecord"),
       ]
     : [
-        "오른쪽 위 [⋮] 또는 [···] 메뉴를 누릅니다.",
-        "[다른 브라우저로 열기] 또는 [Chrome으로 열기] 를 누릅니다.",
-        "Chrome 에서 다시 녹음을 시작합니다.",
+        m("step.openInBrowserOtherMenu"),
+        m("step.openInBrowserOtherChrome"),
+        m("step.openInBrowserOtherRecord"),
       ];
 }
 
@@ -460,7 +465,7 @@ export function micRecoveryGuide(
   // 인앱 브라우저는 코드가 무엇이든 결론이 같다 — 여기서는 못 고친다.
   if (platform.webview && isPermissionCode(code)) {
     return {
-      cause: "인앱 브라우저에서는 마이크를 쓸 수 없습니다.",
+      cause: m("cause.webview"),
       steps: openInBrowserSteps(platform),
       retryable: false,
       needsSettings: false,
@@ -470,18 +475,15 @@ export function micRecoveryGuide(
   switch (code) {
     case "permission_dismissed":
       return {
-        cause: "마이크 권한 창을 닫았습니다. 아직 허용도 차단도 아닙니다.",
-        steps: [
-          "[다시 시도] 를 누르면 권한 창이 한 번 더 뜹니다.",
-          "창이 뜨면 [허용] 을 누릅니다.",
-        ],
+        cause: m("cause.permission_dismissed"),
+        steps: [m("step.dismissedRetry"), m("step.dismissedAllow")],
         retryable: true,
         needsSettings: false,
       };
 
     case "permission_blocked":
       return {
-        cause: "이 사이트의 마이크가 차단되어 있습니다. 다시 눌러도 권한 창이 뜨지 않습니다.",
+        cause: m("cause.permission_blocked"),
         steps: siteSettingsSteps(platform),
         retryable: false,
         needsSettings: true,
@@ -489,12 +491,10 @@ export function micRecoveryGuide(
 
     case "permission_denied":
       return {
-        cause: "마이크 사용이 거부되었습니다.",
+        cause: m("cause.permission_denied"),
         steps: [
-          "[다시 시도] 를 눌러 권한 창이 뜨는지 봅니다.",
-          ...(platform.engine === "webkit"
-            ? ["창이 뜨지 않으면 아래 방법으로 사이트 권한을 바꿉니다."]
-            : []),
+          m("step.deniedRetry"),
+          ...(platform.engine === "webkit" ? [m("step.deniedWebkitHint")] : []),
           ...siteSettingsSteps(platform),
         ],
         // Safari 는 차단 여부를 알려주지 않는다. 한 번 더 눌러 보는 것이 실제로 통한다.
@@ -504,7 +504,7 @@ export function micRecoveryGuide(
 
     case "system_denied":
       return {
-        cause: "운영체제 설정에서 브라우저의 마이크 접근이 꺼져 있습니다.",
+        cause: m("cause.system_denied"),
         steps: systemSettingsSteps(platform),
         retryable: false,
         needsSettings: true,
@@ -512,50 +512,39 @@ export function micRecoveryGuide(
 
     case "embed_blocked":
       return {
-        cause: "이 페이지가 다른 사이트 안에 삽입되어 있어 마이크가 막혔습니다.",
-        steps: ["이 페이지를 새 탭에서 직접 엽니다."],
+        cause: m("cause.embed_blocked"),
+        steps: [m("step.embedOpenNewTab")],
         retryable: false,
         needsSettings: false,
       };
 
     case "device_busy":
       return {
-        cause: "마이크는 있지만 다른 앱이 쓰고 있어 열 수 없습니다.",
+        cause: m("cause.device_busy"),
         steps: platform.mobile
-          ? [
-              "통화 중이라면 통화를 끝냅니다.",
-              "다른 녹음·통화 앱을 완전히 종료합니다.",
-              "[다시 시도] 를 누릅니다.",
-            ]
-          : [
-              "화상회의·녹음 앱(줌·팀즈·디스코드 등)을 종료합니다.",
-              "다른 탭에서 이 사이트나 회의 서비스를 열어 두었다면 닫습니다.",
-              "[다시 시도] 를 누릅니다.",
-            ],
+          ? [m("step.busyMobileEndCall"), m("step.busyMobileCloseApps"), m("step.retry")]
+          : [m("step.busyDesktopCloseApps"), m("step.busyDesktopCloseTabs"), m("step.retry")],
         retryable: true,
         needsSettings: false,
       };
 
     case "device_unavailable":
       return {
-        cause: "선택해 둔 마이크를 찾을 수 없습니다. 뽑혔거나 꺼진 것 같습니다.",
-        steps: [
-          "블루투스 헤드셋이라면 연결을 확인합니다.",
-          "[기본 마이크로 바꾸기] 를 누르거나 녹음 설정에서 다른 마이크를 고릅니다.",
-        ],
+        cause: m("cause.device_unavailable"),
+        steps: [m("step.unavailableBluetooth"), m("step.unavailableSwitchDefault")],
         retryable: false,
         needsSettings: false,
       };
 
     case "no_device":
       return {
-        cause: "쓸 수 있는 마이크가 없습니다.",
+        cause: m("cause.no_device"),
         steps: platform.mobile
-          ? ["헤드셋을 뺐다 다시 꽂아 봅니다.", "[다시 시도] 를 누릅니다."]
+          ? [m("step.noDeviceMobileReplug"), m("step.retry")]
           : [
-              "마이크나 헤드셋이 꽂혀 있는지 확인합니다.",
-              "OS 사운드 설정에서 입력 장치가 잡히는지 확인합니다.",
-              "[다시 시도] 를 누릅니다.",
+              m("step.noDeviceDesktopCheck"),
+              m("step.noDeviceDesktopOsSound"),
+              m("step.retry"),
             ],
         retryable: true,
         needsSettings: false,
@@ -563,78 +552,50 @@ export function micRecoveryGuide(
 
     case "insecure_context":
       return {
-        cause: "HTTPS 가 아니면 브라우저가 마이크를 열어주지 않습니다.",
-        steps: [
-          "주소를 `https://` 로 바꿔 다시 접속합니다.",
-          "실기기 테스트 중이라면 `localhost` 또는 https 터널 주소로 접속합니다.",
-        ],
+        cause: m("cause.insecure_context"),
+        steps: [m("step.insecureHttps"), m("step.insecureLocalhost")],
         retryable: false,
         needsSettings: false,
       };
 
     case "unsupported":
       return {
-        cause: platform.webview
-          ? "인앱 브라우저는 녹음을 지원하지 않습니다."
-          : "이 브라우저는 녹음을 지원하지 않습니다.",
+        cause: platform.webview ? m("cause.unsupported_webview") : m("cause.unsupported"),
         steps: platform.webview
           ? openInBrowserSteps(platform)
           : platform.os === "ios"
-            ? ["iOS 14.3 이상에서 Safari 로 접속합니다."]
-            : ["최신 Chrome · Edge · Safari 로 접속합니다."],
+            ? [m("step.unsupportedIos")]
+            : [m("step.unsupportedOther")],
         retryable: false,
         needsSettings: false,
       };
 
     case "interrupted":
       return {
-        cause: "녹음 중 마이크 연결이 끊겼습니다. 그때까지의 녹음은 저장했습니다.",
+        cause: m("cause.interrupted"),
         steps: platform.mobile
-          ? [
-              "통화가 끝난 뒤 다시 녹음을 시작합니다.",
-              "긴 회의는 화면을 켜 둔 채로 두면 끊길 확률이 줄어듭니다.",
-            ]
-          : ["마이크 연결을 확인한 뒤 다시 녹음을 시작합니다."],
+          ? [m("step.interruptedMobileAfterCall"), m("step.interruptedMobileKeepScreen")]
+          : [m("step.interruptedDesktopCheck")],
         retryable: true,
         needsSettings: false,
       };
 
     default:
       return {
-        cause: "마이크를 열지 못했습니다.",
-        steps: ["[다시 시도] 를 누릅니다.", "계속 실패하면 페이지를 새로고침합니다."],
+        cause: m("cause.unknown"),
+        steps: [m("step.retry"), m("step.defaultRefreshFail")],
         retryable: true,
         needsSettings: false,
       };
   }
 }
 
-/** 오류 코드의 한 줄 요약. 알림 띠 제목으로 쓴다. */
-export function micErrorTitle(code: RecorderErrorCodeLike): string {
-  switch (code) {
-    case "permission_blocked":
-      return "마이크가 차단되어 있습니다";
-    case "permission_dismissed":
-      return "마이크 권한을 받지 못했습니다";
-    case "permission_denied":
-      return "마이크 사용이 거부되었습니다";
-    case "system_denied":
-      return "시스템에서 마이크가 꺼져 있습니다";
-    case "embed_blocked":
-      return "삽입된 화면에서는 마이크를 쓸 수 없습니다";
-    case "device_busy":
-      return "마이크를 다른 앱이 쓰고 있습니다";
-    case "device_unavailable":
-      return "선택한 마이크를 찾을 수 없습니다";
-    case "no_device":
-      return "마이크를 찾지 못했습니다";
-    case "insecure_context":
-      return "보안 연결(HTTPS)이 아닙니다";
-    case "unsupported":
-      return "이 브라우저는 녹음을 지원하지 않습니다";
-    case "interrupted":
-      return "녹음이 중단되었습니다";
-    default:
-      return "녹음 오류";
-  }
+/**
+ * 오류 코드의 한 줄 요약 키. 알림 띠 제목으로 쓴다.
+ *
+ * 제목은 오직 코드에만 달렸다(플랫폼 무관). 그래서 키를 `title.{code}` 로 바로
+ * 낸다 — 셸 카탈로그의 `recorder.guide.title.{code}` 에 모든 코드의 제목이 있다.
+ */
+export function micErrorTitle(code: RecorderErrorCodeLike): GuideMessage {
+  return m(`title.${code}`);
 }

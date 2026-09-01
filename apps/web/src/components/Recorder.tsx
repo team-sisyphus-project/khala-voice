@@ -10,7 +10,8 @@ import { RecordingPrefsSheet } from "./RecordingPrefsSheet";
 import { usePrefs } from "@/hooks/usePrefs";
 import { useAccount } from "@/hooks/useAccount";
 import { languageLabel, resolveLanguage } from "@/lib/prefs";
-import { micErrorTitle, micRecoveryGuide } from "@core/recorder";
+import { micRecoveryGuide } from "@core/recorder";
+import { errorTitle, guideText } from "@/lib/recorderGuide";
 import type {
   MicPermissionState,
   RecorderError,
@@ -249,7 +250,7 @@ export function RecorderPanel({
         {/* 녹음 상태는 색과 파형으로만 드러난다. 소리로도 알려야 한다. */}
         <div className="vr-sr-only" role="status" aria-live="assertive">
           {recorder.error
-            ? `${micErrorTitle(recorder.error.code)}. ${recorder.error.message}`
+            ? `${errorTitle(t, recorder.error.code)}. ${guideText(t, recorder.error.message)}`
             : recordingStatus(recorder.state)}
         </div>
 
@@ -402,10 +403,10 @@ function MicTrouble({
       <Notice
         kind={tone}
         icon={error.code === "interrupted" ? "phone_disabled" : "mic_off"}
-        title={micErrorTitle(error.code)}
+        title={errorTitle(t, error.code)}
         className="mb-4"
       >
-        <span>{error.message}</span>
+        <span>{guideText(t, error.message)}</span>
 
         {recovery && recovery.steps.length > 0 && (
           <>
@@ -414,7 +415,7 @@ function MicTrouble({
             </span>
             <ol className="vr-mic-trouble__steps">
               {recovery.steps.map((step) => (
-                <li key={step}>{step}</li>
+                <li key={step.key}>{guideText(t, step)}</li>
               ))}
             </ol>
           </>
@@ -463,7 +464,7 @@ function idleHint(
   error: RecorderError | null,
 ): string {
   if (!canStart) return i18n.t("recorder.idleMicBlocked");
-  if (state === "error" && error) return micErrorTitle(error.code);
+  if (state === "error" && error) return errorTitle(i18n.t, error.code);
   return "";
 }
 

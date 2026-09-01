@@ -9,6 +9,8 @@
  * 전부 실패하면 `null` 을 주고 브라우저 기본값에 맡긴다.
  */
 
+import type { GuideMessage } from "./permission";
+
 const CANDIDATES = [
   "audio/webm;codecs=opus",
   "audio/webm",
@@ -57,27 +59,27 @@ export function extensionFor(mimeType: string | null | undefined): string {
  *
  * **HTTPS 가 아니면 마이크에 접근할 수 없다.** localhost 는 예외다.
  * 실기기 테스트에서 `http://192.168.x.x` 로 붙으면 여기서 걸린다.
+ *
+ * `message` 는 로케일-프리 키다(`GuideMessage`) — 문안은 UI 셸이 번역한다.
+ * core 는 프레임워크·i18n 비의존이어야 한다(프로젝트 규칙 4).
  */
-export function checkEnvironment(): { ok: true } | { ok: false; code: "unsupported" | "insecure_context"; message: string } {
+export function checkEnvironment():
+  | { ok: true }
+  | { ok: false; code: "unsupported" | "insecure_context"; message: GuideMessage } {
   if (typeof window === "undefined") {
-    return { ok: false, code: "unsupported", message: "브라우저 환경이 아닙니다" };
+    return { ok: false, code: "unsupported", message: { key: "env.notBrowser" } };
   }
 
   if (!window.isSecureContext) {
-    return {
-      ok: false,
-      code: "insecure_context",
-      message:
-        "HTTPS 가 아니면 마이크를 쓸 수 없습니다. localhost 이거나 https 주소로 접속해야 합니다.",
-    };
+    return { ok: false, code: "insecure_context", message: { key: "env.insecure" } };
   }
 
   if (!navigator.mediaDevices?.getUserMedia) {
-    return { ok: false, code: "unsupported", message: "이 브라우저는 마이크 녹음을 지원하지 않습니다" };
+    return { ok: false, code: "unsupported", message: { key: "env.noGetUserMedia" } };
   }
 
   if (typeof MediaRecorder === "undefined") {
-    return { ok: false, code: "unsupported", message: "이 브라우저는 MediaRecorder 를 지원하지 않습니다" };
+    return { ok: false, code: "unsupported", message: { key: "env.noMediaRecorder" } };
   }
 
   return { ok: true };

@@ -1,4 +1,4 @@
-import { equal, ok } from "node:assert/strict";
+import { equal, notDeepEqual, ok } from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   classifyMediaError,
@@ -183,6 +183,9 @@ describe("micRecoveryGuide", () => {
   const ios = detectPlatform(UA.safariIphone, { maxTouchPoints: 5, standalone: false });
   const kakao = detectPlatform(UA.kakaoIos, { maxTouchPoints: 5, standalone: false });
 
+  // 안내는 이제 로케일-프리 키(GuideMessage)로 나온다 — 문안이 아니라 키를 대조한다.
+  const stepKeys = (guide: { steps: { key: string }[] }) => guide.steps.map((s) => s.key);
+
   it("굳은 차단은 다시 시도를 권하지 않는다", () => {
     const guide = micRecoveryGuide("permission_blocked", chrome);
     equal(guide.retryable, false);
@@ -197,24 +200,34 @@ describe("micRecoveryGuide", () => {
   });
 
   it("기기마다 안내 경로가 다르다", () => {
-    const win = micRecoveryGuide("permission_blocked", chrome).steps.join(" ");
-    const iphone = micRecoveryGuide("permission_blocked", ios).steps.join(" ");
+    const win = stepKeys(micRecoveryGuide("permission_blocked", chrome));
+    const iphone = stepKeys(micRecoveryGuide("permission_blocked", ios));
 
-    ok(win.includes("주소창"));
-    ok(iphone.includes("Safari"));
-    ok(iphone !== win);
+    ok(win.includes("step.siteChromiumIcon"));
+    ok(iphone.includes("step.siteIosAa"));
+    notDeepEqual(iphone, win);
+  });
+
+  it("Chromium 안내는 브라우저 메뉴명을 파라미터로 싣는다", () => {
+    // 문안은 셸이 번역하되, "Edge/Chrome" 분기는 core 의 로직이라 파라미터로 실린다.
+    const edge = detectPlatform(UA.edge, { maxTouchPoints: 0, standalone: false });
+    const allow = micRecoveryGuide("permission_blocked", edge).steps.find(
+      (s) => s.key === "step.siteChromiumAllow",
+    );
+    ok(allow);
+    equal(allow?.params?.menu, "Edge");
   });
 
   it("인앱 브라우저는 권한 오류의 결론이 하나다 — 다른 브라우저로 열기", () => {
     const guide = micRecoveryGuide("permission_blocked", kakao);
     equal(guide.retryable, false);
     equal(guide.needsSettings, false);
-    ok(guide.steps.join(" ").includes("Safari로 열기"));
+    ok(stepKeys(guide).includes("step.openInBrowserIosSafari"));
   });
 
   it("OS 차단은 브라우저 설정이 아니라 시스템 설정으로 보낸다", () => {
     const guide = micRecoveryGuide("system_denied", chrome);
-    ok(guide.steps.join(" ").includes("개인 정보"));
+    ok(stepKeys(guide).some((k) => k.startsWith("step.system")));
     equal(guide.retryable, false);
   });
 
@@ -236,9 +249,10 @@ describe("micRecoveryGuide", () => {
 
     for (const code of codes) {
       const guide = micRecoveryGuide(code, chrome);
-      ok(guide.cause.length > 0, `${code} 원인 없음`);
+      ok(guide.cause.key.length > 0, `${code} 원인 없음`);
       ok(guide.steps.length > 0, `${code} 안내 없음`);
-      ok(micErrorTitle(code).length > 0, `${code} 제목 없음`);
+      ok(guide.steps.every((s) => s.key.length > 0), `${code} 빈 스텝`);
+      ok(micErrorTitle(code).key.length > 0, `${code} 제목 없음`);
     }
   });
 });
