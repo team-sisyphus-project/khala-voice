@@ -67,6 +67,15 @@ export class ApiClient {
   }
 
   /** 기본 전사 언어. `null` 이면 자동(브라우저 언어)으로 되돌린다. */
+  /**
+   * 지금 이 기기에서 로그아웃한다. 다른 기기는 그대로 둔다.
+   *
+   * 성공하면 세션이 없어지므로 **호출한 쪽이 로그인 화면으로 보내야 한다.**
+   */
+  logout(): Promise<void> {
+    return this.#request("DELETE", "/api/me/session");
+  }
+
   // ── 칼라 연동 ──────────────────────────────────────────
 
   khalaStatus(): Promise<KhalaStatus> {
