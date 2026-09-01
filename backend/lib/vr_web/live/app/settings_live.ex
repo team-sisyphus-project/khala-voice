@@ -250,6 +250,27 @@ defmodule VRWeb.AppLive.SettingsLive do
         </div>
       </div>
 
+      <%!--
+        로그아웃. **폼 POST 다** — `DELETE /logout` 은 CSRF 토큰을 요구한다.
+        링크(GET)로 두면 이미지 태그 하나로 남을 로그아웃시킬 수 있다.
+      --%>
+      <div class="vr-card mb-4">
+        <div class="vr-card__body">
+          <h2 class="font-bold mb-1" style="color: var(--text-primary);">로그아웃</h2>
+          <p class="vr-hint mb-3">
+            이 기기에서만 나갑니다. 다른 기기는 위의 "로그인된 기기"에서 끊습니다.
+          </p>
+
+          <form action={~p"/logout"} method="post">
+            <input type="hidden" name="_method" value="delete" />
+            <input type="hidden" name="_csrf_token" value={Phoenix.Controller.get_csrf_token()} />
+            <button type="submit" data-surface="control" class="vr-btn vr-btn--outline w-full">
+              로그아웃
+            </button>
+          </form>
+        </div>
+      </div>
+
       <div class="vr-card" style="border-color: rgba(240,68,82,.2);">
         <div class="vr-card__body">
           <h2 class="font-bold mb-1" style="color: var(--danger);">계정 삭제</h2>

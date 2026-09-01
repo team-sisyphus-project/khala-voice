@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
+import { api } from "@/lib/api";
 import { AppShell } from "@/components/AppShell";
 import { NotificationSetting } from "@/components/NotificationSetting";
 import { IntegrationsSection } from "@/components/IntegrationsSection";
@@ -36,6 +37,20 @@ export function AppSettingsPage() {
   const [theme, setTheme] = useState<Theme>(cachedTheme);
   const [installable, setInstallable] = useState(false);
   const [editingPrefs, setEditingPrefs] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  async function logout() {
+    setLoggingOut(true);
+
+    try {
+      await api.logout();
+    } finally {
+      // 실패해도 로그인 화면으로 보낸다 — 서버 세션이 이미 끊겼을 수 있고,
+      // 이 화면에 남아 있으면 무엇이 되고 안 되는지 알 수 없다.
+      // SPA 라우터가 아니라 실제 이동이다: 남은 상태를 통째로 버린다.
+      window.location.href = "/login";
+    }
+  }
   const standalone = isStandalone();
 
   useEffect(() => onInstallAvailability(setInstallable), []);
@@ -135,6 +150,16 @@ export function AppSettingsPage() {
             </li>
           </ol>
         )}
+      </Section>
+
+      {/* 로그아웃은 **맨 아래**다. iOS 설정 문법이고, 실수로 누르기 어려운 자리다. */}
+      <Section card>
+        <Button variant="danger" full icon="logout" onClick={() => void logout()} pending={loggingOut}>
+          로그아웃
+        </Button>
+        <p className="vr-note vr-note--small">
+          이 기기에서만 나갑니다. 다른 기기는 <a href={routes.account}>계정 설정</a>에서 끊습니다.
+        </p>
       </Section>
 
       {editingPrefs && (
