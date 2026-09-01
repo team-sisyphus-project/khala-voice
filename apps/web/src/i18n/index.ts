@@ -58,6 +58,16 @@ void i18n.use(initReactI18next).init({
   returnNull: false,
 });
 
+// Keep the document's `lang` attribute honest with the active display language.
+// `index.html` ships with the default (`en`); this corrects it whenever the
+// language changes (e.g. an account whose stored `locale` is `ko`). Guarded for
+// non-DOM environments (tests) where `document` is absent.
+i18n.on("languageChanged", (lng) => {
+  if (typeof document !== "undefined") {
+    document.documentElement.lang = lng;
+  }
+});
+
 /**
  * Switch the app's display language at runtime.
  *

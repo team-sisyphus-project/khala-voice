@@ -74,7 +74,7 @@ export function BillingPage() {
                 color: overdrawn ? "var(--status-error)" : "var(--text-primary)",
               }}
             >
-              {summary.balance.toLocaleString("ko-KR")}
+              {summary.balance.toLocaleString(i18n.language)}
             </span>
             <span className="mobile-row__meta">{t("billing.creditsUnit")}</span>
 
@@ -82,7 +82,7 @@ export function BillingPage() {
               <Chip kind="info">
                 {summary.plan.display_name}
                 {summary.plan.included_credits
-                  ? ` · ${t("billing.perMonth", { amount: summary.plan.included_credits.toLocaleString("ko-KR") })}`
+                  ? ` · ${t("billing.perMonth", { amount: summary.plan.included_credits.toLocaleString(i18n.language) })}`
                   : ""}
               </Chip>
             )}
@@ -143,7 +143,7 @@ export function BillingPage() {
                       color: lot.remaining < 0 ? "var(--status-error)" : "var(--text-primary)",
                     }}
                   >
-                    {lot.remaining.toLocaleString("ko-KR")}
+                    {lot.remaining.toLocaleString(i18n.language)}
                   </span>
                 </div>
               ))}
@@ -206,7 +206,7 @@ function EntryRow({ entry }: { entry: LedgerEntry }) {
           }}
         >
           {spent ? "" : "+"}
-          {entry.delta.toLocaleString("ko-KR")}
+          {entry.delta.toLocaleString(i18n.language)}
         </span>
 
         {details.length > 0 && (
@@ -254,8 +254,8 @@ function detailLines(entry: LedgerEntry): [string, string][] {
     lines.push([
       i18n.t("billing.detailTokens"),
       i18n.t("billing.detailTokensValue", {
-        input: Number(get("input_tokens") ?? 0).toLocaleString("ko-KR"),
-        output: Number(get("output_tokens") ?? 0).toLocaleString("ko-KR"),
+        input: Number(get("input_tokens") ?? 0).toLocaleString(i18n.language),
+        output: Number(get("output_tokens") ?? 0).toLocaleString(i18n.language),
       }),
     ]);
   }
