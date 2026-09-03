@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { Notice } from "@/components/ui";
-import { Button, Icon, Row, Section } from "@/ui";
+import { Button, Icon, Row } from "@/ui";
 import type { KhalaStatus, MCPToken } from "@core/api";
 
 /**
@@ -52,7 +52,8 @@ function KhalaCard() {
   }
 
   return (
-    <Section title={t("integrations.khalaTitle")} card>
+    <div className="vr-settings-subgroup">
+      <h3 className="vr-settings-subgroup__title">{t("integrations.khalaTitle")}</h3>
       {status.connected ? (
         <>
           <Row
@@ -77,7 +78,7 @@ function KhalaCard() {
           </a>
         </>
       )}
-    </Section>
+    </div>
   );
 }
 
@@ -120,7 +121,8 @@ function MCPCard() {
   }
 
   return (
-    <Section title={t("integrations.mcpTitle")} card>
+    <div className="vr-settings-subgroup">
+      <h3 className="vr-settings-subgroup__title">{t("integrations.mcpTitle")}</h3>
       <p className="vr-note vr-note--small">
         <Trans t={t} i18nKey="integrations.mcpNote" components={{ strong: <strong /> }} />
       </p>
@@ -157,6 +159,6 @@ function MCPCard() {
       <Button variant="secondary" icon="add" onClick={() => void create()} pending={busy}>
         {t("integrations.createToken")}
       </Button>
-    </Section>
+    </div>
   );
 }

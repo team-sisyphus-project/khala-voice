@@ -33,7 +33,7 @@ export function isTheme(value: unknown): value is Theme {
 
 export function cachedTheme(): Theme {
   const stored = localStorage.getItem(STORAGE_KEY);
-  return isTheme(stored) ? stored : "dark";
+  return isTheme(stored) ? stored : "light";
 }
 
 /** 테마를 적용한다. 네 테마 모두 번들 안에 있어 따로 받지 않는다. */
@@ -49,4 +49,3 @@ export async function applyTheme(theme: Theme, options: { save?: boolean } = {})
     });
   }
 }
-

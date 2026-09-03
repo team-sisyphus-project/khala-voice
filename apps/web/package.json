@@ -7,7 +7,7 @@
     "dev": "vite build --watch --mode development",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types 'src/**/*.test.ts'"
+    "test": "vitest run"
   },
   "dependencies": {
     "i18next": "^25.0.0",
@@ -24,6 +24,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "jsdom": "^30.0.1",
     "typescript": "^5.7.2",
-    "vite": "^6.0.7"
+    "vite": "^6.0.7",
+    "vitest": "^3.2.7"
   }
 }

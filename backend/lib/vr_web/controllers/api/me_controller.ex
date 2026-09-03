@@ -44,6 +44,24 @@ defmodule VRWeb.API.MeController do
   end
 
   @doc """
+  지금 이 기기에서 로그아웃한다.
+
+  다른 기기는 그대로 둔다 — 세션 목록에서 따로 끊는다. 비밀번호를 바꿀 때만
+  **전부** 끊는다 (`Accounts.update_password/3`).
+
+  SPA 는 폼 POST 를 쓸 수 없어(`DELETE /logout` 은 CSRF 토큰이 필요하다)
+  API 로 둔다. 인증 방식은 다른 변경 API 와 같다.
+  """
+  def logout(conn, _params) do
+    if token = get_session(conn, :account_token), do: Accounts.revoke_session(token)
+
+    conn
+    |> VRWeb.UserAuth.renew_session()
+    |> VRWeb.UserAuth.delete_remember_cookie()
+    |> send_resp(:no_content, "")
+  end
+
+  @doc """
   기본 전사 언어 변경. 빈 값이면 자동(브라우저 언어)으로 되돌린다.
 
   녹음할 때마다 고르게 하지 않는다 — 대부분 늘 같은 언어로 회의하고,

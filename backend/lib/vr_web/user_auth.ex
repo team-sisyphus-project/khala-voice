@@ -55,9 +55,17 @@ defmodule VRWeb.UserAuth do
 
     conn
     |> renew_session()
-    |> delete_resp_cookie(@remember_cookie)
+    |> delete_remember_cookie()
     |> redirect(to: ~p"/login")
   end
+
+  @doc """
+  "로그인 상태 유지" 쿠키를 지운다.
+
+  세션만 끊고 이걸 남기면 다음 요청에서 **다시 로그인된다.**
+  API 로그아웃(`API.MeController.logout/2`)도 같은 것을 지워야 한다.
+  """
+  def delete_remember_cookie(conn), do: delete_resp_cookie(conn, @remember_cookie)
 
   @doc "요청마다 현재 계정을 붙인다."
   def fetch_current_account(conn, _opts) do
@@ -259,7 +267,8 @@ defmodule VRWeb.UserAuth do
   defp maybe_write_remember_cookie(conn, _token, _params), do: conn
 
   # 세션 ID를 갈아끼워 세션 고정(fixation) 공격을 막는다
-  defp renew_session(conn) do
+  @doc false
+  def renew_session(conn) do
     delete_csrf_token()
 
     conn

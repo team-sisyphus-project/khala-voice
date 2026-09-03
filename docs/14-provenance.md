@@ -295,7 +295,7 @@ devkanban 의 인라인 SVG 레지스트리(`mobile/src/Icon.tsx`)를 그대로 
 | `VR.Storage` presign 직접 구현 | sisyphus 는 n8n 웹훅에 위임했다 |
 | `VR.Summarize` LLM 직접 호출 | 〃 |
 | `packages/core` 로직/UI 분리 | sisyphus 는 데스크톱·모바일에 로직을 두 벌 복사했다 |
-| 지연 로드 테마 | devkanban 은 전부 번들에 넣는다. 이 앱은 모바일 우선이라 66KB 를 미룬다 |
+| 테마 번들 통합 | 옛 지연 로드 파일이 현재 토큰 이름을 덮지 못해 제거하고 devkanban처럼 전부 번들에 둔다 |
 | `mix vr.doctor` | 외부 의존이 많아 무엇이 왜 안 되는지 한 화면에 필요했다 |
 
 ---

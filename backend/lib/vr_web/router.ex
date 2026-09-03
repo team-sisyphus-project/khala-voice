@@ -181,6 +181,7 @@ defmodule VRWeb.Router do
 
     get "/me", MeController, :show
     get "/friends", FriendController, :index
+    delete "/me/session", MeController, :logout
     patch "/me/theme", MeController, :update_theme
     patch "/me/locale", MeController, :update_locale
     patch "/me/transcribe-language", MeController, :update_transcribe_language

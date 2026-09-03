@@ -26,7 +26,7 @@ export function NotificationSetting() {
 
   if (state === "unsupported") {
     return (
-      <p className="vr-note" style={{ fontSize: 12 }}>
+      <p className="vr-note vr-note--small">
         {t("notification.unsupported")}
       </p>
     );

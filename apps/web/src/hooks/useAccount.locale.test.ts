@@ -1,10 +1,13 @@
+// @vitest-environment jsdom
 import assert from "node:assert/strict";
-import { test } from "node:test";
-import { register } from "node:module";
-import { pathToFileURL } from "node:url";
-import { JSDOM } from "jsdom";
+import { test, vi } from "vitest";
+import React, { act } from "react";
+import { createRoot } from "react-dom/client";
 import type { FunctionComponent } from "react";
+import { useTranslation } from "react-i18next";
 import type { CurrentAccount } from "@core/api";
+import i18n, { DEFAULT_UI_LOCALE } from "../i18n/index.ts";
+import * as apiMock from "./__testsupport/apiMock.ts";
 
 /**
  * Integration test for the *real* display-language wiring in `useAccount`.
@@ -20,34 +23,25 @@ import type { CurrentAccount } from "@core/api";
  *     account, `void setUiLanguage(next.locale)`, re-render every consumer.
  *
  * The hook needs a DOM (its boot runs in `useEffect`, which SSR never flushes),
- * so we mount it with `react-dom/client` + `act` under jsdom. `@/lib/api` is a
- * mock adapter (no network); `@/i18n` is the real shared instance, so the
- * language actually changes and react-i18next actually re-renders. `LocaleField`
- * itself is `.tsx` (JSX the type-stripping runtime can't execute), so `pick`
- * inlines its one glue line `onChange(await api.updateLocale(next))` with
- * `onChange` bound to the real `setAccount` — the very seam risks.md flagged.
+ * so vitest's jsdom environment supplies `window`/`document`/`localStorage`.
+ * `@/lib/api` and `@/lib/theme` are mock adapters (no network, no theming); the
+ * real shared `@/i18n` instance actually changes the language and re-renders
+ * every react-i18next consumer. `LocaleField` itself is `.tsx` (JSX we don't
+ * mount here), so `pick` inlines its one glue line
+ * `onChange(await api.updateLocale(next))` with `onChange` bound to the real
+ * `setAccount` — the very seam risks.md flagged.
  */
 
-// --- React "act" environment backed by jsdom (effects need a real DOM) ---
-const dom = new JSDOM("<!doctype html><html><body></body></html>", { url: "http://localhost/" });
-const g = globalThis as unknown as Record<string, unknown>;
-g.window = dom.window;
-g.document = dom.window.document;
-g.localStorage = dom.window.localStorage;
-g.IS_REACT_ACT_ENVIRONMENT = true;
+// `@/lib/api` → the api mock (only `me`/`updateLocale` are modelled).
+vi.mock("@/lib/api", async () => {
+  const mod = await import("./__testsupport/apiMock.ts");
+  return { api: mod.api };
+});
+// `@/lib/theme` → no-op theming so the boot effect stays on the locale path.
+vi.mock("@/lib/theme", async () => await import("./__testsupport/themeMock.ts"));
 
-// Teach the node runtime the `@/` aliases (see aliasHook.ts) before importing
-// any module that uses them.
-const base = pathToFileURL(process.cwd() + "/").href;
-register(base + "src/hooks/__testsupport/aliasHook.ts", import.meta.url, { data: { base } });
-
-const React = (await import("react")).default;
-const { act } = await import("react");
-const { createRoot } = await import("react-dom/client");
-const { useTranslation } = await import("react-i18next");
-const i18n = (await import("../i18n/index.ts")).default;
-const { DEFAULT_UI_LOCALE } = await import("../i18n/index.ts");
-const apiMock = await import("./__testsupport/apiMock.ts");
+// React `act` needs to know it runs in a test environment.
+(globalThis as unknown as Record<string, unknown>).IS_REACT_ACT_ENVIRONMENT = true;
 
 const HANGUL = /[가-힣]/;
 
@@ -62,10 +56,29 @@ type UseAccount = () => {
  * only `useAccount`; its `@/i18n` / `@/lib/*` imports resolve to the shared
  * (unqueried) singletons, so i18n state and the api mock stay coherent.
  */
+// Distinct *literal* query specifiers, one per test that needs a clean boot.
+// vite statically analyzes each as its own module (a fresh module-level
+// `cached`), while their `@/…` imports still resolve to the shared singletons —
+// so i18n state and the api mock stay coherent. A variable specifier
+// (`?fresh=${n}`) can't be analyzed by vite; these literals can.
+// The `as string` cast keeps tsc from resolving the query-suffixed specifier
+// (it has no on-disk type), while esbuild erases the cast so vite still sees a
+// literal it can statically analyze.
+const freshLoaders = [
+  () => import("./useAccount.ts?fresh=1" as string),
+  () => import("./useAccount.ts?fresh=2" as string),
+  () => import("./useAccount.ts?fresh=3" as string),
+  () => import("./useAccount.ts?fresh=4" as string),
+  () => import("./useAccount.ts?fresh=5" as string),
+  () => import("./useAccount.ts?fresh=6" as string),
+] as Array<() => Promise<{ useAccount: UseAccount }>>;
+
 let freshCounter = 0;
 async function freshUseAccount(): Promise<UseAccount> {
-  const mod = await import(`./useAccount.ts?fresh=${++freshCounter}`);
-  return mod.useAccount as UseAccount;
+  const load = freshLoaders[freshCounter++];
+  if (!load) throw new Error("freshUseAccount: no more fresh module slots");
+  const mod = await load();
+  return mod.useAccount;
 }
 
 /** The whole shell in miniature: every span reads copy through react-i18next. */
@@ -97,8 +110,8 @@ async function flush() {
 }
 
 async function mount(Comp: FunctionComponent) {
-  const container = dom.window.document.createElement("div");
-  dom.window.document.body.appendChild(container);
+  const container = document.createElement("div");
+  document.body.appendChild(container);
   const root = createRoot(container);
   await act(async () => {
     root.render(React.createElement(Comp));
@@ -170,7 +183,7 @@ test("(b) stored locale=en persists across refresh and reconnect", async () => {
 
 test("(c) picking a language re-renders the whole shell immediately, no reload", async () => {
   apiMock.__cfg.me = async () => apiMock.account({ locale: "en" });
-  const startHref = dom.window.location.href;
+  const startHref = window.location.href;
 
   const useAccount = await freshUseAccount();
   const { Shell, ref } = makeShell(useAccount);
@@ -193,7 +206,7 @@ test("(c) picking a language re-renders the whole shell immediately, no reload",
     // The choice landed in the real hook cache (so the recorder/session follow).
     assert.equal(ref.account?.locale, "ko");
     // Nothing navigated: same document, same URL.
-    assert.equal(dom.window.location.href, startHref);
+    assert.equal(window.location.href, startHref);
   } finally {
     i18n.off("languageChanged", onSwitch);
   }

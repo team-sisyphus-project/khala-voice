@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 // Import the source module directly (with extension): the package's index.ts
 // uses bundler-resolved extensionless re-exports that node's ESM loader can't
 // follow. permission.ts is self-contained and holds all three of these.

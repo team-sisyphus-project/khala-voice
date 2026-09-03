@@ -6,16 +6,13 @@ defmodule VRWeb.Layouts do
   use VRWeb, :html
 
   @doc """
-  현재 계정의 테마. 로그인 전에는 기본값(다크)으로 칠하고, 클라이언트가
+  현재 계정의 테마. 로그인 전에는 기본값(라이트)으로 칠하고, 클라이언트가
   localStorage 캐시가 있으면 그것으로 정정한다.
-
-  기본값을 비워 두면 devkanban 토큰의 `:root` 기본값(라이트)이 잡혀
-  로그인 화면이 흰색으로 한 프레임 번쩍인다.
   """
   def theme(assigns) do
     case assigns[:current_account] do
       %{theme: theme} when is_binary(theme) -> theme
-      _ -> "dark"
+      _ -> "light"
     end
   end
 
