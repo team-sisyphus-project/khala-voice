@@ -2,6 +2,7 @@ defmodule VRWeb.AuthLive.Components do
   @moduledoc "로그인·가입 화면 공용 레이아웃."
   use Phoenix.Component
   use VRWeb, :verified_routes
+  use Gettext, backend: VRWeb.Gettext
 
   attr :title, :string, required: true
   attr :subtitle, :string, default: nil
@@ -51,13 +52,13 @@ defmodule VRWeb.AuthLive.Components do
     <div :if={@providers != []} class="mt-5">
       <div class="flex items-center gap-3 mb-4">
         <span style="flex:1; height:1px; background: rgba(0,0,0,.08);"></span>
-        <span class="vr-hint" style="font-size: 12px;">또는</span>
+        <span class="vr-hint" style="font-size: 12px;">{gettext("or")}</span>
         <span style="flex:1; height:1px; background: rgba(0,0,0,.08);"></span>
       </div>
 
       <div class="flex flex-col gap-2">
         <a :for={p <- @providers} href={~p"/auth/#{p.provider}"} class="vr-btn vr-btn--outline w-full">
-          {p.display_name}로 계속하기
+          {gettext("Continue with %{provider}", provider: p.display_name)}
         </a>
       </div>
     </div>
@@ -79,8 +80,8 @@ defmodule VRWeb.AuthLive.Components do
     """
   end
 
-  defp translate_error("can't be blank"), do: "필수 항목입니다"
-  defp translate_error("has already been taken"), do: "이미 사용 중입니다"
+  defp translate_error("can't be blank"), do: gettext("This field is required")
+  defp translate_error("has already been taken"), do: gettext("This is already taken")
   defp translate_error(msg) when is_binary(msg), do: msg
   defp translate_error(msg), do: to_string(msg)
 end

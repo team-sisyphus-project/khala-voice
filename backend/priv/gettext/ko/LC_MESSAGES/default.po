@@ -27,7 +27,7 @@ msgstr "%{count}분 전"
 msgid "(optional)"
 msgstr "(선택)"
 
-#: lib/vr_web/live/app/invite_live.ex:85
+#: lib/vr_web/live/app/invite_live.ex:91
 #, elixir-autogen, elixir-format
 msgid "Accept"
 msgstr "수락"
@@ -47,7 +47,7 @@ msgstr ""
 msgid "Archive"
 msgstr "아카이브"
 
-#: lib/vr_web/live/app/invite_live.ex:122
+#: lib/vr_web/live/app/invite_live.ex:128
 #, elixir-autogen, elixir-format
 msgid "Ask the person who invited you for a new link."
 msgstr "초대한 분에게 새 링크를 요청해 주세요."
@@ -74,6 +74,7 @@ msgid "Cancel"
 msgstr "취소"
 
 #: lib/vr_web/live/app/settings_live.ex:214
+#: lib/vr_web/live/auth/reset_password_live.ex:102
 #, elixir-autogen, elixir-format
 msgid "Change password"
 msgstr "비밀번호 변경"
@@ -83,7 +84,7 @@ msgstr "비밀번호 변경"
 msgid "Changing it signs out every device except this one."
 msgstr "변경하면 지금 쓰는 기기를 제외한 모든 로그인이 해제됩니다."
 
-#: lib/vr_web/live/app/invite_live.ex:138
+#: lib/vr_web/live/app/invite_live.ex:144
 #, elixir-autogen, elixir-format
 msgid "Check that the link is correct."
 msgstr "링크가 올바른지 확인해 주세요."
@@ -94,6 +95,7 @@ msgid "Close"
 msgstr "닫기"
 
 #: lib/vr_web/live/app/settings_live.ex:193
+#: lib/vr_web/live/auth/reset_password_live.ex:83
 #, elixir-autogen, elixir-format
 msgid "Confirm password"
 msgstr "비밀번호 확인"
@@ -104,11 +106,12 @@ msgid "Confirm your email"
 msgstr "이메일 확인이 필요합니다"
 
 #: lib/vr_web/live/app/friends_live.ex:164
+#: lib/vr_web/live/auth/mfa_enroll_live.ex:83
 #, elixir-autogen, elixir-format
 msgid "Copy"
 msgstr "복사"
 
-#: lib/vr_web/live/app/invite_live.ex:48
+#: lib/vr_web/live/app/invite_live.ex:54
 #, elixir-autogen, elixir-format
 msgid "Couldn't accept the invitation"
 msgstr "수락하지 못했습니다"
@@ -133,7 +136,7 @@ msgstr "초대를 만들지 못했습니다"
 msgid "Create invitation"
 msgstr "초대 만들기"
 
-#: lib/vr_web/live/app/invite_live.ex:82
+#: lib/vr_web/live/app/invite_live.ex:88
 #, elixir-autogen, elixir-format
 msgid "Decline"
 msgstr "거절"
@@ -145,13 +148,16 @@ msgstr "계정 삭제"
 
 #: lib/vr_web/live/app/friends_live.ex:112
 #: lib/vr_web/live/app/settings_live.ex:118
+#: lib/vr_web/live/auth/forgot_password_live.ex:57
+#: lib/vr_web/live/auth/login_live.ex:33
+#: lib/vr_web/live/auth/register_live.ex:71
 #, elixir-autogen, elixir-format
 msgid "Email"
 msgstr "이메일"
 
 #: lib/vr_web/live/app/invite_live.ex:24
 #: lib/vr_web/live/app/invite_live.ex:31
-#: lib/vr_web/live/app/invite_live.ex:67
+#: lib/vr_web/live/app/invite_live.ex:73
 #, elixir-autogen, elixir-format
 msgid "Friend invitation"
 msgstr "친구 초대"
@@ -169,7 +175,7 @@ msgstr "친구를 끊었습니다"
 msgid "Friends"
 msgstr "친구"
 
-#: lib/vr_web/live/app/invite_live.ex:152
+#: lib/vr_web/live/app/invite_live.ex:158
 #, elixir-autogen, elixir-format
 msgid "Home"
 msgstr "홈으로"
@@ -184,7 +190,7 @@ msgstr "모르는 기기가 있으면 해제하고 비밀번호를 바꾸세요.
 msgid "Invitation canceled"
 msgstr "초대를 취소했습니다"
 
-#: lib/vr_web/live/app/invite_live.ex:113
+#: lib/vr_web/live/app/invite_live.ex:119
 #, elixir-autogen, elixir-format
 msgid "Invitation declined"
 msgstr "초대를 거절했습니다"
@@ -199,7 +205,7 @@ msgstr "초대 링크"
 msgid "Invitation link created"
 msgstr "초대 링크를 만들었습니다"
 
-#: lib/vr_web/live/app/invite_live.ex:136
+#: lib/vr_web/live/app/invite_live.ex:142
 #, elixir-autogen, elixir-format
 msgid "Invitation not found"
 msgstr "찾을 수 없는 초대입니다"
@@ -240,11 +246,13 @@ msgid "Message"
 msgstr "메시지"
 
 #: lib/vr_web/live/app/settings_live.ex:128
+#: lib/vr_web/live/auth/register_live.ex:86
 #, elixir-autogen, elixir-format
 msgid "Name"
 msgstr "이름"
 
 #: lib/vr_web/live/app/settings_live.ex:173
+#: lib/vr_web/live/auth/reset_password_live.ex:67
 #, elixir-autogen, elixir-format
 msgid "New password"
 msgstr "새 비밀번호"
@@ -265,6 +273,8 @@ msgid "Open the link in the email we sent you. Some features are limited until y
 msgstr "보내드린 메일의 링크를 열어 주세요. 확인 전에는 일부 기능이 제한될 수 있습니다."
 
 #: lib/vr_web/live/app/settings_live.ex:161
+#: lib/vr_web/live/auth/login_live.ex:47
+#: lib/vr_web/live/auth/register_live.ex:100
 #, elixir-autogen, elixir-format
 msgid "Password"
 msgstr "비밀번호"
@@ -340,17 +350,22 @@ msgstr "공유 링크"
 msgid "Share meeting notes with friends"
 msgstr "친구와 회의록을 공유할 수 있습니다"
 
-#: lib/vr_web/live/app/invite_live.ex:147
+#: lib/vr_web/live/app/invite_live.ex:153
 #, elixir-autogen, elixir-format
 msgid "Share this link with someone else."
 msgstr "다른 분에게 이 링크를 전달해 주세요."
 
-#: lib/vr_web/live/app/invite_live.ex:92
+#: lib/vr_web/live/app/invite_live.ex:98
+#: lib/vr_web/live/auth/login_live.ex:19
+#: lib/vr_web/live/auth/login_live.ex:28
+#: lib/vr_web/live/auth/login_live.ex:70
+#: lib/vr_web/live/auth/register_live.ex:139
+#: lib/vr_web/live/auth/reset_password_live.ex:61
 #, elixir-autogen, elixir-format
 msgid "Sign in"
 msgstr "로그인"
 
-#: lib/vr_web/live/app/invite_live.ex:90
+#: lib/vr_web/live/app/invite_live.ex:96
 #, elixir-autogen, elixir-format
 msgid "Sign in to accept this invitation."
 msgstr "수락하려면 로그인이 필요합니다."
@@ -360,7 +375,11 @@ msgstr "수락하려면 로그인이 필요합니다."
 msgid "Sign out"
 msgstr "해제"
 
-#: lib/vr_web/live/app/invite_live.ex:95
+#: lib/vr_web/live/app/invite_live.ex:101
+#: lib/vr_web/live/auth/login_live.ex:78
+#: lib/vr_web/live/auth/register_live.ex:18
+#: lib/vr_web/live/auth/register_live.ex:56
+#: lib/vr_web/live/auth/register_live.ex:130
 #, elixir-autogen, elixir-format
 msgid "Sign up"
 msgstr "가입하기"
@@ -375,7 +394,7 @@ msgstr "해당 기기의 로그인을 해제했습니다"
 msgid "Signed-in devices"
 msgstr "로그인된 기기"
 
-#: lib/vr_web/live/app/invite_live.ex:178
+#: lib/vr_web/live/app/invite_live.ex:184
 #, elixir-autogen, elixir-format
 msgid "Someone"
 msgstr "누군가"
@@ -390,17 +409,17 @@ msgstr ""
 msgid "This device"
 msgstr "현재 기기"
 
-#: lib/vr_web/live/app/invite_live.ex:120
+#: lib/vr_web/live/app/invite_live.ex:126
 #, elixir-autogen, elixir-format
 msgid "This invitation has expired"
 msgstr "만료된 초대입니다"
 
-#: lib/vr_web/live/app/invite_live.ex:129
+#: lib/vr_web/live/app/invite_live.ex:135
 #, elixir-autogen, elixir-format
 msgid "This invitation was already handled"
 msgstr "이미 처리된 초대입니다"
 
-#: lib/vr_web/live/app/invite_live.ex:145
+#: lib/vr_web/live/app/invite_live.ex:151
 #, elixir-autogen, elixir-format
 msgid "This is your own invitation"
 msgstr "본인이 만든 초대입니다"
@@ -430,7 +449,7 @@ msgstr ""
 msgid "You already sent an invitation"
 msgstr "이미 초대를 보냈습니다"
 
-#: lib/vr_web/live/app/invite_live.ex:106
+#: lib/vr_web/live/app/invite_live.ex:112
 #, elixir-autogen, elixir-format
 msgid "You can now share meeting notes with each other."
 msgstr "이제 서로의 회의록을 공유할 수 있습니다."
@@ -445,7 +464,7 @@ msgstr "자기 자신은 초대할 수 없습니다"
 msgid "You're already friends"
 msgstr "이미 친구입니다"
 
-#: lib/vr_web/live/app/invite_live.ex:104
+#: lib/vr_web/live/app/invite_live.ex:110
 #, elixir-autogen, elixir-format
 msgid "You're now connected"
 msgstr "친구가 되었습니다"
@@ -460,7 +479,7 @@ msgstr "%{days}일 뒤에 삭제됩니다. 그 안에 다시 로그인하면 취
 msgid "close"
 msgstr ""
 
-#: lib/vr_web/live/app/invite_live.ex:70
+#: lib/vr_web/live/app/invite_live.ex:76
 #, elixir-autogen, elixir-format
 msgid "invited you as a friend."
 msgstr "님이 친구로 초대했습니다."
@@ -474,3 +493,203 @@ msgstr "방금"
 #, elixir-autogen, elixir-format
 msgid "last active"
 msgstr "마지막 활동"
+
+#: lib/vr_web/live/auth/mfa_enroll_live.ex:68
+#, elixir-autogen, elixir-format
+msgid "Add the key below"
+msgstr "아래 키를 등록하세요"
+
+#: lib/vr_web/live/auth/register_live.ex:137
+#, elixir-autogen, elixir-format
+msgid "Already have an account?"
+msgstr "이미 계정이 있으신가요?"
+
+#: lib/vr_web/live/auth/register_live.ex:110
+#: lib/vr_web/live/auth/reset_password_live.ex:77
+#, elixir-autogen, elixir-format
+msgid "At least 10 characters"
+msgstr "10자 이상"
+
+#: lib/vr_web/live/auth/forgot_password_live.ex:79
+#: lib/vr_web/live/auth/mfa_enroll_live.ex:122
+#: lib/vr_web/live/auth/mfa_live.ex:70
+#, elixir-autogen, elixir-format
+msgid "Back to sign in"
+msgstr "로그인으로 돌아가기"
+
+#: lib/vr_web/live/auth/reset_password_live.ex:100
+#, elixir-autogen, elixir-format
+msgid "Changing..."
+msgstr "변경 중..."
+
+#: lib/vr_web/live/auth/mfa_enroll_live.ex:100
+#: lib/vr_web/live/auth/mfa_live.ex:45
+#, elixir-autogen, elixir-format
+msgid "Code"
+msgstr "코드"
+
+#: lib/vr_web/live/auth/components.ex:61
+#, elixir-autogen, elixir-format
+msgid "Continue with %{provider}"
+msgstr "%{provider}로 계속하기"
+
+#: lib/vr_web/live/auth/mfa_enroll_live.ex:60
+#: lib/vr_web/live/auth/mfa_live.ex:38
+#, elixir-autogen, elixir-format
+msgid "Development mode — <strong>any 6 digits</strong> will pass."
+msgstr "개발 환경이라 <strong>6자리 숫자 아무거나</strong> 통과합니다."
+
+#: lib/vr_web/live/auth/login_live.ex:76
+#, elixir-autogen, elixir-format
+msgid "Don't have an account?"
+msgstr "계정이 없으신가요?"
+
+#: lib/vr_web/live/auth/forgot_password_live.ex:48
+#, elixir-autogen, elixir-format
+msgid "Email sent"
+msgstr "메일을 보냈습니다"
+
+#: lib/vr_web/live/auth/mfa_live.ex:34
+#, elixir-autogen, elixir-format
+msgid "Enter the 6-digit code from your authenticator app"
+msgstr "인증기 앱의 6자리 코드를 입력하세요"
+
+#: lib/vr_web/live/auth/mfa_enroll_live.ex:69
+#, elixir-autogen, elixir-format
+msgid "Enter the 6-digit code the app shows"
+msgstr "앱이 보여주는 6자리 코드를 입력하세요"
+
+#: lib/vr_web/live/auth/reset_password_live.ex:58
+#, elixir-autogen, elixir-format
+msgid "For your security, you've been signed out on all other devices."
+msgstr "보안을 위해 다른 기기의 로그인이 모두 해제되었습니다."
+
+#: lib/vr_web/live/auth/login_live.ex:66
+#, elixir-autogen, elixir-format
+msgid "Forgot your password?"
+msgstr "비밀번호를 잊으셨나요?"
+
+#: lib/vr_web/live/auth/forgot_password_live.ex:50
+#, elixir-autogen, elixir-format
+msgid "If an account exists for that email, a reset link is on its way."
+msgstr "해당 이메일로 가입된 계정이 있다면 재설정 링크가 도착합니다."
+
+#: lib/vr_web/live/auth/mfa_enroll_live.ex:89
+#, elixir-autogen, elixir-format
+msgid "In the app, choose <strong>manual entry</strong> and paste this key. You can name the account anything."
+msgstr "앱에서 <strong>수동 입력</strong>을 고르고 이 키를 넣으세요. 계정 이름은 자유롭게 정해도 됩니다."
+
+#: lib/vr_web/live/auth/register_live.ex:115
+#, elixir-autogen, elixir-format
+msgid "Invite code"
+msgstr "초대 코드"
+
+#: lib/vr_web/live/auth/login_live.ex:61
+#, elixir-autogen, elixir-format
+msgid "Keep me signed in"
+msgstr "로그인 상태 유지"
+
+#: lib/vr_web/live/auth/mfa_live.ex:59
+#, elixir-autogen, elixir-format
+msgid "Lost your authenticator? You can enter a backup code instead."
+msgstr "인증기를 잃었다면 백업 코드를 입력해도 됩니다."
+
+#: lib/vr_web/live/auth/mfa_enroll_live.ex:67
+#, elixir-autogen, elixir-format
+msgid "Open an authenticator app (Google Authenticator, 1Password, etc.)"
+msgstr "인증기 앱(Google Authenticator · 1Password 등)을 여세요"
+
+#: lib/vr_web/live/auth/login_live.ex:29
+#: lib/vr_web/live/auth/register_live.ex:57
+#, elixir-autogen, elixir-format
+msgid "Record your meetings and organize them automatically"
+msgstr "회의를 녹음하고 자동으로 정리하세요"
+
+#: lib/vr_web/live/auth/forgot_password_live.ex:19
+#: lib/vr_web/live/auth/forgot_password_live.ex:38
+#, elixir-autogen, elixir-format
+msgid "Reset password"
+msgstr "비밀번호 재설정"
+
+#: lib/vr_web/live/auth/forgot_password_live.ex:73
+#, elixir-autogen, elixir-format
+msgid "Send reset link"
+msgstr "재설정 링크 보내기"
+
+#: lib/vr_web/live/auth/forgot_password_live.ex:71
+#, elixir-autogen, elixir-format
+msgid "Sending..."
+msgstr "보내는 중..."
+
+#: lib/vr_web/live/auth/reset_password_live.ex:18
+#: lib/vr_web/live/auth/reset_password_live.ex:46
+#, elixir-autogen, elixir-format
+msgid "Set a new password"
+msgstr "새 비밀번호 설정"
+
+#: lib/vr_web/live/auth/mfa_enroll_live.ex:41
+#: lib/vr_web/live/auth/mfa_enroll_live.ex:55
+#, elixir-autogen, elixir-format
+msgid "Set up two-factor authentication"
+msgstr "2단계 인증 설정"
+
+#: lib/vr_web/live/auth/register_live.ex:128
+#, elixir-autogen, elixir-format
+msgid "Signing up..."
+msgstr "가입 중..."
+
+#: lib/vr_web/live/auth/mfa_enroll_live.ex:56
+#, elixir-autogen, elixir-format
+msgid "System admins must turn on two-factor authentication to sign in"
+msgstr "시스템 어드민은 2단계 인증을 켜야 들어갈 수 있습니다"
+
+#: lib/vr_web/live/auth/forgot_password_live.ex:51
+#, elixir-autogen, elixir-format
+msgid "The link expires in 1 hour."
+msgstr "링크는 1시간 뒤 만료됩니다."
+
+#: lib/vr_web/live/auth/components.ex:83
+#, elixir-autogen, elixir-format
+msgid "This field is required"
+msgstr "필수 항목입니다"
+
+#: lib/vr_web/live/auth/components.ex:84
+#, elixir-autogen, elixir-format
+msgid "This is already taken"
+msgstr "이미 사용 중입니다"
+
+#: lib/vr_web/live/auth/reset_password_live.ex:35
+#, elixir-autogen, elixir-format
+msgid "This link has expired or was already used. Please request a new one."
+msgstr "링크가 만료되었거나 이미 사용되었습니다. 다시 요청해 주세요."
+
+#: lib/vr_web/live/auth/mfa_enroll_live.ex:116
+#, elixir-autogen, elixir-format
+msgid "Turn on and continue"
+msgstr "켜고 계속"
+
+#: lib/vr_web/live/auth/mfa_live.ex:22
+#: lib/vr_web/live/auth/mfa_live.ex:33
+#, elixir-autogen, elixir-format
+msgid "Verification code"
+msgstr "인증 코드"
+
+#: lib/vr_web/live/auth/mfa_live.ex:64
+#, elixir-autogen, elixir-format
+msgid "Verify"
+msgstr "확인"
+
+#: lib/vr_web/live/auth/forgot_password_live.ex:39
+#, elixir-autogen, elixir-format
+msgid "We'll email you a reset link"
+msgstr "가입한 이메일로 재설정 링크를 보내드립니다"
+
+#: lib/vr_web/live/auth/reset_password_live.ex:55
+#, elixir-autogen, elixir-format
+msgid "Your password has been changed"
+msgstr "비밀번호를 변경했습니다"
+
+#: lib/vr_web/live/auth/components.ex:55
+#, elixir-autogen, elixir-format
+msgid "or"
+msgstr "또는"

@@ -38,7 +38,7 @@ defmodule VRWeb.AuthLive.MFAEnrollLive do
 
       {:ok,
        socket
-       |> assign(page_title: "2단계 인증 설정")
+       |> assign(page_title: gettext("Set up two-factor authentication"))
        |> assign(secret: secret)
        |> assign(encoded_secret: Base.encode32(secret, padding: false))
        |> assign(uri: MFA.provisioning_uri(account, secret))
@@ -52,21 +52,21 @@ defmodule VRWeb.AuthLive.MFAEnrollLive do
   def render(assigns) do
     ~H"""
     <.auth_shell
-      title="2단계 인증 설정"
-      subtitle="시스템 어드민은 2단계 인증을 켜야 들어갈 수 있습니다"
+      title={gettext("Set up two-factor authentication")}
+      subtitle={gettext("System admins must turn on two-factor authentication to sign in")}
     >
       <div :if={@dev_bypass} class="mobile-inline-failure vr-notice--warn">
         <span aria-hidden="true" class="material-symbols-rounded mobile-icon">construction</span>
-        <div>개발 환경이라 <strong>6자리 숫자 아무거나</strong> 통과합니다.</div>
+        <div>{raw(gettext("Development mode — <strong>any 6 digits</strong> will pass."))}</div>
       </div>
 
       <ol
         class="vr-note vr-note--small"
         style="margin: 0 0 12px; padding-left: 18px; line-height: 1.9;"
       >
-        <li>인증기 앱(Google Authenticator · 1Password 등)을 연다</li>
-        <li>아래 키를 등록한다</li>
-        <li>앱이 보여주는 6자리 코드를 입력한다</li>
+        <li>{gettext("Open an authenticator app (Google Authenticator, 1Password, etc.)")}</li>
+        <li>{gettext("Add the key below")}</li>
+        <li>{gettext("Enter the 6-digit code the app shows")}</li>
       </ol>
 
       <%!-- QR 라이브러리를 새로 들이지 않는다. 대부분의 인증기 앱은 키를 직접
@@ -80,13 +80,16 @@ defmodule VRWeb.AuthLive.MFAEnrollLive do
           id="copy-secret"
           data-copy={@encoded_secret}
         >
-          복사
+          {gettext("Copy")}
         </button>
       </div>
 
       <p class="vr-note vr-note--small" style="margin: 8px 0 16px;">
-        앱에서 <strong>수동 입력</strong>을 고르고 이 키를 넣으세요.
-        계정 이름은 자유롭게 정해도 됩니다.
+        {raw(
+          gettext(
+            "In the app, choose <strong>manual entry</strong> and paste this key. You can name the account anything."
+          )
+        )}
       </p>
 
       <form action={~p"/login/mfa/enroll"} method="post" class="flex flex-col gap-4">
@@ -94,7 +97,7 @@ defmodule VRWeb.AuthLive.MFAEnrollLive do
         <input type="hidden" name="secret" value={@encoded_secret} />
 
         <div>
-          <label class="vr-label mb-1.5" for="code">코드</label>
+          <label class="vr-label mb-1.5" for="code">{gettext("Code")}</label>
           <input
             type="text"
             id="code"
@@ -110,13 +113,13 @@ defmodule VRWeb.AuthLive.MFAEnrollLive do
         </div>
 
         <button type="submit" data-surface="control" class="vr-btn vr-btn--primary w-full">
-          켜고 계속
+          {gettext("Turn on and continue")}
         </button>
       </form>
 
       <:footer>
         <.link navigate={~p"/login"} style="color: var(--accent); font-weight: 600;">
-          다시 로그인
+          {gettext("Back to sign in")}
         </.link>
       </:footer>
     </.auth_shell>
