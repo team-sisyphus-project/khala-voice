@@ -1,15 +1,15 @@
 /* ============================================================================
-   모바일 매체 스킨 — 데스크톱 assets/css/themes/media.css의 그리기 어휘를
-   모바일 컴포넌트 어휘로 옮긴 것. 색 토큰(tokens.css)만으론 "수채화·연필"이
-   되지 않는다(2026-08-09 확인: 모바일엔 페인팅이 0개였다).
+   Mobile media skin — the drawing vocabulary of desktop assets/css/themes/media.css,
+   translated into the mobile component vocabulary. Color tokens (tokens.css) alone do
+   not make "watercolor/pencil" (confirmed 2026-08-09: mobile had zero paintings).
 
-   어휘는 데스크톱과 동일하게 셋:
-   · 항목 워시(wcItem) — 리스트 행·카드
-   · 한 획(wcBtn/wcBtnP) — 버튼
-   · 접시 한 획(wcField) — 입력란
-   연필은 선의 매체라 border-image 스케치 + 해칭.
+   The vocabulary is the same three as desktop:
+   · item wash (wcItem) — list rows and cards
+   · single stroke (wcBtn/wcBtnP) — buttons
+   · dish stroke (wcField) — inputs
+   Pencil is a medium of lines: border-image sketch + hatching.
 
-   모바일엔 data-surface 태깅이 없어 컴포넌트 클래스를 직접 겨냥한다.
+   Mobile has no data-surface tagging, so component classes are targeted directly.
    ========================================================================== */
 
 [data-theme="wc-cool"] {
@@ -33,8 +33,8 @@
   --wcField: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='80' preserveAspectRatio='none'%3E%3Cfilter id='f' x='-12%25' y='-22%25' width='124%25' height='144%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.014 0.045' numOctaves='3' seed='17' result='n'/%3E%3CfeDisplacementMap in='SourceGraphic' in2='n' scale='12' xChannelSelector='R' yChannelSelector='G'/%3E%3C/filter%3E%3Cg filter='url(%23f)'%3E%3Crect x='8' y='8' width='224' height='64' rx='26' fill='%23d8752f' opacity='0.05'/%3E%3Crect x='12' y='38' width='216' height='30' rx='15' fill='%23d8752f' opacity='0.065'/%3E%3C/g%3E%3C/svg%3E");
 }
 
-/* 항목(리스트 행·카드) = 저왜곡 워시. 특이도는 :not(#_)로 올린다 —
-   컴포넌트 규칙이 3클래스인 곳이 있어 동점이면 뒤가 이긴다(데스크톱과 같은 함정). */
+/* Items (list rows, cards) = low-distortion wash. Specificity raised with :not(#_) —
+      some component rules carry 3 classes; on a tie the later rule wins (same trap as desktop). */
 :is([data-theme="wc-cool"], [data-theme="wc-warm"]):not(#_)
   :is(.mobile-row, .mobile-issue-card-row, .mobile-seed-card, .mobile-chat-session, .mobile-theme-card) {
   background-color: transparent;
@@ -49,7 +49,7 @@
   background-image: var(--wcItem2);
 }
 
-/* 버튼 = 한 획. 프라이머리는 안료 한 획. 고스트는 칠하지 않는다. */
+/* Buttons = a single stroke. Primary is a stroke of pigment. Ghost gets no paint. */
 :is([data-theme="wc-cool"], [data-theme="wc-warm"]):not(#_) .mobile-button {
   background-color: transparent;
   background-image: var(--wcBtn);
@@ -66,7 +66,7 @@
   background-image: none;
 }
 
-/* 입력란 = 접시 한 획 */
+/* Inputs = a dish stroke */
 :is([data-theme="wc-cool"], [data-theme="wc-warm"]):not(#_)
   :is(.mobile-field__input, textarea, input[type="text"], input[type="email"], input[type="password"]) {
   background-color: transparent;
@@ -77,7 +77,7 @@
   border-color: transparent;
 }
 
-/* ── 연필: 선의 매체 ──────────────────────────────────────────────────── */
+/* ── Pencil: a medium of lines ──────────────────────────────────────── */
 [data-theme="pencil-cool"] {
   --pcPip: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='12' preserveAspectRatio='none'%3E%3Cfilter id='f' x='-14%25' y='-70%25' width='128%25' height='240%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.16' numOctaves='2' seed='13' result='n'/%3E%3CfeDisplacementMap in='SourceGraphic' in2='n' scale='3' xChannelSelector='R' yChannelSelector='G'/%3E%3C/filter%3E%3Cpath d='M2 6.4 L38 5.4' filter='url(%23f)' fill='none' stroke='%233f6d8c' stroke-width='4' stroke-linecap='round' opacity='0.85'/%3E%3C/svg%3E");
   --pcPipOff: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='12' preserveAspectRatio='none'%3E%3Cfilter id='f' x='-14%25' y='-70%25' width='128%25' height='240%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.16' numOctaves='2' seed='47' result='n'/%3E%3CfeDisplacementMap in='SourceGraphic' in2='n' scale='3' xChannelSelector='R' yChannelSelector='G'/%3E%3C/filter%3E%3Cpath d='M2 6.4 L38 5.4' filter='url(%23f)' fill='none' stroke='%233f6d8c' stroke-width='1.8' stroke-linecap='round' opacity='0.22'/%3E%3C/svg%3E");
@@ -105,7 +105,7 @@
   --pc-strokeAccent: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='620' height='620'%3E%3Cg fill='none' stroke='%23a8583c' stroke-linecap='round' stroke-linejoin='round' opacity='.74'%3E%3Cpath d='M-7.9 10.9 L-0.9 11.2 L6.1 10.9 L13.1 12.0 L20.1 10.9 L27.1 10.4 L34.1 11.2 L41.1 10.5 L48.1 11.5 L55.1 12.0 L62.1 10.6 L69.1 11.1 L76.1 10.8 L83.1 10.5 L90.1 12.1 L97.1 11.5' stroke-width='3.52' opacity='0.46'/%3E%3Cpath d='M97.1 11.5 L104.1 11.2 L111.1 11.6 L118.1 10.3 L125.1 11.2 L132.1 12.0 L139.1 11.3 L146.1 12.1 L153.1 11.3 L160.1 10.5 L167.1 11.8 L174.1 11.5 L181.1 11.8 L188.1 12.5 L195.1 11.0 L202.1 11.3 L209.1 11.7 L216.1 11.2 L223.1 12.6 L230.1 12.3 L237.1 11.3 L244.1 12.0 L251.1 11.2 L258.1 11.8 L265.1 13.0 L272.1 12.0 L279.1 12.2' stroke-width='3.81' opacity='0.46'/%3E%3Cpath d='M279.1 12.2 L286.1 12.1 L293.1 11.1 L300.1 12.5 L307.1 12.6 L314.1 12.2 L321.1 13.0 L328.1 11.7 L335.1 11.7 L342.1 12.7 L349.1 12.1 L356.1 13.0 L363.1 12.9 L370.1 11.6 L377.1 12.4 L384.1 12.2 L391.1 12.3 L398.1 13.6 L405.1 12.5' stroke-width='3.8' opacity='0.49'/%3E%3Cpath d='M405.1 12.5 L412.1 12.2 L419.1 12.6 L426.1 11.7 L433.1 12.9 L440.1 13.3 L447.1 12.3 L454.1 12.9 L461.1 12.1 L468.1 11.8 L475.1 13.2 L482.1 12.7 L489.1 12.8 L496.1 13.1 L503.1 11.6 L510.1 12.4 L517.1 12.8 L524.1 12.4 L531.1 13.5 L538.1 12.5 L545.1 11.8 L552.1 12.7 L559.1 12.0 L566.1 12.8' stroke-width='3.74' opacity='0.61'/%3E%3Cpath d='M566.1 12.8 L573.1 13.5 L580.1 12.1 L587.1 12.4 L594.1 12.2 L601.1 11.7 L608.1 13.3 L615.1 12.8 L622.1 12.3 L629.1 12.8' stroke-width='3.44' opacity='0.5'/%3E%3Cpath d='M-4.7 9.8 L2.3 11.2 L9.3 10.7 L16.3 10.1 L23.3 10.8 L30.3 10.5 L37.3 11.0 L44.3 10.6 L51.3 10.0 L58.3 11.4 L65.3 10.8 L72.3 10.2 L79.3 11.0 L86.3 10.7 L93.3 11.1 L100.3 10.8 L107.3 10.2 L114.3 11.5 L121.3 11.0 L128.3 10.3 L135.3 11.2 L142.3 10.9 L149.3 11.1 L156.3 10.9 L163.3 10.4' stroke-width='1.12' opacity='0.25'/%3E%3Cpath d='M163.3 10.4 L170.3 11.7 L177.3 11.1 L184.3 10.4 L191.3 11.4 L198.3 11.1 L205.3 11.2 L212.3 11.1 L219.3 10.6 L226.3 11.8 L233.3 11.2 L240.3 10.5 L247.3 11.7 L254.3 11.2 L261.3 11.2 L268.3 11.3 L275.3 10.8 L282.3 12.0 L289.3 11.3 L296.3 10.6 L303.3 11.9 L310.3 11.4 L317.3 11.3 L324.3 11.4 L331.3 11.0 L338.3 12.1 L345.3 11.4 L352.3 10.8 L359.3 12.1 L366.3 11.5' stroke-width='1.05' opacity='0.11'/%3E%3Cpath d='M366.3 11.5 L373.3 11.3 L380.3 11.6 L387.3 11.2 L394.3 12.2 L401.3 11.5 L408.3 10.9 L415.3 12.2 L422.3 11.7 L429.3 11.4 L436.3 11.8 L443.3 11.4 L450.3 12.2 L457.3 11.6 L464.3 11.0 L471.3 12.4 L478.3 11.8 L485.3 11.4 L492.3 11.9 L499.3 11.5 L506.3 12.2 L513.3 11.7 L520.3 11.1 L527.3 12.5 L534.3 11.8 L541.3 11.4 L548.3 12.1' stroke-width='0.98' opacity='0.1'/%3E%3Cpath d='M548.3 12.1 L555.3 11.7 L562.3 12.3 L569.3 11.8 L576.3 11.3 L583.3 12.6 L590.3 11.9 L597.3 11.4 L604.3 12.2 L611.3 11.8 L618.3 12.2 L625.3 11.8' stroke-width='1.04' opacity='0.13'/%3E%3Cpath d='M224.5 8.5 L234.2 16.9' stroke-width='3.26' opacity='0.31'/%3E%3Cpath d='M283.6 7.6 L289.9 18.0' stroke-width='2.48' opacity='0.46'/%3E%3Cpath d='M234.3 5.3 L244.0 16.5' stroke-width='3.13' opacity='0.35'/%3E%3Cpath d='M433.4 7.4 L441.3 18.1' stroke-width='2.55' opacity='0.47'/%3E%3Cpath d='M-4.3 607.5 L2.7 606.5 L9.7 607.3 L16.7 607.1 L23.7 607.5 L30.7 606.6 L37.7 607.2 L44.7 607.0 L51.7 607.5 L58.7 606.7 L65.7 607.0 L72.7 607.0 L79.7 607.5 L86.7 606.9 L93.7 606.9 L100.7 606.9 L107.7 607.4 L114.7 607.0 L121.7 606.8 L128.7 606.8 L135.7 607.2 L142.7 607.1 L149.7 606.8 L156.7 606.8 L163.7 607.1 L170.7 607.2 L177.7 606.8 L184.7 606.7 L191.7 606.9' stroke-width='3.23' opacity='0.87'/%3E%3Cpath d='M191.7 606.9 L198.7 607.2 L205.7 606.8 L212.7 606.7 L219.7 606.7 L226.7 607.2 L233.7 606.8 L240.7 606.8 L247.7 606.5 L254.7 607.2 L261.7 606.8 L268.7 606.9 L275.7 606.3 L282.7 607.1 L289.7 606.7 L296.7 607.0 L303.7 606.1 L310.7 607.0 L317.7 606.6 L324.7 607.1 L331.7 606.0' stroke-width='3.51' opacity='0.79'/%3E%3Cpath d='M331.7 606.0 L338.7 606.9 L345.7 606.4 L352.7 607.1 L359.7 606.0 L366.7 606.7 L373.7 606.2 L380.7 607.2 L387.7 606.0 L394.7 606.7 L401.7 606.0 L408.7 607.2 L415.7 605.9 L422.7 606.6 L429.7 605.8 L436.7 607.1 L443.7 605.9' stroke-width='3.19' opacity='0.69'/%3E%3Cpath d='M443.7 605.9 L450.7 606.6 L457.7 605.6 L464.7 607.0 L471.7 605.9 L478.7 606.6 L485.7 605.4 L492.7 606.8 L499.7 605.8 L506.7 606.7 L513.7 605.3 L520.7 606.6 L527.7 605.7 L534.7 606.7 L541.7 605.2 L548.7 606.4' stroke-width='3.52' opacity='0.72'/%3E%3Cpath d='M548.7 606.4 L555.7 605.6 L562.7 606.7 L569.7 605.1 L576.7 606.3 L583.7 605.4 L590.7 606.7 L597.7 605.1 L604.7 606.1 L611.7 605.2 L618.7 606.6' stroke-width='3.43' opacity='0.66'/%3E%3Cpath d='M-4.1 607.7 L2.9 607.5 L9.9 607.2 L16.9 608.2 L23.9 608.0 L30.9 606.8 L37.9 607.4 L44.9 607.8 L51.9 607.2 L58.9 607.9 L65.9 608.1 L72.9 606.9 L79.9 607.1 L86.9 607.9 L93.9 607.4 L100.9 607.5 L107.9 608.1' stroke-width='1.01' opacity='0.1'/%3E%3Cpath d='M107.9 608.1 L114.9 607.1 L121.9 606.7 L128.9 607.9 L135.9 607.7 L142.9 607.2 L149.9 607.9 L156.9 607.3 L163.9 606.6 L170.9 607.6 L177.9 607.9 L184.9 607.1 L191.9 607.5 L198.9 607.4 L205.9 606.5 L212.9 607.3 L219.9 608.0 L226.9 607.1 L233.9 607.1 L240.9 607.4 L247.9 606.6 L254.9 606.9 L261.9 608.0 L268.9 607.3 L275.9 606.7 L282.9 607.3 L289.9 606.8' stroke-width='0.97' opacity='0.1'/%3E%3Cpath d='M289.9 606.8 L296.9 606.6 L303.9 607.7 L310.9 607.4 L317.9 606.4 L324.9 607.0 L331.9 607.1 L338.9 606.5 L345.9 607.4 L352.9 607.6 L359.9 606.3 L366.9 606.6 L373.9 607.2 L380.9 606.6 L387.9 607.0 L394.9 607.6' stroke-width='1.04' opacity='0.14'/%3E%3Cpath d='M394.9 607.6 L401.9 606.4 L408.9 606.2 L415.9 607.1 L422.9 606.8 L429.9 606.7 L436.9 607.4 L443.9 606.6 L450.9 605.9 L457.9 606.9 L464.9 607.1 L471.9 606.5 L478.9 607.1 L485.9 606.8 L492.9 605.8 L499.9 606.6 L506.9 607.3 L513.9 606.5 L520.9 606.7' stroke-width='1.01' opacity='0.28'/%3E%3Cpath d='M520.9 606.7 L527.9 606.9 L534.9 605.9 L541.9 606.3 L548.9 607.4 L555.9 606.7 L562.9 606.3 L569.9 606.9 L576.9 606.2 L583.9 606.1 L590.9 607.3 L597.9 606.9 L604.9 606.1 L611.9 606.7 L618.9 606.5' stroke-width='1.06' opacity='0.19'/%3E%3Cpath d='M120.5 600.4 L132.4 610.9' stroke-width='3.22' opacity='0.44'/%3E%3Cpath d='M545.1 602.1 L557.0 611.0' stroke-width='2.22' opacity='0.36'/%3E%3Cpath d='M430.2 603.2 L441.9 609.3' stroke-width='3.01' opacity='0.47'/%3E%3Cpath d='M269.2 602.2 L282.9 612.4' stroke-width='2.34' opacity='0.46'/%3E%3Cpath d='M13.3 -6.4 L12.2 0.6 L12.3 7.6 L13.9 14.6 L13.2 21.6 L11.8 28.6 L12.9 35.6 L14.1 42.6 L12.8 49.6 L12.3 56.6 L13.5 63.6 L13.4 70.6 L12.8 77.6 L13.4 84.6 L13.3 91.6' stroke-width='3.48' opacity='0.55'/%3E%3Cpath d='M13.3 91.6 L12.6 98.6 L13.5 105.6 L14.2 112.6 L12.7 119.6 L12.5 126.6 L14.3 133.6 L14.1 140.6 L12.5 147.6 L13.3 154.6 L14.4 161.6 L13.5 168.6 L13.2 175.6 L14.0 182.6 L13.6 189.6 L13.4 196.6 L14.4 203.6 L14.0 210.6 L12.9 217.6 L13.9 224.6 L15.0 231.6 L13.6 238.6 L12.9 245.6 L14.6 252.6 L14.7 259.6 L13.4 266.6 L13.8 273.6' stroke-width='3.5' opacity='0.56'/%3E%3Cpath d='M13.8 273.6 L14.6 280.6 L14.0 287.6 L14.1 294.6 L14.7 301.6 L13.9 308.6 L13.6 315.6 L15.1 322.6 L14.8 329.6 L13.2 336.6 L14.1 343.6 L15.5 350.6 L14.3 357.6 L13.5 364.6 L14.7 371.6 L14.9 378.6 L14.1 385.6 L14.5 392.6 L14.8 399.6 L14.0 406.6 L14.5 413.6 L15.4 420.6' stroke-width='3.46' opacity='0.46'/%3E%3Cpath d='M15.4 420.6 L14.2 427.6 L13.6 434.6 L15.3 441.6 L15.4 448.6 L13.7 455.6 L14.1 462.6 L15.5 469.6 L14.8 476.6 L14.0 483.6 L14.8 490.6 L14.8 497.6 L14.3 504.6 L15.0 511.6 L15.0 518.6 L13.9 525.6 L14.5 532.6 L15.8 539.6 L14.5 546.6' stroke-width='3.53' opacity='0.49'/%3E%3Cpath d='M14.5 546.6 L13.6 553.6 L15.1 560.6 L15.6 567.6 L14.1 574.6 L14.2 581.6 L15.3 588.6 L14.8 595.6 L14.4 602.6 L15.1 609.6 L14.6 616.6 L14.1 623.6' stroke-width='3.27' opacity='0.53'/%3E%3Cpath d='M13.1 -7.2 L13.7 -0.2 L13.2 6.8 L12.3 13.8 L13.5 20.8 L13.4 27.8 L13.4 34.8 L13.3 41.8 L12.4 48.8 L13.7 55.8 L13.8 62.8 L13.0 69.8 L13.3 76.8 L12.7 83.8 L13.7 90.8 L14.0 97.8 L12.8 104.8 L13.3 111.8 L13.2 118.8 L13.7 125.8 L14.0 132.8' stroke-width='1.12' opacity='0.12'/%3E%3Cpath d='M14.0 132.8 L12.6 139.8 L13.2 146.8 L13.7 153.8 L13.5 160.8 L13.9 167.8 L12.7 174.8 L13.2 181.8 L14.1 188.8 L13.4 195.8 L13.6 202.8 L12.9 209.8 L13.2 216.8 L14.3 223.8 L13.3 230.8 L13.3 237.8' stroke-width='1.12' opacity='0.19'/%3E%3Cpath d='M13.3 237.8 L13.2 244.8 L13.3 251.8 L14.4 258.8 L13.3 265.8 L13.0 272.8 L13.6 279.8 L13.4 286.8 L14.2 293.8 L13.3 300.8 L12.8 307.8 L13.9 314.8 L13.6 321.8 L13.9 328.8 L13.4 335.8 L12.7 342.8 L14.1 349.8 L13.8 356.8 L13.4 363.8 L13.4 370.8 L12.9 377.8 L14.2 384.8 L14.0 391.8' stroke-width='1.05' opacity='0.1'/%3E%3Cpath d='M14.0 391.8 L13.0 398.8 L13.5 405.8 L13.2 412.8 L14.1 419.8 L14.0 426.8 L12.8 433.8 L13.6 440.8 L13.6 447.8 L13.9 454.8 L14.0 461.8 L12.7 468.8 L13.6 475.8 L14.1 482.8 L13.6 489.8 L13.9 496.8 L12.9 503.8 L13.7 510.8 L14.4 517.8 L13.4 524.8 L13.7 531.8 L13.3 538.8' stroke-width='1.06' opacity='0.1'/%3E%3Cpath d='M13.3 538.8 L13.7 545.8 L14.6 552.8 L13.3 559.8 L13.4 566.8 L13.7 573.8 L13.8 580.8 L14.6 587.8 L13.3 594.8 L13.3 601.8 L14.2 608.8 L13.9 615.8 L14.4 622.8' stroke-width='1.12' opacity='0.1'/%3E%3Cpath d='M8.6 487.5 L20.6 496.1' stroke-width='2.99' opacity='0.39'/%3E%3Cpath d='M8.2 149.5 L20.5 164.9' stroke-width='3.17' opacity='0.45'/%3E%3Cpath d='M9.2 406.1 L20.1 420.7' stroke-width='3.02' opacity='0.37'/%3E%3Cpath d='M8.8 267.0 L20.6 281.7' stroke-width='2.13' opacity='0.5'/%3E%3Cpath d='M607.1 -8.2 L606.3 -1.2 L607.2 5.8 L607.0 12.8 L607.1 19.8 L607.8 26.8 L606.7 33.8 L606.8 40.8 L606.9 47.8 L606.3 54.8 L607.4 61.8 L607.3 68.8 L606.8 75.8 L607.4 82.8 L606.4 89.8 L606.5 96.8 L607.2 103.8 L606.6 110.8 L607.4 117.8 L607.3 124.8 L606.4 131.8 L607.0 138.8 L606.4 145.8 L606.5 152.8 L607.5 159.8' stroke-width='3.52' opacity='0.56'/%3E%3Cpath d='M607.5 159.8 L606.8 166.8 L607.1 173.8 L607.1 180.8 L606.1 187.8 L606.9 194.8 L606.8 201.8 L606.7 208.8 L607.6 215.8 L606.8 222.8 L606.6 229.8 L606.9 236.8 L606.1 243.8 L607.0 250.8 L607.3 257.8 L606.7 264.8 L607.4 271.8 L606.5 278.8 L606.2 285.8 L607.0 292.8 L606.4 299.8 L607.1 306.8 L607.4 313.8 L606.4 320.8 L606.9 327.8 L606.4 334.8 L606.1 341.8 L607.2 348.8' stroke-width='3.67' opacity='0.59'/%3E%3Cpath d='M607.2 348.8 L606.7 355.8 L606.9 362.8 L607.1 369.8 L606.0 376.8 L606.5 383.8 L606.6 390.8 L606.3 397.8 L607.3 404.8 L606.7 411.8 L606.3 418.8 L606.7 425.8 L605.8 432.8 L606.4 439.8 L606.9 446.8 L606.3 453.8 L607.0 460.8 L606.4 467.8 L605.7 474.8 L606.5 481.8 L605.9 488.8 L606.3 495.8 L607.0 502.8 L606.0 509.8 L606.3 516.8 L606.0 523.8' stroke-width='3.62' opacity='0.61'/%3E%3Cpath d='M606.0 523.8 L605.4 530.8 L606.4 537.8 L606.1 544.8 L606.1 551.8 L606.6 558.8 L605.5 565.8 L605.6 572.8 L605.9 579.8 L605.3 586.8 L606.3 593.8 L606.1 600.8 L605.5 607.8 L606.0 614.8 L605.1 621.8 L605.2 628.8' stroke-width='3.51' opacity='0.66'/%3E%3Cpath d='M607.7 -6.0 L608.0 1.0 L607.4 8.0 L608.1 15.0 L608.5 22.0 L607.3 29.0 L607.3 36.0 L608.1 43.0 L607.5 50.0 L607.8 57.0 L608.4 64.0 L607.4 71.0 L607.0 78.0 L608.0 85.0 L607.8 92.0 L607.5 99.0 L608.2 106.0' stroke-width='1.01' opacity='0.1'/%3E%3Cpath d='M608.2 106.0 L607.6 113.0 L606.7 120.0 L607.7 127.0 L608.0 134.0 L607.3 141.0 L607.8 148.0 L607.7 155.0 L606.6 162.0 L607.3 169.0 L608.1 176.0 L607.3 183.0 L607.3 190.0 L607.7 197.0 L606.7 204.0 L606.9 211.0 L608.0 218.0 L607.4 225.0 L606.9 232.0 L607.5 239.0 L606.9 246.0 L606.6 253.0 L607.8 260.0 L607.6 267.0 L606.6 274.0 L607.1 281.0 L607.0 288.0' stroke-width='0.97' opacity='0.1'/%3E%3Cpath d='M607.0 288.0 L606.4 295.0 L607.4 302.0 L607.7 309.0 L606.5 316.0 L606.6 323.0 L607.1 330.0 L606.5 337.0 L607.0 344.0 L607.6 351.0 L606.5 358.0 L606.2 365.0 L607.0 372.0 L606.6 379.0 L606.6 386.0 L607.4 393.0' stroke-width='1.04' opacity='0.14'/%3E%3Cpath d='M607.4 393.0 L606.6 400.0 L605.8 407.0 L606.7 414.0 L606.8 421.0 L606.3 428.0 L607.1 435.0 L606.8 442.0 L605.7 449.0 L606.4 456.0 L607.0 463.0 L606.3 470.0 L606.6 477.0 L606.8 484.0 L605.7 491.0 L606.0 498.0 L607.0 505.0 L606.4 512.0 L606.2 519.0' stroke-width='1.01' opacity='0.28'/%3E%3Cpath d='M606.2 519.0 L606.7 526.0 L605.9 533.0 L605.7 540.0 L606.9 547.0 L606.6 554.0 L605.9 561.0 L606.5 568.0 L606.1 575.0 L605.5 582.0 L606.6 589.0 L606.9 596.0 L605.8 603.0 L606.1 610.0 L606.3 617.0 L605.6 624.0' stroke-width='1.06' opacity='0.19'/%3E%3Cpath d='M602.7 160.8 L610.5 168.6' stroke-width='3.22' opacity='0.51'/%3E%3Cpath d='M600.7 417.7 L612.4 431.3' stroke-width='2.89' opacity='0.44'/%3E%3Cpath d='M601.2 194.4 L613.4 203.7' stroke-width='3.03' opacity='0.43'/%3E%3Cpath d='M603.4 320.7 L610.3 329.6' stroke-width='3.03' opacity='0.42'/%3E%3C/g%3E%3C/svg%3E");
 }
 
-/* 스케치 상자 — 데스크톱과 같은 outset 반전(획이 레이아웃을 먹지 않는다) */
+/* Sketch box — same outset inversion as desktop (the stroke doesn't eat into layout) */
 :is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_)
   :is(.mobile-row, .mobile-issue-card-row, .mobile-seed-card, .mobile-chat-session, .mobile-theme-card) {
   background-color: transparent;
@@ -113,7 +113,7 @@
   border-image: var(--pc-stroke) 46 / 13px / 5.4px round;
   border-radius: 0;
 }
-/* 버튼 = 해칭(연필의 명암법) + 스케치 획 */
+/* Buttons = hatching (pencil's shading technique) + sketch stroke */
 :is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_) .mobile-button {
   background-color: transparent;
   background-image: repeating-linear-gradient(
@@ -131,14 +131,14 @@
     rgb(var(--pc-ink) / 0.30) 0 2px,
     transparent 2px 5px
   );
-  /* 빗금과 같은 계열 글자는 묻힌다(2026-08-10) — 연필 글씨는 그라파이트 */
+  /* Text in the same tone as the hatching sinks into it (2026-08-10) — pencil writing is graphite */
   color: var(--mobile-fg-default);
 }
 :is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_) .mobile-button--ghost {
   background-image: none;
   border-image: none;
 }
-/* 입력란 = 가는 선 상자 + 그은 밑줄, 직각 */
+/* Inputs = thin-line box + drawn underline, square corners */
 :is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_)
   :is(.mobile-field__input, textarea, input[type="text"], input[type="email"], input[type="password"]) {
   border-radius: 0;
@@ -152,8 +152,8 @@
     inset 0 -2px 0 rgb(var(--pc-ink) / 0.45);
 }
 
-/* 진행 막대 — 데스크톱 .workplan-pip과 같은 문법. 4px에선 붓의 흔들림이
-   보이지 않아 6px로 키운다(2026-08-09). */
+/* Progress bar — same grammar as desktop .workplan-pip. At 4px the brush wobble is
+      invisible, so it is enlarged to 6px (2026-08-09). */
 :is([data-theme="wc-cool"], [data-theme="wc-warm"]):not(#_) .mobile-issue-card-row__workflow-bar {
   height: 6px;
   background-color: transparent;
@@ -185,19 +185,19 @@
   background-size: 100% 100%;
 }
 
-/* 아이콘 단추: 겉 테두리에만 획, 안쪽 아이콘엔 획 없음(데스크톱과 같은 판정) */
+/* Icon buttons: stroke on the outer border only, none on the inner icon (same ruling as desktop) */
 :is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_) .mobile-button :is(svg, .mobile-icon) {
   border-image: none;
   border-color: transparent;
 }
 
-/* ── 2026-08-11 데스크톱 개편 이식 ────────────────────────────────────────
-   1) 자산이 테마당 1종이라 화면의 모든 상자가 같은 획이었다 → 성격 7종으로.
-      배분은 순번으로 한다. 모바일엔 LiveView 스트림이 없어 데스크톱의
-      "스트림 직계 자식 예외"는 불필요하다(가상 스크롤 도입 시 재검토).
-   2) 삐침 2px로 통일 — outset 10px/9px는 획이 상자에서 6.6px 떠 보였다.
-   3) 딤은 칠하지 않는다. 클래스 이름 열거는 끝이 안 나므로 구조로 잡는다
-      (데스크톱에서 클릭 차단 버튼이 얼룩이 되던 것과 같은 함정). */
+/* ── 2026-08-11 desktop overhaul, ported ────────────────────────────────
+      1) One asset per theme meant every box on screen had the same stroke → now 7 characters.
+            Distributed by ordinal. Mobile has no LiveView streams, so desktop's
+            "direct stream child exception" is unnecessary (revisit if virtual scrolling lands).
+      2) Overshoot unified at 2px — at outset 10px/9px the stroke looked 6.6px detached from the box.
+      3) Dims are not painted. Enumerating class names never ends, so match structurally
+            (same trap as desktop, where click-blocking buttons turned into smudges). */
 :is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_):not(#_) :is(.mobile-row, .mobile-issue-card-row, .mobile-seed-card, .mobile-chat-session, .mobile-theme-card):nth-child(2n) { border-image-source: var(--pc-stroke2); }
 :is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_):not(#_) :is(.mobile-row, .mobile-issue-card-row, .mobile-seed-card, .mobile-chat-session, .mobile-theme-card):nth-child(3n+1) { border-image-source: var(--pc-stroke3); }
 :is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_):not(#_) :is(.mobile-row, .mobile-issue-card-row, .mobile-seed-card, .mobile-chat-session, .mobile-theme-card):nth-child(4n+3) { border-image-source: var(--pc-stroke5); }
@@ -209,25 +209,25 @@
 :is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_):not(#_) .mobile-button:nth-child(5n+3) { border-image-source: var(--pc-stroke7); }
 :is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_):not(#_) .mobile-button--primary { border-image-source: var(--pc-strokeAccent); }
 
-/* 딤·오버레이는 매체 밖 — 화면을 덮는 요소에 자산이 늘어나면 얼룩이 된다. */
+/* Dims and overlays are outside the medium — piling assets onto screen-covering elements turns them into smudges. */
 :is([data-theme="pencil-cool"], [data-theme="pencil-warm"]):not(#_):not(#_):not(#_) :is([class*="backdrop"], [class*="scrim"], [class*="overlay"], .mobile-sheet__backdrop, [role="dialog"], [role="alertdialog"]),
 :is([data-theme="wc-cool"], [data-theme="wc-warm"]):not(#_):not(#_):not(#_) :is([class*="backdrop"], [class*="scrim"], [class*="overlay"], .mobile-sheet__backdrop, [role="dialog"], [role="alertdialog"]) {
   background-image: none;
   border-image: none;
 }
 
-/* 수채화 변주 — 모바일 자산은 항목 2종(--wcItem/--wcItem2)뿐이라 데스크톱의
-   3종보다 폭이 좁다. 있는 것으로 갈되, 자산을 늘리는 건 별건(붓 저작)이다. */
+/* Watercolor variation — mobile has only 2 item assets (--wcItem/--wcItem2), a narrower
+      range than desktop's 3. Vary with what exists; adding assets is separate work (brush authoring). */
 :is([data-theme="wc-cool"], [data-theme="wc-warm"]):not(#_):not(#_) :is(.mobile-row, .mobile-issue-card-row, .mobile-seed-card, .mobile-chat-session, .mobile-theme-card):nth-child(2n) { background-image: var(--wcItem2); }
 :is([data-theme="wc-cool"], [data-theme="wc-warm"]):not(#_):not(#_) :is(.mobile-row, .mobile-issue-card-row, .mobile-seed-card, .mobile-chat-session, .mobile-theme-card):nth-child(3n+1) { background-image: var(--wcItem); }
 :is([data-theme="wc-cool"], [data-theme="wc-warm"]):not(#_):not(#_) .mobile-button:nth-child(2n) { background-image: var(--wcBtnP); }
 
-/* ── 오버레이는 다른 테마와 같은 글래스 계약을 쓴다 ───────────────────────
-   2026-08-12 정정. 여기 있던 규칙은 매체 테마에서만 시트 패널을 불투명으로
-   못 박고 backdrop-filter를 none으로 껐다. 근거는 "매체는 종이니까 블러가
-   매체에 어긋난다"였는데, 그건 **아무도 요구하지 않은 임의 판단**이었다.
+/* ── Overlays use the same glass contract as other themes ───────────────
+      Corrected 2026-08-12. The rule that used to live here pinned sheet panels opaque in
+      media themes only and turned backdrop-filter off. The rationale was "media is paper,
+      so blur contradicts the medium" — which was **an arbitrary call nobody asked for**.
 
-   글래스모피즘은 전 테마 공통이다. 매체 테마도 뒤가 블러로 비쳐야 하고,
-   효과의 세기는 그 테마의 바탕색이 정한다(진하면 덜 보이고 연하면 잘 보인다).
-   따라서 여기서는 아무것도 덮지 않는다 — 시트 패널의 배경·블러는 컴포넌트
-   기본값(components.css)이 단일 출처로 갖는다. */
+      Glassmorphism is shared across all themes. Media themes must also let the back blur
+      through, and the strength of the effect is set by that theme's background color
+      (darker shows less, lighter shows more). So nothing is overridden here — the sheet
+      panel's background/blur has its single source in the component defaults (components.css). */

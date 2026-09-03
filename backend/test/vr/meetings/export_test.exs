@@ -8,7 +8,7 @@ defmodule VR.Meetings.ExportTest do
 
   setup do
     account = account_fixture()
-    {:ok, meeting} = Meetings.create_meeting(account, %{title: "분기 계획 회의"})
+    {:ok, meeting} = Meetings.create_meeting(account, %{title: "Quarterly Planning Meeting"})
     %{account: account, meeting: meeting}
   end
 
@@ -36,110 +36,110 @@ defmodule VR.Meetings.ExportTest do
       "end_ms" => start_ms + 3000
     }
 
-  describe "전사" do
-    test "세션 경계를 남긴다", ctx do
+  describe "transcript" do
+    test "keeps session boundaries", ctx do
       sessions = [
-        session(ctx.meeting, 1, [seg("speaker_1", "시작합니다", 0)]),
-        session(ctx.meeting, 2, [seg("speaker_1", "이어서", 0)]),
+        session(ctx.meeting, 1, [seg("speaker_1", "Let's begin", 0)]),
+        session(ctx.meeting, 2, [seg("speaker_1", "Continuing on", 0)]),
         session(ctx.meeting, 3, [])
       ]
 
       md = Export.to_markdown(ctx.meeting, sessions)
 
-      assert md =~ "### 세션 1"
-      assert md =~ "### 세션 2"
+      assert md =~ "### Session 1"
+      assert md =~ "### Session 2"
 
-      # 전사 없는 세션도 남긴다 — 문서만 받은 사람이 빠진 구간을 알아야 한다
-      assert md =~ "전사 없음"
+      # Sessions without a transcript are still listed — a document-only reader must know what is missing
+      assert md =~ "no transcript"
     end
 
-    test "세션 순서가 뒤바뀌어 들어와도 오름차순으로 낸다", ctx do
-      a = session(ctx.meeting, 1, [seg("speaker_1", "먼저", 0)])
-      b = session(ctx.meeting, 2, [seg("speaker_1", "나중", 0)])
+    test "emits ascending even when sessions arrive out of order", ctx do
+      a = session(ctx.meeting, 1, [seg("speaker_1", "first", 0)])
+      b = session(ctx.meeting, 2, [seg("speaker_1", "later", 0)])
 
       md = Export.to_markdown(ctx.meeting, [b, a])
 
-      assert :binary.match(md, "먼저") < :binary.match(md, "나중")
+      assert :binary.match(md, "first") < :binary.match(md, "later")
     end
 
-    test "화자 이름이 없으면 화자 N", ctx do
-      md = Export.to_markdown(ctx.meeting, [session(ctx.meeting, 1, [seg("speaker_3", "말", 0)])])
-      assert md =~ "**화자 3**"
+    test "falls back to Speaker N without a speaker name", ctx do
+      md = Export.to_markdown(ctx.meeting, [session(ctx.meeting, 1, [seg("speaker_3", "words", 0)])])
+      assert md =~ "**Speaker 3**"
     end
 
-    test "시각은 세션 내 상대 HH:MM:SS", ctx do
-      # 요약의 source.time_label 도 상대 시각이다. 벽시계로 쓰면 문서 안에서 대조가 안 된다.
+    test "timestamps are session-relative HH:MM:SS", ctx do
+      # The summary's source.time_label is relative too. Wall-clock times could not be cross-referenced within the document.
       md =
         Export.to_markdown(ctx.meeting, [
-          session(ctx.meeting, 1, [seg("speaker_1", "말", 754_000)])
+          session(ctx.meeting, 1, [seg("speaker_1", "words", 754_000)])
         ])
 
       assert md =~ "`00:12:34`"
     end
 
-    test "화자 이름의 마크다운 기호를 이스케이프한다", ctx do
+    test "escapes Markdown symbols in speaker names", ctx do
       sessions = [
-        session(ctx.meeting, 1, [seg("speaker_1", "말", 0)], %{
-          "speaker_1" => %{"name" => "김**철수`"}
+        session(ctx.meeting, 1, [seg("speaker_1", "words", 0)], %{
+          "speaker_1" => %{"name" => "Jo**hn`"}
         })
       ]
 
       md = Export.to_markdown(ctx.meeting, sessions)
 
-      refute md =~ "**김**철수"
+      refute md =~ "**Jo**hn"
       assert md =~ "\\*"
     end
 
-    test "발화 줄머리 기호를 이스케이프한다", ctx do
+    test "escapes leading Markdown markers in utterances", ctx do
       md =
         Export.to_markdown(ctx.meeting, [
-          session(ctx.meeting, 1, [seg("speaker_1", "# 제목처럼 보이는 발화", 0)])
+          session(ctx.meeting, 1, [seg("speaker_1", "# an utterance that looks like a heading", 0)])
         ])
 
       assert md =~ "\\#"
     end
   end
 
-  describe "요약" do
-    test "요약이 없으면 섹션 자체가 없다", ctx do
-      md = Export.to_markdown(ctx.meeting, [session(ctx.meeting, 1, [seg("speaker_1", "말", 0)])])
-      refute md =~ "## 요약"
+  describe "summary" do
+    test "no section at all without a summary", ctx do
+      md = Export.to_markdown(ctx.meeting, [session(ctx.meeting, 1, [seg("speaker_1", "words", 0)])])
+      refute md =~ "## Summary"
     end
 
-    test "근거가 없는 항목도 남는다", ctx do
+    test "items without evidence still appear", ctx do
       {:ok, meeting} =
         Meetings.update_summary(ctx.meeting, %{
           summary_data: %{
-            "one_liner" => "배포 일정을 정했다.",
-            "decisions" => [%{"text" => "4월 30일 배포", "source" => nil}],
+            "one_liner" => "Set the release date.",
+            "decisions" => [%{"text" => "Ship on April 30", "source" => nil}],
             "action_items" => [],
             "facts" => [],
             "open_questions" => [],
             "next_steps" => [],
-            "key_topics" => ["배포"]
+            "key_topics" => ["release"]
           }
         })
 
       md = Export.to_markdown(meeting, [])
 
-      assert md =~ "## 요약"
-      assert md =~ "4월 30일 배포"
-      assert md =~ "**핵심 주제**: 배포"
+      assert md =~ "## Summary"
+      assert md =~ "Ship on April 30"
+      assert md =~ "**Key Topics**: release"
     end
 
-    test "근거의 시각이 전사 줄과 같은 시계를 쓴다", ctx do
+    test "evidence timestamps use the same clock as transcript lines", ctx do
       {:ok, meeting} =
         Meetings.update_summary(ctx.meeting, %{
           summary_data: %{
-            "one_liner" => "요약",
+            "one_liner" => "Summary",
             "decisions" => [
               %{
-                "text" => "결정",
+                "text" => "A decision",
                 "source" => %{
                   "session_id" => "x",
-                  "speaker" => "김철수",
+                  "speaker" => "John Doe",
                   "time_label" => "00:12:34",
-                  "quote" => "그렇게 합시다"
+                  "quote" => "Let's do that"
                 }
               }
             ],
@@ -153,7 +153,7 @@ defmodule VR.Meetings.ExportTest do
 
       md =
         Export.to_markdown(meeting, [
-          session(ctx.meeting, 1, [seg("speaker_1", "그렇게 합시다", 754_000)])
+          session(ctx.meeting, 1, [seg("speaker_1", "Let's do that", 754_000)])
         ])
 
       assert md =~ "`00:12:34`"
@@ -161,8 +161,8 @@ defmodule VR.Meetings.ExportTest do
     end
   end
 
-  describe "오디오 주소를 넣지 않는다" do
-    test "출력 어디에도 저장 주소가 없다", ctx do
+  describe "no audio addresses in the output" do
+    test "no storage address anywhere in the output", ctx do
       {:ok, session} = Meetings.create_session(ctx.meeting)
       key = VR.Storage.recording_key(ctx.meeting.id, session.id, session.started_at_unix, "webm")
       {:ok, session} = Meetings.set_storage_key(session, key)
@@ -171,7 +171,7 @@ defmodule VR.Meetings.ExportTest do
         session
         |> Ecto.Changeset.change(%{
           audio_url: "https://files.example.com/#{key}",
-          transcript: %{"segments" => [seg("speaker_1", "말", 0)]}
+          transcript: %{"segments" => [seg("speaker_1", "words", 0)]}
         })
         |> Repo.update()
 
@@ -183,8 +183,8 @@ defmodule VR.Meetings.ExportTest do
     end
   end
 
-  describe "파일명" do
-    test "경로 문자를 지운다", ctx do
+  describe "filenames" do
+    test "removes path characters", ctx do
       {:ok, meeting} = Meetings.update_meeting(ctx.meeting, %{title: "a/b:c*d?e"})
       name = Export.filename(meeting)
 
@@ -193,13 +193,14 @@ defmodule VR.Meetings.ExportTest do
       assert name =~ ".md"
     end
 
-    test "제목이 없으면 기본 이름", ctx do
+    test "default name without a title", ctx do
       {:ok, meeting} = Meetings.update_meeting(ctx.meeting, %{title: nil})
-      assert Export.filename(meeting) =~ ~r/^회의_\d{8}\.md$/
+      assert Export.filename(meeting) =~ ~r/^Meeting_\d{8}\.md$/
     end
 
-    test "한글 제목은 filename* 로 보낸다", ctx do
-      header = Export.content_disposition(ctx.meeting)
+    test "non-ASCII titles are sent via filename*", ctx do
+      {:ok, meeting} = Meetings.update_meeting(ctx.meeting, %{title: "Réunion générale"})
+      header = Export.content_disposition(meeting)
 
       assert header =~ "attachment;"
       assert header =~ "filename*=UTF-8''"
@@ -207,8 +208,8 @@ defmodule VR.Meetings.ExportTest do
       refute header =~ "\n"
     end
 
-    test "제목이 아주 길어도 자른다", ctx do
-      {:ok, meeting} = Meetings.update_meeting(ctx.meeting, %{title: String.duplicate("가", 200)})
+    test "very long titles are truncated", ctx do
+      {:ok, meeting} = Meetings.update_meeting(ctx.meeting, %{title: String.duplicate("é", 200)})
       name = Export.filename(meeting)
 
       assert String.valid?(name)
@@ -217,13 +218,13 @@ defmodule VR.Meetings.ExportTest do
   end
 
   describe "exportable?/2" do
-    test "전사도 요약도 없으면 false", ctx do
+    test "false with neither transcript nor summary", ctx do
       refute Export.exportable?(ctx.meeting, [])
       refute Export.exportable?(ctx.meeting, [session(ctx.meeting, 1, [])])
     end
 
-    test "전사만 있어도 true", ctx do
-      assert Export.exportable?(ctx.meeting, [session(ctx.meeting, 1, [seg("speaker_1", "말", 0)])])
+    test "true with just a transcript", ctx do
+      assert Export.exportable?(ctx.meeting, [session(ctx.meeting, 1, [seg("speaker_1", "words", 0)])])
     end
   end
 end

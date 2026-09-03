@@ -1,89 +1,90 @@
-# 01. 개요
+# 01. Overview
 
-## 제품
+## Product
 
-음성 회의를 브라우저에서 녹음하고, 화자를 분리해 전사하고, AI로 요약하는 서비스.
-데스크톱 웹 · 모바일 웹 · PWA를 지원한다.
+A service that records voice meetings in the browser, transcribes them with speaker
+diarization, and summarizes them with AI. Supports desktop web, mobile web, and PWA.
 
-기존 `autosquad/sisyphus`의 **Meeting Recorder** 기능을 독립 앱으로 분리한 것이며,
-조직 · 프로젝트 · 태스크 같은 협업 플랫폼 개념을 걷어내고 **계정 · 친구 · 공유** 체계로 대체한다.
+It extracts the **Meeting Recorder** feature from the existing `autosquad/sisyphus` into a
+standalone app, stripping out collaboration-platform concepts like organizations, projects,
+and tasks and replacing them with an **accounts / friends / sharing** model.
 
-## 핵심 사용 흐름
+## Core user flow
 
 ```
-로그인 → 회의 생성 → 녹음(일시정지 가능) → 자동 업로드 → 자동 전사(화자분리)
-      → 화자 이름 지정 → AI 요약 생성 → 요약 항목 클릭 시 해당 발언 지점 재생
-      → 친구에게 공유 또는 1회성 링크 발급 → 아카이브 → 토픽/라벨로 검색
+Log in → create meeting → record (pausable) → auto upload → auto transcription (diarized)
+      → name the speakers → generate AI summary → click a summary item to play that utterance
+      → share with friends or issue a one-time link → archive → search by topic/label
 ```
 
-## 범위
+## Scope
 
-### 포함
+### In scope
 
-| 영역 | 내용 |
+| Area | Contents |
 |---|---|
-| 계정 | 이메일+비밀번호, 소셜 로그인(어드민 ON/OFF), 다기기 세션, 예약 삭제 |
-| 친구 | 이메일·링크 초대, 수락/거절, 친구 목록 |
-| 회의 | 생성 · 녹음 · 세션 관리 · 상태 전이 · 삭제 · 아카이브 |
-| 전사 | Google Cloud STT v2 화자분리, 20분 초과 자동 분할 |
-| 화자 | 화자별 이름/계정 매핑, 세그먼트 단위 화자 교정, 텍스트 편집·분할·복원 |
-| 요약 | LLM 직접 호출, 출처 인용(클릭 시 오디오 점프) |
-| 공유 | Reviewer/Contributor/Viewer 권한, 친구 공유, 1회성 게스트 링크 |
-| 분류 | 토픽 · 라벨, 아카이브 필터 검색 |
-| 재생 | 통합 오디오 플레이어, 세그먼트 하이라이트 동기화 |
-| 내보내기 | 마크다운 |
-| 구독 | 플랜 · 구독 · 크레딧 원장 · 사용량 집계 (무료 플랜만) |
-| 어드민 | API 키 관리, 가격 관리, 플랜 관리, 크레딧 조정, 운영 조회 |
-| PWA | 설치, 오프라인 업로드 큐, 푸시 알림 |
+| Accounts | Email + password, social login (admin ON/OFF), multi-device sessions, scheduled deletion |
+| Friends | Email / link invitations, accept/decline, friends list |
+| Meetings | Creation, recording, session management, state transitions, deletion, archiving |
+| Transcription | Google Cloud STT v2 diarization, automatic splitting over 20 minutes |
+| Speakers | Per-speaker name/account mapping, per-segment speaker correction, text editing / splitting / restore |
+| Summary | Direct LLM calls, source citations (click to jump to audio) |
+| Sharing | Reviewer/Contributor/Viewer roles, friend sharing, one-time guest links |
+| Classification | Topics and labels, filtered archive search |
+| Playback | Unified audio player, segment highlight sync |
+| Export | Markdown |
+| Subscriptions | Plans, subscriptions, credit ledger, usage metering (free plan only) |
+| Admin | API key management, pricing management, plan management, credit adjustments, ops views |
+| PWA | Install, offline upload queue, push notifications |
 
-### 제외 (비범위)
+### Out of scope (non-goals)
 
-- **화상 회의** (Agora RTC / 클라우드 레코딩) — sisyphus 기능이지만 가져오지 않음
-- **결제** — Plan/Credit 스키마만 두고 결제 연동은 자리만 비워둠
-- **MFA** — 명시적으로 제외
-- 조직 · 프로젝트 · 태스크 · 서브태스크
-- AI 채팅, CRM(커뮤니케이션), 다이제스트, 인박스/멘션
-- 벡터 DB 아카이브, 에이전트 / MCP, 위젯 대시보드
-- SSO 서버(OAuth2 Provider 역할)
+- **Video conferencing** (Agora RTC / cloud recording) — a sisyphus feature we do not port
+- **Payments** — only the Plan/Credit schemas exist; payment integration is a placeholder
+- **MFA** — explicitly excluded
+- Organizations, projects, tasks, subtasks
+- AI chat, CRM (communications), digests, inbox/mentions
+- Vector-DB archive, agents / MCP, widget dashboards
+- SSO server (acting as an OAuth2 Provider)
 
-## 확정된 결정
+## Settled decisions
 
-| # | 결정 | 근거 |
+| # | Decision | Rationale |
 |---|---|---|
-| D1 | 백엔드는 **Phoenix (Elixir)** | 전사 파이프라인(Oban+FFmpeg+GCS)과 devkanban 빌링이 모두 Elixir라 이식 직결 |
-| D2 | 프론트는 **React + TypeScript**, 로직은 `packages/core`로 분리 | 로직/UI 분리로 UI 벌 수를 나중에 바꿀 수 있게 |
-| D3 | 데스크톱/모바일 **단일 라우트 · 반응형 1벌**로 시작 | 공유 링크가 핵심 기능이라 URL이 하나여야 함 |
-| D4 | 어드민은 **Phoenix LiveView** | 폼·테이블 위주. sisyphus 어드민 이식이 가장 쌈 |
-| D5 | **n8n 제거.** S3 presign과 AI 요약을 직접 구현 | 외부 워크플로 의존 제거, 프롬프트 버전 관리 |
-| D6 | 설정은 **DB → 환경변수 → 없음** 순서로만 해석 | 오픈소스 공개 대비, 하드코딩 원천 차단 |
-| D7 | 소셜 로그인은 **어드민에서 ON/OFF**. 키가 DB에 있고 ON일 때만 노출 | 필수 기능이 아님 |
-| D8 | 권한 명칭은 **Reviewer / Contributor / Viewer**로 통일 (한국어 UI 포함) | 용어 혼선 제거 |
-| D9 | **스토리지는 S3 유지** | 지금은 sisyphus 구성을 그대로 사용 |
-| D10 | **토픽 · 라벨 유지**. 아카이브된 회의록을 필터로 검색 가능해야 함 | |
-| D11 | 무료 플랜은 `included_credits = 0` + **오버드래프트 허용**. 집계는 정확히 기록 | 유료화 시 스위치만 켜면 되도록 |
-| D12 | 게스트 공유 = **기존 권한 체계를 그대로 유지**한 채로 접근 부여 | 별도 소유권 모델 불필요 |
+| D1 | Backend is **Phoenix (Elixir)** | Both the transcription pipeline (Oban+FFmpeg+GCS) and devkanban billing are Elixir, so porting is direct |
+| D2 | Frontend is **React + TypeScript**, logic split into `packages/core` | Separating logic/UI keeps the number of UIs changeable later |
+| D3 | Start with a **single route, one responsive layout** for desktop/mobile | Share links are a core feature, so there must be exactly one URL |
+| D4 | Admin is **Phoenix LiveView** | Mostly forms and tables; porting the sisyphus admin is cheapest this way |
+| D5 | **Drop n8n.** Implement S3 presigning and AI summary directly | Removes the external workflow dependency; prompts are version-controlled |
+| D6 | Configuration resolves strictly as **DB → environment variables → none** | Prepares for open-sourcing; eliminates hardcoding at the root |
+| D7 | Social login is **toggled ON/OFF in the admin UI**. Shown only when keys are in the DB and it is ON | Not an essential feature |
+| D8 | Role names are unified as **Reviewer / Contributor / Viewer** (including in the Korean UI) | Removes terminology confusion |
+| D9 | **Storage stays on S3** | We keep the sisyphus setup as-is for now |
+| D10 | **Keep topics and labels.** Archived meeting notes must be searchable via filters | |
+| D11 | Free plan is `included_credits = 0` + **overdraft allowed**. Metering is recorded precisely | So going paid is just flipping a switch |
+| D12 | Guest sharing = grant access **while keeping the existing permission model intact** | No separate ownership model needed |
 
-## 가정 (변경 시 문서 갱신 필요)
+## Assumptions (update the docs if these change)
 
-- **A1.** 아카이브는 sisyphus의 벡터 DB 아카이브가 아니라, `status = archived` 상태의 회의를
-  토픽 · 라벨 · 기간 · 참여자 · 전문검색으로 필터링하는 것을 의미한다.
-- **A2.** 스토리지는 S3를 쓰되, STT가 요구하는 GCS 임시 버킷 왕복은 유지한다.
-  (S3 업로드 → 서버 다운로드 → GCS 업로드 → STT → GCS 정리)
-  나중에 GCS 단일화로 바꿀 수 있도록 스토리지 어댑터를 인터페이스로 둔다.
-- **A3.** LLM 기본 제공자는 Gemini. 어드민에서 Anthropic / OpenAI로 전환 가능.
+- **A1.** "Archive" does not mean sisyphus's vector-DB archive; it means filtering meetings
+  with `status = archived` by topic, label, date range, participants, and full-text search.
+- **A2.** Storage uses S3, but the GCS staging-bucket round trip required by STT stays.
+  (S3 upload → server download → GCS upload → STT → GCS cleanup)
+  The storage adapter is kept behind an interface so we can consolidate onto GCS later.
+- **A3.** The default LLM provider is Gemini. Switchable to Anthropic / OpenAI in the admin UI.
 
-## 용어
+## Terminology
 
-| 용어 | 뜻 |
+| Term | Meaning |
 |---|---|
-| **Meeting** | 회의. 여러 RecordingSession을 담는 컨테이너 |
-| **RecordingSession** | 녹음 1건. 독립적으로 업로드 → 전사 흐름을 탄다 |
-| **Segment** | 전사 결과의 발화 단위 (`speaker`, `text`, `start_ms`, `end_ms`) |
-| **Speaker Map** | 화자 키(`speaker_1`) → 표시 이름 · 계정 매핑 |
-| **Reviewer** | 회의 소유자. 전권 (내부 코드 `lv0`) |
-| **Contributor** | 참여자. 녹음 · 재생 · 편집 (내부 코드 `lv1`) |
-| **Viewer** | 조회자. 읽기 전용 (내부 코드 `lv2`) |
-| **View Scope** | 사용자가 UI에서 고르는 공개 범위. 여기서 위 역할이 계산된다 |
-| **Credit** | 사용량 집계 단위. 대외 표기는 설정으로 바꿀 수 있다 (예: "쿠키") |
-| **Lot** | 지급된 크레딧 묶음. 자체 잔량과 만료를 가진다 |
-| **Ledger** | 크레딧 증감 기록. append-only |
+| **Meeting** | A meeting. Container holding multiple RecordingSessions |
+| **RecordingSession** | One recording. Goes through the upload → transcription flow independently |
+| **Segment** | One utterance in the transcription result (`speaker`, `text`, `start_ms`, `end_ms`) |
+| **Speaker Map** | Mapping from speaker key (`speaker_1`) to display name and account |
+| **Reviewer** | Meeting owner. Full control (internal code `lv0`) |
+| **Contributor** | Participant. Recording, playback, editing (internal code `lv1`) |
+| **Viewer** | Read-only observer (internal code `lv2`) |
+| **View Scope** | The visibility level the user picks in the UI. Roles above are computed from it |
+| **Credit** | Unit of usage metering. The public-facing name is configurable (e.g. "cookies") |
+| **Lot** | A granted bundle of credits. Has its own remaining balance and expiry |
+| **Ledger** | Record of credit changes. Append-only |

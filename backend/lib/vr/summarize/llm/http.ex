@@ -1,26 +1,29 @@
 defmodule VR.Summarize.LLM.HTTP do
   @moduledoc """
-  어댑터들이 공유하는 HTTP 처리.
+  HTTP handling shared by the adapters.
 
-  ## 왜 따로 두나
+  ## Why it lives separately
 
-  제공자 셋이 각자 `Req.post` 를 부르면 타임아웃·에러 분류·재시도 정책이
-  세 갈래로 갈라진다. 폴백 판단(`LLM.retryable?/1`)이 정확한 에러 모양에
-  기대므로 한 곳에서 만든다.
+  If the three providers each called `Req.post` themselves, timeout, error
+  classification, and retry policy would fork three ways. The fallback
+  decision (`LLM.retryable?/1`) depends on exact error shapes, so they are
+  produced in one place.
 
-  **재시도는 Req 에 맡기지 않는다.** 요약은 비싸고, Oban 워커가 이미
-  재시도를 관리한다. 여기서 또 재시도하면 한 번의 요청이 조용히 몇 배가 된다.
+  **Retries are not left to Req.** Summaries are expensive, and the Oban
+  worker already manages retries. Retrying here as well would silently
+  multiply a single request.
   """
 
   require Logger
 
-  # 긴 회의는 응답이 오래 걸린다. STT 폴링과 달리 한 방에 끝나므로 넉넉히.
+  # Long meetings take a while to answer. Unlike STT polling this finishes in
+  # one shot, so be generous.
   @receive_timeout 180_000
 
   @doc """
-  JSON 을 POST 하고 파싱된 본문을 돌려준다.
+  POSTs JSON and returns the parsed body.
 
-  에러 모양을 고정한다 — `{:http, status, body}` · `{:transport, reason}`.
+  Error shapes are fixed — `{:http, status, body}` and `{:transport, reason}`.
   """
   def post_json(url, headers, payload) do
     Req.post(url,
@@ -44,7 +47,7 @@ defmodule VR.Summarize.LLM.HTTP do
   defp handle({:error, %{reason: reason}}), do: {:error, {:transport, reason}}
   defp handle({:error, reason}), do: {:error, {:transport, reason}}
 
-  # 에러 본문이 통째로 로그·DB 에 남으면 곤란하다. 앞부분만 남긴다.
+  # A full error body in logs or the DB would be a problem. Keep only the head.
   defp summarize_body(body) when is_binary(body), do: String.slice(body, 0, 500)
 
   defp summarize_body(body) when is_map(body) do

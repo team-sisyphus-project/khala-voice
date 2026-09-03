@@ -4,10 +4,10 @@ import { SETTINGS_SECTIONS } from "./settingsStructure";
 describe("settings information architecture", () => {
   it("keeps every existing setting in exactly one of the four required sections", () => {
     expect(SETTINGS_SECTIONS.map(({ title }) => title)).toEqual([
-      "화면",
-      "녹음",
-      "알림",
-      "계정 및 보안",
+      "Display",
+      "Recording",
+      "Notifications",
+      "Account & security",
     ]);
 
     const items = SETTINGS_SECTIONS.flatMap(({ items }) => items);

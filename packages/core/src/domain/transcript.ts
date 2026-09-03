@@ -1,45 +1,45 @@
 /**
- * 전사 · 화자 조작.
+ * Transcript and speaker operations.
  *
- * **출처: sisyphus** `assets/webapp/meeting-recorder.js` 2416~3470, 5362~5960
- * — 로직만 떼어내 UI 의존을 없앴다.
+ * **Source: sisyphus** `assets/webapp/meeting-recorder.js` 2416~3470,
+ * 5362~5960 — logic extracted, UI dependencies removed.
  *
- * ## 화자는 2계층이다
+ * ## Speakers are two-layered
  *
- *     transcript.segments[i].speaker  =  "speaker_1"          ← STT 원본, 세그먼트별
- *     speaker_map["speaker_1"]        =  { name, account_id } ← 사람 매핑, 화자별
+ *     transcript.segments[i].speaker  =  "speaker_1"          ← raw STT, per segment
+ *     speaker_map["speaker_1"]        =  { name, account_id } ← person mapping, per speaker
  *
- * 이 둘을 합치고 싶어지지만 **서로 다른 조작**이다.
+ * It is tempting to merge the two, but they are **different operations**.
  *
- * - 화자 칩을 바꾸면 → `speaker_map` → 그 화자의 **모든** 발언에 반영
- * - 세그먼트 아바타를 바꾸면 → `segments[i].speaker` → **그 한 줄만**
+ * - Changing a speaker chip → `speaker_map` → applies to **all** of that speaker's lines
+ * - Changing a segment avatar → `segments[i].speaker` → **that one line only**
  *
- * 두 번째는 STT 가 화자를 잘못 나눴을 때 쓴다. 합치면 이걸 못 한다.
+ * The second is for when STT mis-split speakers. Merging would make it impossible.
  */
 
 import type { SpeakerMapEntry, Transcript, TranscriptSegment } from "../api/types";
 
 export interface SpeakerView {
-  /** `speaker_1` 같은 원본 키 */
+  /** Raw key like `speaker_1` */
   key: string;
-  /** 화면에 보일 이름 */
+  /** Name shown on screen */
   name: string;
   accountId: string | null;
-  /** 이 화자의 발화 수 */
+  /** Number of utterances by this speaker */
   segmentCount: number;
-  /** 이 화자가 말한 총 길이(ms) */
+  /** Total speaking time of this speaker (ms) */
   totalMs: number;
-  /** 팔레트 인덱스 (1~10). 등장 순서로 고정된다 */
+  /** Palette index (1~10). Fixed by order of appearance */
   colorIndex: number;
 }
 
 export const SPEAKER_COLOR_COUNT = 10;
 
 /**
- * 화면에 뿌릴 화자 목록.
+ * Speaker list for rendering.
  *
- * **등장 순서로 색을 고정한다.** 이름을 바꿔도 색이 유지돼야
- * 사용자가 "아까 파란 사람"으로 기억한 걸 잃지 않는다.
+ * **Colors are fixed by order of appearance.** Renaming must keep the color,
+ * so the user does not lose "the blue person from before".
  */
 export function speakerViews(
   transcript: Transcript | null,
@@ -59,7 +59,7 @@ export function speakerViews(
     entry.ms += Math.max(0, segment.end_ms - segment.start_ms);
   }
 
-  // 발화가 하나도 없는 화자도 맵에 있으면 보여준다 (사용자가 추가한 경우)
+  // Speakers with zero utterances still show if they are in the map (user-added)
   for (const key of Object.keys(speakerMap)) {
     if (!stats.has(key)) {
       order.push(key);
@@ -84,17 +84,17 @@ export function speakerViews(
 
 function fallbackName(key: string): string {
   const match = /^speaker[_-]?(\d+)$/i.exec(key);
-  return match ? `화자 ${match[1]}` : key;
+  return match ? `Speaker ${match[1]}` : key;
 }
 
-/** 화자 키 → 색 인덱스. 세그먼트를 그릴 때 쓴다. */
+/** Speaker key → color index. Used when drawing segments. */
 export function colorIndexMap(views: SpeakerView[]): Record<string, number> {
   return Object.fromEntries(views.map((view) => [view.key, view.colorIndex]));
 }
 
-// ── speaker_map 조작 (화자 전체에 반영) ───────────────────
+// ── speaker_map operations (apply to the whole speaker) ──
 
-/** 화자 이름을 바꾼다. 그 화자의 모든 발언에 반영된다. */
+/** Renames a speaker. Applies to all of that speaker's utterances. */
 export function renameSpeaker(
   speakerMap: Record<string, SpeakerMapEntry>,
   key: string,
@@ -104,7 +104,7 @@ export function renameSpeaker(
   return { ...speakerMap, [key]: { ...current, name } };
 }
 
-/** 화자를 계정에 연결한다. 이름도 함께 맞춘다. */
+/** Links a speaker to an account. Aligns the name too. */
 export function assignSpeakerAccount(
   speakerMap: Record<string, SpeakerMapEntry>,
   key: string,
@@ -122,12 +122,12 @@ export function assignSpeakerAccount(
   };
 }
 
-/** 화자를 추가한다. STT 가 놓친 사람을 수동으로 넣을 때. */
+/** Adds a speaker. For manually adding someone STT missed. */
 export function addSpeaker(
   speakerMap: Record<string, SpeakerMapEntry>,
   name: string,
 ): { speakerMap: Record<string, SpeakerMapEntry>; key: string } {
-  // 기존 키와 겹치지 않는 번호를 찾는다
+  // Find a number that does not collide with existing keys
   let n = Object.keys(speakerMap).length + 1;
   while (speakerMap[`speaker_${n}`]) n += 1;
 
@@ -136,9 +136,10 @@ export function addSpeaker(
 }
 
 /**
- * 화자를 지운다. 그 화자의 발언은 `moveTo` 로 옮긴다.
+ * Removes a speaker. Their utterances move to `moveTo`.
  *
- * 발언을 그냥 버리면 전사가 사라진다. 반드시 옮길 곳을 받는다.
+ * Just dropping the utterances would lose transcript content, so a
+ * destination is required.
  */
 export function removeSpeaker(
   transcript: Transcript,
@@ -159,9 +160,9 @@ export function removeSpeaker(
   };
 }
 
-// ── segments 조작 (한 줄만 반영) ──────────────────────────
+// ── segment operations (one line only) ───────────────────
 
-/** 한 세그먼트의 화자를 바꾼다. STT 오분류 교정용. */
+/** Changes one segment's speaker. For correcting STT misclassification. */
 export function changeSegmentSpeaker(
   transcript: Transcript,
   index: number,
@@ -174,7 +175,7 @@ export function changeSegmentSpeaker(
   return { ...transcript, segments: mergeAdjacent(segments) };
 }
 
-/** 세그먼트 본문을 고친다. */
+/** Edits a segment's text. */
 export function editSegmentText(
   transcript: Transcript,
   index: number,
@@ -188,10 +189,11 @@ export function editSegmentText(
 }
 
 /**
- * 세그먼트를 커서 위치에서 둘로 나눈다.
+ * Splits a segment in two at the cursor position.
  *
- * 한 세그먼트에 두 사람의 말이 섞였을 때 쓴다.
- * 시각은 **글자 수 비율로 나눈다** — 정확하진 않지만 재생 위치를 잡기엔 충분하다.
+ * For when two people's speech got mixed into one segment.
+ * Timestamps split **proportionally by character count** — not exact, but
+ * good enough to anchor playback.
  */
 export function splitSegment(
   transcript: Transcript,
@@ -204,7 +206,7 @@ export function splitSegment(
   const head = segment.text.slice(0, charIndex).trim();
   const tail = segment.text.slice(charIndex).trim();
 
-  // 한쪽이 비면 나눌 것이 없다
+  // Nothing to split if either side is empty
   if (!head || !tail) return transcript;
 
   const total = segment.text.length || 1;
@@ -224,7 +226,7 @@ export function splitSegment(
   return { ...transcript, segments };
 }
 
-/** 편집을 되돌린다. 전사 직후 저장해 둔 원본으로. */
+/** Reverts edits, back to the original saved right after transcription. */
 export function restoreOriginal(transcript: Transcript): Transcript | null {
   if (!transcript.original_segments?.length) return null;
   return { ...transcript, segments: transcript.original_segments.map((s) => ({ ...s })) };
@@ -241,10 +243,10 @@ export function hasEdits(transcript: Transcript | null): boolean {
 }
 
 /**
- * 같은 화자가 이어지면 하나로 합친다.
+ * Merges consecutive segments by the same speaker.
  *
- * 화자를 바꾸다 보면 앞뒤가 같은 사람이 되는데, 그대로 두면
- * 같은 사람 말풍선이 여러 개로 쪼개져 읽기 나빠진다.
+ * Speaker edits often leave the same person before and after; left alone,
+ * one person's speech splinters into several bubbles and reads badly.
  */
 export function mergeAdjacent(segments: TranscriptSegment[]): TranscriptSegment[] {
   return segments.reduce<TranscriptSegment[]>((acc, segment) => {
@@ -264,9 +266,9 @@ export function mergeAdjacent(segments: TranscriptSegment[]): TranscriptSegment[
   }, []);
 }
 
-// ── 표시 ──────────────────────────────────────────────────
+// ── Display ──────────────────────────────────────────────
 
-/** `mm:ss` 또는 `h:mm:ss`. 세그먼트 시각 표시용. */
+/** `mm:ss` or `h:mm:ss`. For segment timestamps. */
 export function timeLabel(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
   const h = Math.floor(total / 3600);
@@ -276,12 +278,12 @@ export function timeLabel(ms: number): string {
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
 
-/** 현재 재생 위치에 해당하는 세그먼트. 없으면 -1. */
+/** The segment at the current playback position. -1 if none. */
 export function segmentAt(segments: TranscriptSegment[], ms: number): number {
   return segments.findIndex((segment) => ms >= segment.start_ms && ms < segment.end_ms);
 }
 
-/** 마크다운으로 내보낸다. */
+/** Exports as Markdown. */
 export function toMarkdown(
   title: string,
   transcript: Transcript | null,

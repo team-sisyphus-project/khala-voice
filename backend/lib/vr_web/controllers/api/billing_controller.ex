@@ -1,8 +1,9 @@
 defmodule VRWeb.API.BillingController do
   @moduledoc """
-  내 요금 상태. **자기 것만 본다** — 계정 id 를 파라미터로 받지 않는다.
+  My billing status. **Self only** — no account id is accepted as a parameter.
 
-  받으면 남의 id 를 넣어보는 경로가 생긴다. `current_account` 만 쓴다.
+  Accepting one would create a path for probing other people's ids. Only
+  `current_account` is used.
   """
 
   use VRWeb, :controller
@@ -29,7 +30,7 @@ defmodule VRWeb.API.BillingController do
     })
   end
 
-  # 화면이 보여줄 수 있는 만큼만. 상한을 두지 않으면 원장 전체를 한 번에 끌어온다.
+  # Only as much as the UI can show. Without a cap, the entire ledger would be pulled at once.
   defp parse_limit(nil), do: 50
 
   defp parse_limit(value) when is_binary(value) do

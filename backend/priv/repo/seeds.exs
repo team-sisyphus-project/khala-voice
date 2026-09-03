@@ -1,15 +1,15 @@
-# 개발·최초 설치용 시드.
+# Seeds for development and first-time installs.
 #
 #     mix run priv/repo/seeds.exs
 #
-# `mix ecto.setup` 이 자동으로 실행한다. 여러 번 돌려도 안전하다.
+# `mix ecto.setup` runs this automatically. Safe to run multiple times.
 #
-# **테스트 DB 에는 넣지 않는다.** 테스트는 빈 DB 를 전제로 자기 데이터를 만든다.
-# `MIX_ENV=test mix ecto.reset` 이 시드까지 돌리면 무료 플랜이 중복돼
-# 요금 테스트가 통째로 깨진다.
+# **Never seed the test DB.** Tests assume an empty DB and create their own data.
+# If `MIX_ENV=test mix ecto.reset` ran the seeds too, the free plan would be
+# duplicated and the billing tests would break wholesale.
 
 if Mix.env() == :test do
-  IO.puts("[seeds] 테스트 환경에서는 시드를 넣지 않습니다")
+  IO.puts("[seeds] not seeding in the test environment")
   System.halt(0)
 end
 
@@ -17,60 +17,62 @@ alias VR.Accounts.Admin
 alias VR.Billing
 alias VR.Billing.Credits
 
-# ── 초기 어드민 ────────────────────────────────────────────
+# ── Bootstrap admin ────────────────────────────────────────
 case Admin.ensure_bootstrap_admin() do
   {:ok, account, password} ->
     IO.puts("""
 
     ┌──────────────────────────────────────────────────────────┐
-      초기 어드민 계정을 만들었습니다
+      Created the initial admin account
 
-        이메일    #{account.email}
-        비밀번호  #{password}
+        Email     #{account.email}
+        Password  #{password}
 
-      이 비밀번호는 지금만 볼 수 있습니다. 저장해 두세요.
-      실사용자를 승격한 뒤 이 계정은 삭제하세요.
+      This password is only shown right now. Save it somewhere.
+      Delete this account after promoting a real user to admin.
     └──────────────────────────────────────────────────────────┘
     """)
 
   {:error, :admin_exists} ->
-    IO.puts("[seeds] 어드민이 이미 있습니다. 건너뜁니다.")
+    IO.puts("[seeds] an admin already exists. Skipping.")
 
   {:error, :email_required} ->
     IO.puts("""
-    [seeds] 초기 어드민을 건너뜁니다 — BOOTSTRAP_ADMIN_EMAIL 이 없습니다.
+    [seeds] skipping the initial admin — BOOTSTRAP_ADMIN_EMAIL is not set.
 
       BOOTSTRAP_ADMIN_EMAIL=you@example.com mix run priv/repo/seeds.exs
-      또는  mix vr.bootstrap_admin --email you@example.com
+      or  mix vr.bootstrap_admin --email you@example.com
     """)
 
   {:error, _changeset} ->
-    IO.puts("[seeds] 초기 어드민을 만들지 못했습니다. mix vr.bootstrap_admin 을 실행해 보세요.")
+    IO.puts("[seeds] could not create the initial admin. Try mix vr.bootstrap_admin.")
 end
 
-# ── 크레딧 환산 정책 ───────────────────────────────────────
+# ── Credit conversion policy ───────────────────────────────
 #
-# 1 크레딧 = $N. 어드민에서 바꾼다.
-# 기본값은 devkanban 의 참고값(Cookie Crate 기준 ≈ $0.0015)을 따랐다.
-# 이 값이 없으면 사용량을 크레딧으로 바꿀 수 없어 전사·요약이 계량되지 않는다.
+# 1 credit = $N. Changed from the admin UI.
+# The default follows devkanban's reference value (≈ $0.0015, Cookie Crate basis).
+# Without this value usage cannot be converted into credits, so transcription
+# and summarization would go unmetered.
 if is_nil(Credits.conversion_setting()) do
   {:ok, setting} = Credits.put_conversion_setting(%{credit_value_usd: Decimal.new("0.0015")})
-  IO.puts("[seeds] 크레딧 환산 정책 생성 — 1 크레딧 = $#{setting.credit_value_usd}")
+  IO.puts("[seeds] created credit conversion policy — 1 credit = $#{setting.credit_value_usd}")
 else
-  IO.puts("[seeds] 크레딧 환산 정책이 이미 있습니다.")
+  IO.puts("[seeds] credit conversion policy already exists.")
 end
 
-# ── 무료 플랜 ──────────────────────────────────────────────
+# ── Free plan ──────────────────────────────────────────────
 #
-# 가입하면 자동으로 여기 구독된다. 포함 크레딧은 어드민에서 바꾼다
-# (바꾸려면 새 리비전을 발행한다 — 기존 구독은 그랜드파더링된다).
+# Every signup is subscribed to this automatically. Included credits are
+# changed from the admin UI (changing them publishes a new revision —
+# existing subscriptions are grandfathered).
 case Billing.get_plan_by_key(Billing.free_plan_key()) do
   nil ->
     {:ok, plan} =
       Billing.create_plan(%{
         key: Billing.free_plan_key(),
-        display_name: "무료",
-        description: "회의를 녹음하고 전사·요약할 수 있습니다.",
+        display_name: "Free",
+        description: "Record meetings, then transcribe and summarize them.",
         status: "published",
         publicly_listed: true,
         sort_order: 0
@@ -84,8 +86,8 @@ case Billing.get_plan_by_key(Billing.free_plan_key()) do
         limits: %{}
       })
 
-    IO.puts("[seeds] 무료 플랜 생성 — 월 #{revision.included_credits} 크레딧")
+    IO.puts("[seeds] created free plan — #{revision.included_credits} credits/month")
 
   _plan ->
-    IO.puts("[seeds] 무료 플랜이 이미 있습니다.")
+    IO.puts("[seeds] free plan already exists.")
 end

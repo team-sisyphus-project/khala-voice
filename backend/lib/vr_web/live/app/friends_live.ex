@@ -1,10 +1,10 @@
 defmodule VRWeb.AppLive.FriendsLive do
   @moduledoc """
-  친구 목록과 초대.
+  Friends list and invitations.
 
-  초대는 두 방식을 한 화면에서 제공한다.
-  - 이메일을 입력하면 메일을 보낸다
-  - 비워두면 링크만 만들어 준다 (아무 경로로 전달)
+  Invitations come in two flavors on the same screen:
+  - Enter an email and we send a mail
+  - Leave it empty and we only create a link (deliver it any way you like)
   """
 
   use VRWeb, :live_view
@@ -45,7 +45,7 @@ defmodule VRWeb.AppLive.FriendsLive do
 
         socket =
           if email == "" do
-            # 링크 초대 — 화면에 보여준다
+            # Link invitation — show it on screen
             assign(socket, invite_link: link)
           else
             Accounts.Notifier.deliver_friend_invitation(email, account, token, params["message"])
@@ -146,9 +146,10 @@ defmodule VRWeb.AppLive.FriendsLive do
               <div class="vr-notice__title">{gettext("Invitation link created")}</div>
 
               <%!--
-                링크를 손으로 옮겨 적게 두지 않는다. 토큰이 길어서 한 글자만 틀려도
-                열리지 않고, 어디서 틀렸는지 알 방법이 없다.
-                읽기 전용 입력에 담아 두면 클립보드가 막힌 환경에서도 길게 눌러 복사할 수 있다.
+                Don't make people copy the link by hand. The token is long, so a
+                single wrong character means it won't open — with no way to tell
+                where the typo is. Keeping it in a read-only input lets people
+                long-press to copy even where the clipboard API is blocked.
               --%>
               <div class="flex gap-1.5 mt-1.5" id="invite-link-copy" phx-hook="CopyToClipboard">
                 <input

@@ -1,5 +1,5 @@
 defmodule VR.AccountsFixtures do
-  @moduledoc "테스트용 계정 생성 헬퍼."
+  @moduledoc "Helpers for creating test accounts."
 
   alias VR.Accounts
 
@@ -12,7 +12,7 @@ defmodule VR.AccountsFixtures do
       |> Enum.into(%{
         email: unique_email(),
         password: valid_password(),
-        name: "테스터"
+        name: "Test User"
       })
       |> Accounts.register_account()
 

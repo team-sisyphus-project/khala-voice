@@ -1,14 +1,14 @@
 defmodule VRWeb.API.RecordingSessionController do
   @moduledoc """
-  녹음 세션 REST API.
+  Recording session REST API.
 
-  ## 흐름
+  ## Flow
 
-      POST /api/meetings/:id/sessions      세션 생성 (녹음 시작)
-      POST /api/uploads/presign            업로드 URL 발급
-      (브라우저가 S3에 직접 PUT)
-      POST /api/sessions/:id/upload        업로드 등록
-      POST /api/sessions/:id/transcribe    전사 큐잉  ← M3
+      POST /api/meetings/:id/sessions      create a session (start recording)
+      POST /api/uploads/presign            issue an upload URL
+      (the browser PUTs directly to S3)
+      POST /api/sessions/:id/upload        register the upload
+      POST /api/sessions/:id/transcribe    queue transcription  <- M3
   """
 
   use VRWeb, :controller
@@ -31,7 +31,7 @@ defmodule VRWeb.API.RecordingSessionController do
     end
   end
 
-  @doc "S3 업로드가 끝난 뒤 서버에 알린다."
+  @doc "Notifies the server after the S3 upload has finished."
   def upload(conn, %{"id" => id} = params) do
     account = conn.assigns.current_account
 
@@ -39,7 +39,7 @@ defmodule VRWeb.API.RecordingSessionController do
          {:ok, meeting, level} <- Meetings.authorize(session.meeting_id, account, :lv1),
          :ok <- ensure_mutable(meeting),
          :ok <- validate_mime(params["mime_type"]),
-         # audio_url 은 받지 않는다. 서버가 storage_key 에서 만든다.
+         # audio_url is not accepted. The server derives it from storage_key.
          {:ok, updated} <-
            Meetings.register_upload(
              session,
@@ -50,7 +50,7 @@ defmodule VRWeb.API.RecordingSessionController do
     end
   end
 
-  @doc "전사를 시작한다. 20분을 넘으면 분할 워커로 간다."
+  @doc "Starts transcription. Recordings over 20 minutes go to the chunking worker."
   def transcribe(conn, %{"id" => id}) do
     account = conn.assigns.current_account
 
@@ -59,7 +59,7 @@ defmodule VRWeb.API.RecordingSessionController do
          :ok <- ensure_mutable(meeting),
          :ok <- ensure_transcribable(session),
          {:ok, _job} <- VR.Transcription.enqueue(session) do
-      # 큐잉만 하고 바로 응답한다. 완료는 폴링·SSE 로 알린다.
+      # Queue only and respond immediately. Completion is reported via polling/SSE.
       conn
       |> put_status(:accepted)
       |> json(JSONView.session(Meetings.get_session(session.id), level))
@@ -82,7 +82,7 @@ defmodule VRWeb.API.RecordingSessionController do
     end
   end
 
-  @doc "화자 매핑 또는 전사 본문 갱신."
+  @doc "Updates the speaker mapping or the transcript body."
   def update_speakers(conn, %{"id" => id} = params) do
     account = conn.assigns.current_account
 
@@ -95,13 +95,14 @@ defmodule VRWeb.API.RecordingSessionController do
   end
 
   @doc """
-  오디오를 준다. **서명된 URL 로 리다이렉트**한다.
+  Serves the audio. **Redirects to a signed URL.**
 
-  파일을 앱 서버로 흘려보내지 않는다 — 1시간 녹음이 수십 MB다.
-  서명 만료가 짧으므로 링크가 새어도 곧 죽는다.
+  We do not stream the file through the app server — an hour-long recording is
+  tens of megabytes. The signature expires quickly, so a leaked link dies soon.
 
-  Viewer(lv2)는 여기 도달하지 못한다. `authorize(:lv1)` 이 `{:error, :not_found}` 를
-  주고 404 가 나간다 — 403 을 주면 회의의 존재가 드러난다.
+  Viewers (lv2) never reach this point. `authorize(:lv1)` returns
+  `{:error, :not_found}` and a 404 goes out — a 403 would reveal that the
+  meeting exists.
   """
   def audio(conn, %{"id" => id}) do
     account = conn.assigns.current_account
@@ -113,19 +114,20 @@ defmodule VRWeb.API.RecordingSessionController do
     end
   end
 
-  # 키가 없는 세션(개발 시드 등)은 줄 것이 없다
+  # A session without a key (dev seeds, etc.) has nothing to serve
   defp presign_audio(%{storage_key: key} = session) when is_binary(key) and key != "" do
     VR.Storage.presign_download(key, expires_in: playback_ttl(session))
   end
 
   defp presign_audio(_session), do: {:error, :not_found}
 
-  # 재생이 끝나기 전에 서명이 죽으면 안 된다.
+  # The signature must not expire before playback finishes.
   #
-  # 브라우저는 리다이렉트로 받은 **서명된 주소**에 대고 Range 요청을 이어간다.
-  # 고정 5분을 주면 한 시간짜리 회의는 5분 지점에서 재생이 끊긴다.
-  # 그래서 길이에 비례해 주되, 새어 나갔을 때를 생각해 상한을 둔다.
-  # 설정값이 있으면 그것을 그대로 따른다 (운영자가 판단한 값이 우선).
+  # The browser keeps issuing Range requests against the **signed address** it was
+  # redirected to. A fixed 5 minutes would cut off an hour-long meeting at the
+  # 5-minute mark. So the TTL scales with duration, with an upper bound in case
+  # the link leaks. A configured value, when present, is followed as-is
+  # (the operator's judgment takes precedence).
   @min_playback_ttl 900
   @max_playback_ttl 21_600
 
@@ -137,12 +139,12 @@ defmodule VRWeb.API.RecordingSessionController do
 
   defp playback_ttl(_session), do: @min_playback_ttl
 
-  # 아카이브된 회의는 읽기 전용이다. 지금까지는 create 에만 걸려 있어
-  # 아카이브 후에도 전사본을 고칠 수 있었다.
+  # Archived meetings are read-only. Previously this guard only applied to create,
+  # so transcripts could still be edited after archiving.
   defp ensure_mutable(%{status: "archived"}), do: {:error, :meeting_archived}
   defp ensure_mutable(_meeting), do: :ok
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ────────────────────────────────────────────
 
   defp apply_speaker_update(session, params) do
     attrs =

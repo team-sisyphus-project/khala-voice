@@ -1,96 +1,106 @@
-# KHALA VOICE — 작업 지침
+# KHALA VOICE — Working Guidelines
 
-## 이 리포가 무엇인가
+## What this repo is
 
-회의 녹음 · 화자분리 전사 · AI 요약 서비스. 데스크톱/모바일 웹 + PWA.
-`autosquad/sisyphus`의 Meeting Recorder를 독립시키고,
-계정·친구·공유 체계와 `devkanban`의 플랜·크레딧을 결합한 것.
-모바일 디자인 시스템은 `devkanban`, 브랜드(이름·아이콘·인트로)는 `khala` 에서 왔다.
+A meeting recording, diarized transcription, and AI summary service. Desktop/mobile
+web plus PWA. It extracts the Meeting Recorder from `autosquad/sisyphus` as a
+standalone app and combines it with an account/friend/sharing system and the
+plan/credit model from `devkanban`.
+The mobile design system comes from `devkanban`; the brand (name, icon, intro)
+comes from `khala`.
 
-설계는 [`docs/`](docs/README.md)에 있다. **코드를 쓰기 전에 관련 문서를 먼저 읽는다.**
+The design lives in [`docs/`](docs/README.md). **Read the relevant doc before
+writing code.**
 
-| 작업 | 먼저 읽을 문서 |
+| Task | Read first |
 |---|---|
-| 스키마 · 마이그레이션 | `docs/03-domain-model.md` |
-| 녹음 · 업로드 · 전사 · 요약 | `docs/04-pipeline.md` |
-| 로그인 · 권한 · 공유 | `docs/05-auth-sharing.md` |
-| 크레딧 · 플랜 | `docs/06-billing.md` |
-| 설정값 · API 키 · 어드민 | `docs/07-config-admin.md` |
-| 라우팅 · 프론트 구조 · 내비게이션 · 디자인 시스템 | `docs/08-frontend.md` |
-| sisyphus/devkanban에서 가져올 때 | `docs/10-porting-map.md` |
+| Schema, migrations | `docs/03-domain-model.md` |
+| Recording, upload, transcription, summary | `docs/04-pipeline.md` |
+| Login, permissions, sharing | `docs/05-auth-sharing.md` |
+| Credits, plans | `docs/06-billing.md` |
+| Config values, API keys, admin | `docs/07-config-admin.md` |
+| Routing, frontend structure, navigation, design system | `docs/08-frontend.md` |
+| Porting from sisyphus/devkanban | `docs/10-porting-map.md` |
 
-## 절대 규칙
+## Hard rules
 
-### 1. 시크릿을 코드에 넣지 않는다
+### 1. No secrets in code
 
-이 리포는 오픈소스로 공개된다.
+This repo is published as open source.
 
-- API 키 · 토큰 · 비밀번호 · 자격증명을 코드 · 설정 · 시드 · 테스트 · 문서에 쓰지 않는다
-- 설정값은 **반드시** `VR.Config.fetch/2`로만 읽는다.
-  각 모듈에서 `System.get_env`를 직접 부르지 않는다
-- `VR.Config`는 `DB → 환경변수 → nil` 순으로 해석한다. **리터럴 기본값을 두지 않는다**
-- 새 설정값을 추가하면 `.env.example`과 `docs/07-config-admin.md`를 함께 갱신한다
-- 사용자가 채팅에 붙여넣은 키를 파일에 쓰지 않는다. 어드민 화면이나 `.env`로 안내한다
+- Never put API keys, tokens, passwords, or credentials in code, config, seeds,
+  tests, or docs
+- Read configuration values **only** through `VR.Config.fetch/2`.
+  Never call `System.get_env` directly from individual modules
+- `VR.Config` resolves in the order `DB → environment variable → nil`.
+  **No literal defaults**
+- When you add a config value, update `.env.example` and `docs/07-config-admin.md` together
+- Never write a key the user pasted into chat to a file. Point them to the admin
+  screen or `.env` instead
 
-### 2. 권한 명칭은 Reviewer / Contributor / Viewer
+### 2. Role names are Reviewer / Contributor / Viewer
 
-한국어 UI에서도 이 영문 명칭을 그대로 쓴다.
-"검토자 / 참여자 / 조회자"로 번역하지 않는다.
-내부 코드값은 `lv0` / `lv1` / `lv2` / `lv3`(접근 불가).
+Use these English names as-is throughout the UI; do not translate or rename them.
+The internal code values are `lv0` / `lv1` / `lv2` / `lv3` (no access).
 
-### 3. 접근 불가는 404
+### 3. No access means 404
 
-권한이 없는 리소스는 `403`이 아니라 `404`로 응답한다. 존재 여부를 노출하지 않는다.
+Respond to unauthorized resources with `404`, not `403`. Do not reveal existence.
 
-### 3-1. 스타일은 `packages/ui-styles` 한 곳에만 둔다
+### 3-1. Styles live in `packages/ui-styles` and nowhere else
 
-웹앱(React)과 LiveView가 **같은 파일**을 읽는다. 복사본을 만들지 않는다.
+The web app (React) and LiveView read **the same files**. Do not make copies.
 
-- `packages/ui-styles/devkanban/` 은 **원본과 같아야 한다.** 손대지 않는다
-- 이 앱의 조정은 전부 `overrides.css` 에 쓰고, **왜 덮었는지**를 `docs/14-provenance.md` 에 남긴다
-- 마크업의 클래스 이름이 곧 계약이다 (`mobile-button` · `mobile-section` · `bottom-nav` …).
-  이름을 바꾸면 두 화면이 같이 깨진다
+- `packages/ui-styles/devkanban/` **must stay identical to the upstream original.** Do not touch it
+- All adjustments for this app go in `overrides.css`, with **why the override exists**
+  recorded in `docs/14-provenance.md`
+- The class names in the markup are the contract (`mobile-button`, `mobile-section`,
+  `bottom-nav`, …). Rename one and both screens break together
 
-### 4. 비즈니스 로직은 `packages/core`에 둔다
+### 4. Business logic lives in `packages/core`
 
-`packages/core`에 React 의존성을 넣지 않는다.
-녹음 엔진 · 업로드 큐 · 도메인 변환 · 권한 판정은 UI에서 분리한다.
-sisyphus는 이 로직을 데스크톱/모바일에 두 벌 복사해 두었다가 동작이 갈렸다.
+Do not add React dependencies to `packages/core`.
+The recording engine, upload queue, domain transforms, and permission checks
+stay separate from the UI. sisyphus kept two copies of this logic (desktop and
+mobile), and their behavior drifted apart.
 
-### 5. 서버가 최종 판정한다
+### 5. The server has the final say
 
-프론트의 버튼 비활성화는 편의일 뿐이다. 모든 변경 API는 서버에서 역할을 다시 계산한다.
+Disabling buttons on the frontend is a convenience, nothing more. Every mutating
+API recomputes the caller's role on the server.
 
-### 6. 가져온 것은 출처를 남긴다
+### 6. Imported code keeps its provenance
 
-sisyphus / devkanban 에서 이식한 것은 **두 곳 모두**에 적는다.
+Record everything ported from sisyphus / devkanban in **both** places:
 
-1. 모듈 `@moduledoc` (또는 파일 상단 주석) 에 원본 경로
+1. The source path in the module's `@moduledoc` (or a comment at the top of the file)
    ```elixir
    @moduledoc """
    ...
-   **출처: sisyphus** `lib/sisyphus/meetings/google_stt.ex` — 거의 그대로.
+   **Source: sisyphus** `lib/sisyphus/meetings/google_stt.ex` — nearly verbatim.
    """
    ```
-2. [`docs/14-provenance.md`](docs/14-provenance.md) 의 표
+2. The table in [`docs/14-provenance.md`](docs/14-provenance.md)
 
-**"그대로"인지 "무엇을 바꿨는지"를 반드시 적는다.** 원본이 고쳐졌을 때
-여기도 고쳐야 하는지 판단하는 기준이 된다.
-원본의 결정 근거도 함께 옮긴다 — 사라지면 같은 논의를 반복한다.
+**Always note whether it was taken "as-is" or "what was changed."** That is the
+basis for deciding whether a fix upstream needs to be mirrored here.
+Carry over the original's decision rationale too — lose it, and the same debate
+gets repeated.
 
-## 이식할 때
+## When porting
 
-sisyphus에서 코드를 가져올 때는 `docs/10-porting-map.md`의 대조표를 따르고,
-같은 문서의 **알려진 결함(B1~B7)** 을 함께 고친다. 그대로 옮기면 버그도 옮겨간다.
+When bringing code over from sisyphus, follow the mapping table in
+`docs/10-porting-map.md` and fix the **known defects (B1–B7)** listed in the same
+doc as you go. Port it verbatim and you port the bugs too.
 
-특히 손대지 말아야 할 것:
-- `GoogleSTT` — GCS 왕복 · 폴링 · 결과 파싱 · 정리까지 실전에서 다듬어진 코드
-- IndexedDB 업로드 큐 — 저장 → 업로드 → 성공 시 제거 순서가 유실 방지의 핵심
-- 화자 2계층 구조 — `segments[].speaker`와 `speaker_map`을 합치지 않는다
-- 요약 프롬프트의 출처 추출 규칙 — 요약 클릭 → 오디오 점프가 여기에 달려 있다
+Do not touch, in particular:
+- `GoogleSTT` — the whole GCS round trip (polling, result parsing, cleanup), hardened in production
+- The IndexedDB upload queue — the store → upload → delete-on-success order is what prevents data loss
+- The two-layer speaker structure — do not merge `segments[].speaker` and `speaker_map`
+- The source-extraction rules in the summary prompt — click-summary-to-jump-audio depends on them
 
-## 개발 환경
+## Development environment
 
-- FFmpeg(`ffmpeg`, `ffprobe`) 필요
-- GCP 자격증명 없이 개발하려면 `STT_DEV_MODE=true`
-- `CLOAK_KEY`가 없으면 앱이 부팅되지 않는다 (의도된 동작)
+- FFmpeg (`ffmpeg`, `ffprobe`) required
+- To develop without GCP credentials, set `STT_DEV_MODE=true`
+- Without `CLOAK_KEY` the app refuses to boot (by design)

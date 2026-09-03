@@ -10,9 +10,9 @@ import type {
 export interface UseRecorderOptions {
   maxDurationSeconds?: number;
   deviceId?: string;
-  /** 녹음이 끝나면 결과를 넘긴다 */
+  /** Called with the result when recording finishes */
   onComplete?: (result: RecorderResult) => void;
-  /** 화면 꺼짐 방지. 모바일 백그라운드 유실 대응이라 기본으로 켠다 */
+  /** Keep the screen awake. On by default — guards against mobile background loss */
   keepScreenAwake?: boolean;
 }
 
@@ -20,41 +20,41 @@ export interface UseRecorderResult {
   state: RecorderState;
   elapsedSeconds: number;
   remainingSeconds: number;
-  /** 0~1. 파형 애니메이션용 */
+  /** 0–1. For the waveform animation */
   peak: number;
-  /** 마지막 실패. 원인 · 이 기기에서 할 일 · 다시 눌러도 되는가를 함께 담는다 */
+  /** The last failure. Carries the cause, what to do on this device, and whether retrying can work */
   error: RecorderError | null;
-  /** 브라우저가 보고하는 권한 상태. Safari 는 늘 `unknown` */
+  /** Permission state as the browser reports it. Safari is always `unknown` */
   permission: MicPermissionState;
   /**
-   * 이 기기에서 지금 녹음을 시작할 수 있는가.
+   * Whether recording can start on this device right now.
    *
-   * **`false` 는 확실히 막혔을 때만이다.** 모르면(`unknown`) 시작할 수 있다고
-   * 본다 — Safari 에서 막혔다고 단정해 버튼을 잠그면, 실제로는 권한 창이 뜰
-   * 사용자까지 길이 막힌다.
+   * **`false` only when definitely blocked.** Unknown means assume it can start
+   * — declaring Safari blocked and locking the button would cut off users for
+   * whom the permission prompt would actually appear.
    */
   canStart: boolean;
-  /** 마이크가 끊겨 자동 종료된 적이 있는가 */
+  /** Whether recording was ever auto-stopped because the mic dropped */
   wasInterrupted: boolean;
   isActive: boolean;
   start: () => void;
   togglePause: () => void;
   stop: () => void;
   cancel: () => void;
-  /** 파형 캔버스에 연결한다 */
+  /** Attach to the waveform canvas */
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
 }
 
 /**
- * 녹음 엔진을 React 에 연결한다.
+ * Connects the recording engine to React.
  *
- * 엔진 자체는 `@core/recorder` 에 있고 이 훅은 얇은 어댑터다.
- * 로직을 여기에 넣지 않는다 — 그러면 다시 UI 에 묶인다.
+ * The engine itself lives in `@core/recorder`; this hook is a thin adapter.
+ * Don't put logic here — it would tie the logic back to the UI.
  *
- * ## 파형은 상태로 다루지 않는다
+ * ## The waveform is not React state
  *
- * 초당 60프레임을 `setState` 로 흘리면 리렌더가 폭주한다.
- * 캔버스에 직접 그리고, React 에는 `peak` 만 낮은 빈도로 준다.
+ * Piping 60 frames per second through `setState` causes a re-render storm.
+ * Draw directly onto the canvas, and hand React only `peak`, at low frequency.
  */
 export function useRecorder(options: UseRecorderOptions = {}): UseRecorderResult {
   const { maxDurationSeconds = 3 * 60 * 60, deviceId, onComplete, keepScreenAwake = true } = options;
@@ -73,7 +73,7 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderResult
   const [permission, setPermission] = useState<MicPermissionState>("unknown");
   const [wasInterrupted, setWasInterrupted] = useState(false);
 
-  // 콜백이 바뀌어도 리스너를 다시 붙이지 않는다
+  // Don't reattach listeners when the callback changes
   useEffect(() => {
     onCompleteRef.current = onComplete;
   }, [onComplete]);
@@ -89,11 +89,11 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderResult
     try {
       wakeLockRef.current = await navigator.wakeLock.request("screen");
     } catch {
-      // WakeLock 실패는 녹음을 막지 않는다. 화면이 꺼질 수 있다는 뜻일 뿐.
+      // A WakeLock failure doesn't block recording. It just means the screen may turn off.
     }
   }, [keepScreenAwake]);
 
-  // 백그라운드에서 돌아오면 WakeLock 이 풀려 있다. 다시 잡는다.
+  // Coming back from the background, the WakeLock has been released. Reacquire it.
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === "visible" && recorderRef.current?.isActive) {
@@ -105,20 +105,21 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderResult
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [acquireWakeLock]);
 
-  // 어떤 설정으로 만든 엔진인지. 설정이 바뀌면 다시 만든다.
+  // The settings the engine was built with. Rebuild when they change.
   const optionsRef = useRef<{ deviceId?: string; maxDurationSeconds: number }>({
     deviceId,
     maxDurationSeconds,
   });
 
-  // 테마가 바뀌어도 파형 색이 따라오도록 매 프레임이 아니라 필요할 때만 읽는다
+  // Read the wave color only when needed, not every frame, so it still tracks theme changes
   const waveColorRef = useRef<string>("");
 
   const waveColor = useCallback(() => {
     if (!waveColorRef.current) {
       const value = getComputedStyle(document.documentElement)
-        // 디자인 시스템 토큰이다. 옛 이름(`--rec-recording`)은 LiveView 쪽 CSS 에만
-        // 있어서 React 앱에서는 늘 폴백 색이 나갔다 — 테마를 따라가지 않았다.
+        // A design-system token. The old name (`--rec-recording`) only existed in
+        // the LiveView CSS, so the React app always fell back to the hardcoded
+        // color — it never followed the theme.
         .getPropertyValue("--mobile-danger")
         .trim();
       waveColorRef.current = value || "#e53935";
@@ -146,7 +147,7 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderResult
     ctx.clearRect(0, 0, width, height);
     ctx.lineWidth = 2;
     ctx.lineJoin = "round";
-    // 캔버스는 CSS 변수를 직접 못 쓴다. 계산된 값을 읽어와 테마를 따라가게 한다.
+    // Canvas can't use CSS variables directly. Read the computed value so the theme is honored.
     ctx.strokeStyle = waveColor();
     ctx.beginPath();
 
@@ -161,10 +162,11 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderResult
   }, [waveColor]);
 
   /**
-   * 쉬는 상태의 파형 — 가운데 평평한 선.
+   * The idle waveform — a flat line through the center.
    *
-   * 녹음 전에도 이 자리는 **파형이 설 자리**로 읽혀야 한다. 비워 두면 화면
-   * 한가운데가 죽은 상자가 되고, 녹음을 시작해도 뭐가 달라졌는지 눈에 안 띈다.
+   * Even before recording, this area should read as **where the waveform will
+   * live**. Left empty, the middle of the screen becomes a dead box, and
+   * starting a recording produces no visible change.
    */
   const drawIdle = useCallback(() => {
     const canvas = canvasRef.current;
@@ -179,22 +181,22 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderResult
 
     drawIdle();
 
-    // 폭이 바뀌면 캔버스 크기도 다시 잡아야 한다
+    // When the width changes, the canvas size must be recomputed too
     const onResize = () => drawIdle();
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, [state, drawIdle]);
 
   /**
-   * 권한 상태를 화면이 늘 알고 있게 한다.
+   * Keep the screen aware of the permission state at all times.
    *
-   * 엔진 인스턴스는 [녹음] 을 눌러야 만들어지므로, 그것만 믿으면 **누르기 전까지는**
-   * 마이크가 차단됐는지 알 수 없다. 버튼과 상태 표시기는 누르기 전에 이미
-   * 사실대로 말해야 한다.
+   * The engine instance only exists once [Record] is pressed, so relying on it
+   * alone means we can't know the mic is blocked **until the press**. The button
+   * and status indicator must tell the truth before that.
    *
-   * 사용자가 다른 탭의 브라우저 설정에서 차단을 푸는 순간도 여기로 들어온다.
-   * 허용으로 바뀌면 붙들고 있던 오류를 치운다 — 고쳐 놓고도 빨간 띠가 남아
-   * 있으면 아직 막힌 줄 안다.
+   * The moment the user unblocks the mic from browser settings in another tab
+   * also lands here. When it flips to granted, clear any held error — a red
+   * banner lingering after the fix reads as "still blocked".
    */
   useEffect(() => {
     let alive = true;
@@ -215,7 +217,7 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderResult
     };
   }, []);
 
-  // 테마가 바뀌면 다음 프레임에서 새 색을 읽는다
+  // When the theme changes, read the new color on the next frame
   useEffect(() => {
     const observer = new MutationObserver(() => {
       waveColorRef.current = "";
@@ -230,14 +232,15 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderResult
   }, []);
 
   /**
-   * 지금 설정으로 만든 엔진을 돌려준다.
+   * Returns an engine built with the current settings.
    *
-   * **설정이 바뀌었으면 다시 만든다.** 예전에는 한 번 만든 인스턴스를 계속
-   * 돌려줘서, 같은 화면에 머무는 동안 **두 번째 녹음부터 마이크 변경이 무시됐다**
-   * — 마이크를 고를 수 있게 만든 이유(늘 기본 장치로만 녹음되는 조용한 실패)가
-   * 2회차부터 그대로 재현됐다.
+   * **Rebuild when the settings changed.** Previously the once-built instance
+   * was returned forever, so while staying on the same screen **mic changes
+   * were ignored from the second recording on** — the very failure that made
+   * mic selection necessary (silently recording with the default device every
+   * time) reproduced itself from take two onward.
    *
-   * 녹음 중에는 바꾸지 않는다 — 스트림을 다시 열면 그 지점이 잘린다.
+   * Never swap mid-recording — reopening the stream cuts at that point.
    */
   const ensureRecorder = useCallback((): Recorder => {
     const current = recorderRef.current;
@@ -267,7 +270,7 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderResult
     recorder.events.on("waveform", ({ levels, peak: p }) => {
       drawWave(levels);
 
-      // peak 은 100ms 마다만 상태로 올린다. 매 프레임 올리면 리렌더가 폭주한다.
+      // Promote peak to state only every 100ms. Every frame would cause a re-render storm.
       const now = performance.now();
       if (now - lastPeakEmitRef.current > 100) {
         lastPeakEmitRef.current = now;
@@ -311,7 +314,7 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderResult
     setPeak(0);
   }, [releaseWakeLock]);
 
-  // 녹음 중 이탈 경고
+  // Warn before leaving mid-recording
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => {
       if (recorderRef.current?.isActive) {
@@ -339,7 +342,7 @@ export function useRecorder(options: UseRecorderOptions = {}): UseRecorderResult
     peak,
     error,
     permission,
-    // 확실히 막힌 것만 막는다. `unknown`(Safari)은 열어 둔다.
+    // Block only what is definitely blocked. `unknown` (Safari) stays open.
     canStart: permission !== "denied",
     wasInterrupted,
     isActive: state === "recording" || state === "paused",

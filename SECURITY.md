@@ -1,51 +1,54 @@
-# 보안 정책
+# Security Policy
 
-이 프로젝트는 **회의 녹음과 전사본**을 다룹니다. 취약점 하나가 사람들의 대화를
-그대로 노출할 수 있습니다.
+This project handles **meeting recordings and transcripts**. A single
+vulnerability could expose people's conversations wholesale.
 
-## 취약점 신고
+## Reporting a vulnerability
 
-**공개 이슈로 열지 마세요.** 리포지토리 관리자에게 비공개로 연락해 주세요
-(GitHub Security Advisory 또는 관리자 이메일).
+**Do not open a public issue.** Contact the repository maintainers privately
+(GitHub Security Advisory or the maintainer's email).
 
-다음을 함께 보내주시면 확인이 빠릅니다.
+Including the following speeds up triage:
 
-- 재현 절차 (요청 순서까지 구체적으로)
-- 영향 범위 — 무엇을 읽거나 바꿀 수 있는지
-- 해당 버전 / 커밋
+- Reproduction steps (down to the exact request sequence)
+- Impact — what can be read or changed
+- The affected version / commit
 
-## 설계상의 방어
+## Defenses by design
 
-기여할 때 아래 성질을 깨뜨리지 않도록 주의해 주세요.
-각각은 실제로 문제가 됐거나 될 뻔해서 들어간 것입니다.
+When contributing, take care not to break the properties below.
+Each one is here because it was, or nearly was, a real problem.
 
-| 방어 | 왜 |
+| Defense | Why |
 |---|---|
-| 접근 불가는 **404**, 403 을 쓰지 않는다 | 403 은 그 리소스의 존재를 알려준다 |
-| 공유 토큰은 sha256 해시만 저장 | 토큰은 추가 인증 없이 통하는 자격증명이다. DB 를 본 사람이 곧 방문자가 된다 |
-| PIN 은 Bcrypt | 6자리는 10^6 이라 sha256 은 유출 시 몇 초 만에 역산된다 |
-| 로그에서 `slt_`/`gst_` 토큰을 가린다 | 공유 토큰이 URL 경로에 있어 요청 로그에 평문으로 남았다 |
-| 오디오는 서명된 URL 로만 | 저장 키가 결정적이라 서명 없는 주소는 곧 영구 공개 링크다 |
-| 워커는 우리 버킷 주소만 내려받는다 | 클라이언트가 준 주소를 따라가면 사설망 요청이 된다 (SSRF) |
-| 게스트 API 경로에 회의 id 가 없다 | 회의는 게스트 세션이 정한다. 다른 회의를 가리킬 방법 자체를 없앤다 |
-| 게스트에게 전사·요약·업로드 라우트를 두지 않는다 | 링크 하나가 회의 소유자의 크레딧에 대한 위임장이 되면 안 된다 |
-| 시크릿은 코드에 없다 | `DB → 환경변수 → nil`. 리터럴 기본값을 두지 않는다 |
+| No access is a **404**; 403 is never used | A 403 reveals that the resource exists |
+| Share tokens are stored only as sha256 hashes | A token is a credential that works without further authentication. Whoever sees the DB becomes a visitor |
+| PINs use Bcrypt | Six digits is 10^6, so a sha256 hash can be reversed in seconds after a leak |
+| `slt_`/`gst_` tokens are masked in logs | Share tokens sit in URL paths and were left in request logs in plaintext |
+| Audio is served only via signed URLs | Storage keys are deterministic, so an unsigned address is a permanent public link |
+| Workers download only from our bucket's addresses | Following a client-supplied address turns into a private-network request (SSRF) |
+| Guest API paths carry no meeting id | The meeting is determined by the guest session. There is simply no way to point at a different meeting |
+| Guests get no transcription, summary, or upload routes | A single link must not become a power of attorney over the meeting owner's credits |
+| No secrets in code | `DB → environment variable → nil`. No literal defaults |
 
-## 운영자가 해야 할 것
+## What operators must do
 
-코드만으로는 닫히지 않는 것들입니다.
+These cannot be closed by code alone.
 
-- **S3 버킷을 비공개로 둘 것.** 공개 버킷이면 위 오디오 방어가 전부 무의미합니다
-- **`CLOAK_KEY` 를 DB 자격증명과 다른 곳에 둘 것.** 같이 유출되면 암호화가 의미를 잃습니다
-- **리버스 프록시 뒤에 있을 때만 `APP_TRUST_PROXY_HEADERS=true`.**
-  프록시가 없는데 켜면 헤더 한 줄로 IP 기반 제한을 우회당합니다
-- **앱 밖의 접근 로그**(프록시 · CDN · 로드밸런서)에는 공유 토큰이 그대로 남습니다.
-  앱은 자기 로그만 가릴 수 있습니다
-- 어드민 계정에 MFA 를 켜고, 부트스트랩 계정은 실사용자를 만든 뒤 삭제하세요
+- **Keep the S3 bucket private.** With a public bucket, every audio defense above is meaningless
+- **Store `CLOAK_KEY` somewhere separate from the DB credentials.** If they leak together, the encryption loses its meaning
+- **Set `APP_TRUST_PROXY_HEADERS=true` only when behind a reverse proxy.**
+  Enabling it without a proxy lets a single header bypass IP-based rate limits
+- **Access logs outside the app** (proxy, CDN, load balancer) still contain share
+  tokens verbatim. The app can only mask its own logs
+- Enable MFA on admin accounts, and delete the bootstrap account once a real
+  user account exists
 
-## 알려진 한계
+## Known limitations
 
-- **게스트 세션은 최대 12시간**입니다. 그 안에는 링크를 폐기해야 즉시 끊깁니다
-  (폐기 · 비활성 · 만료는 즉시 끊고, `max_uses` 소진은 이미 들어온 사람을 내보내지 않습니다)
-- 잔액이 음수여도 서비스는 계속 동작합니다 (사후 계량이라 막을 수 없습니다).
-  악용이 걱정되면 `policy.hard_stop_on_zero_credits` 를 켜세요
+- **Guest sessions last up to 12 hours.** Within that window, only revoking the
+  link cuts access immediately (revocation, deactivation, and expiry cut access
+  immediately; exhausting `max_uses` does not eject people already inside)
+- The service keeps running even with a negative balance (metering is after the
+  fact, so it cannot block). If abuse is a concern, enable
+  `policy.hard_stop_on_zero_credits`

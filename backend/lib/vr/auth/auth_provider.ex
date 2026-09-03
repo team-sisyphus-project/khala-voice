@@ -1,12 +1,13 @@
 defmodule VR.Auth.AuthProvider do
   @moduledoc """
-  소셜 로그인 제공자 설정.
+  Social login provider configuration.
 
-  소셜 로그인은 **필수가 아니다.** 키가 DB(또는 환경변수)에 있고
-  어드민에서 `enabled`를 켰을 때만 로그인 화면에 나타난다.
+  Social login is **not required.** A provider appears on the login screen only when
+  its keys exist in the DB (or environment variables) and `enabled` is turned on in the admin.
 
-  `enabled` 스위치는 **DB만** 본다. 환경변수만으로는 켜지지 않는다.
-  배포 환경의 변수 차이 때문에 로그인 수단이 예고 없이 바뀌는 것을 막기 위함이다.
+  The `enabled` switch reads **only the DB.** Environment variables alone cannot turn it on.
+  This prevents login methods from changing without notice due to variable differences
+  across deployment environments.
   """
 
   use Ecto.Schema
@@ -52,8 +53,8 @@ defmodule VR.Auth.AuthProvider do
   end
 
   @doc """
-  비밀값 필드를 빈 값으로 보낸 경우 기존 값을 유지한다.
-  어드민 폼에서 마스킹된 필드를 건드리지 않고 저장하는 것이 정상 동작이다.
+  Keeps the existing value when a secret field is submitted empty.
+  Saving from the admin form without touching the masked field is the normal behavior.
   """
   def admin_changeset(provider, attrs) do
     attrs = drop_blank(attrs, ["client_secret", :client_secret])

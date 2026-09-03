@@ -1,12 +1,13 @@
 defmodule VR.Sharing.ShareAttempt do
   @moduledoc """
-  공유 링크 PIN 입력 시도.
+  A PIN entry attempt on a shared link.
 
-  **출처: 이 리포의 `VR.Accounts.LoginAttempt`** 와 같은 모양.
-  `login_attempts` 를 재사용하지 않는다 — 그 테이블의 `email` 컬럼 의미가 흐려진다.
+  **Source: this repo's `VR.Accounts.LoginAttempt`** — same shape.
+  `login_attempts` is not reused — it would blur the meaning of that table's
+  `email` column.
 
-  IP 기준 대입을 막는 데 쓴다. 링크별 잠금만 두면 공격자가 여러 링크를
-  번갈아 때리는 것을 못 막는다.
+  Used to block per-IP brute forcing. With only per-link lockouts, an attacker
+  alternating across multiple links cannot be stopped.
   """
 
   use Ecto.Schema

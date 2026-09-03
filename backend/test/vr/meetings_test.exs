@@ -12,7 +12,7 @@ defmodule VR.MeetingsTest do
     stranger = account_fixture(name: "Stranger")
 
     {:ok, _} = Friends.create_friendship(reviewer.id, friend.id)
-    {:ok, meeting} = Meetings.create_meeting(reviewer, %{title: "주간 회의"})
+    {:ok, meeting} = Meetings.create_meeting(reviewer, %{title: "Weekly Sync"})
 
     {:ok, meeting} =
       Meetings.update_permissions(meeting, %{contributor_ids: [contributor.id]})
@@ -26,8 +26,8 @@ defmodule VR.MeetingsTest do
     }
   end
 
-  describe "생성" do
-    test "만든 사람이 Reviewer가 된다", %{reviewer: reviewer} do
+  describe "creation" do
+    test "the creator becomes the Reviewer", %{reviewer: reviewer} do
       {:ok, m} = Meetings.create_meeting(reviewer, %{})
       assert m.owner_id == reviewer.id
       assert m.reviewer_id == reviewer.id
@@ -35,42 +35,42 @@ defmodule VR.MeetingsTest do
       assert String.starts_with?(m.id, "meet_")
     end
 
-    test "제목을 안 주면 날짜로 채운다", %{reviewer: reviewer} do
+    test "fills in a date-based title when none is given", %{reviewer: reviewer} do
       {:ok, m} = Meetings.create_meeting(reviewer, %{})
-      assert m.title =~ "회의"
+      assert m.title =~ "Meeting"
     end
 
-    test "기본 공개 범위는 관계자만이다", %{reviewer: reviewer} do
+    test "the default visibility is assignees-only", %{reviewer: reviewer} do
       {:ok, m} = Meetings.create_meeting(reviewer, %{})
       assert get_in(m.permissions, ["view", "mode"]) == "assignees_only"
     end
   end
 
-  describe "권한 (Reviewer / Contributor / Viewer)" do
-    test "Reviewer 는 lv0", ctx do
+  describe "permissions (Reviewer / Contributor / Viewer)" do
+    test "Reviewer is lv0", ctx do
       assert Meetings.level(ctx.meeting, ctx.reviewer) == :lv0
     end
 
-    test "Contributor 는 lv1", ctx do
+    test "Contributor is lv1", ctx do
       assert Meetings.level(ctx.meeting, ctx.contributor) == :lv1
     end
 
-    test "관계자만 범위에서는 친구도 못 본다", ctx do
+    test "even friends cannot see assignees-only meetings", ctx do
       assert Meetings.level(ctx.meeting, ctx.friend) == :lv3
     end
 
-    test "전체 친구 공개로 바꾸면 친구는 Viewer가 된다", ctx do
+    test "switching to all-friends makes friends Viewers", ctx do
       {:ok, m} =
         Meetings.update_permissions(ctx.meeting, %{
           permissions: %{"view" => %{"mode" => "all_friends", "accountIds" => []}}
         })
 
       assert Meetings.level(m, ctx.friend) == :lv2
-      # 친구가 아닌 사람은 여전히 접근 불가
+      # Non-friends still have no access
       assert Meetings.level(m, ctx.stranger) == :lv3
     end
 
-    test "선택한 친구만 범위", ctx do
+    test "selected-friends visibility", ctx do
       {:ok, m} =
         Meetings.update_permissions(ctx.meeting, %{
           permissions: %{
@@ -82,7 +82,7 @@ defmodule VR.MeetingsTest do
       assert Meetings.level(m, ctx.stranger) == :lv3
     end
 
-    test "나만 범위에서는 Contributor 도 여전히 lv1", ctx do
+    test "in me-only mode a Contributor is still lv1", ctx do
       {:ok, m} =
         Meetings.update_permissions(ctx.meeting, %{
           permissions: %{"view" => %{"mode" => "me_only", "accountIds" => []}}
@@ -93,13 +93,13 @@ defmodule VR.MeetingsTest do
       assert Meetings.level(m, ctx.friend) == :lv3
     end
 
-    test "어드민은 항상 lv0", ctx do
+    test "admins are always lv0", ctx do
       admin = account_fixture()
       admin = %{admin | is_admin: true}
       assert Meetings.level(ctx.meeting, admin) == :lv0
     end
 
-    test "게스트는 링크가 준 역할을 갖는다", ctx do
+    test "guests get the role the link granted", ctx do
       bound = [guest_resource_id: ctx.meeting.id]
 
       assert Meetings.level(ctx.meeting, nil, [guest_role: "viewer"] ++ bound) == :lv2
@@ -107,20 +107,20 @@ defmodule VR.MeetingsTest do
       assert Meetings.level(ctx.meeting, nil) == :lv3
     end
 
-    test "게스트 역할은 묶인 회의에서만 유효하다", ctx do
-      # 게스트 토큰 하나로 다른 회의가 열리면 안 된다.
-      # 정상 경로는 VR.Sharing.guest_authorize/2 가 막지만, 호출부를 하나
-      # 빠뜨렸을 때도 닫히는 쪽으로 실패해야 한다.
+    test "guest roles are valid only for the bound meeting", ctx do
+      # One guest token must not open a different meeting.
+      # The normal path is blocked by VR.Sharing.guest_authorize/2, but if a
+      # call site is missed it should still fail closed.
       assert Meetings.level(ctx.meeting, nil, guest_role: "contributor") == :lv3
 
       assert Meetings.level(ctx.meeting, nil,
                guest_role: "contributor",
-               guest_resource_id: "meet_다른회의"
+               guest_resource_id: "meet_another_meeting"
              ) == :lv3
     end
 
-    test "게스트에게 reviewer 를 줄 수는 없다", ctx do
-      # 링크 하나로 삭제 권한까지 넘어가지 않는다
+    test "guests cannot be given reviewer", ctx do
+      # A single link must not hand over delete-level permissions
       assert Meetings.level(ctx.meeting, nil,
                guest_role: "reviewer",
                guest_resource_id: ctx.meeting.id
@@ -129,40 +129,40 @@ defmodule VR.MeetingsTest do
   end
 
   describe "authorize/4" do
-    test "권한이 모자라면 not_found (403이 아니다)", ctx do
+    test "insufficient permission yields not_found (not 403)", ctx do
       assert {:error, :not_found} = Meetings.authorize(ctx.meeting.id, ctx.stranger, :lv2)
     end
 
-    test "없는 회의도 not_found", ctx do
+    test "nonexistent meetings are also not_found", ctx do
       assert {:error, :not_found} = Meetings.authorize("meet_nope", ctx.reviewer, :lv2)
     end
 
-    test "충분하면 회의와 레벨을 준다", ctx do
+    test "returns the meeting and level when sufficient", ctx do
       assert {:ok, m, :lv1} = Meetings.authorize(ctx.meeting.id, ctx.contributor, :lv1)
       assert m.id == ctx.meeting.id
     end
 
-    test "Contributor 는 lv0 을 요구하는 작업을 못 한다", ctx do
+    test "a Contributor cannot perform lv0-required actions", ctx do
       assert {:error, :not_found} = Meetings.authorize(ctx.meeting.id, ctx.contributor, :lv0)
     end
   end
 
-  describe "목록" do
-    test "Reviewer 는 자기 회의를 본다", ctx do
+  describe "listing" do
+    test "the Reviewer sees their own meetings", ctx do
       ids = Meetings.list_meetings(ctx.reviewer) |> Enum.map(& &1.id)
       assert ctx.meeting.id in ids
     end
 
-    test "Contributor 도 본다", ctx do
+    test "the Contributor sees them too", ctx do
       ids = Meetings.list_meetings(ctx.contributor) |> Enum.map(& &1.id)
       assert ctx.meeting.id in ids
     end
 
-    test "관계없는 사람은 못 본다", ctx do
+    test "unrelated people see nothing", ctx do
       assert Meetings.list_meetings(ctx.stranger) == []
     end
 
-    test "전체 친구 공개면 친구도 목록에 나온다", ctx do
+    test "friends appear in the list when visibility is all-friends", ctx do
       {:ok, _} =
         Meetings.update_permissions(ctx.meeting, %{
           permissions: %{"view" => %{"mode" => "all_friends", "accountIds" => []}}
@@ -172,20 +172,20 @@ defmodule VR.MeetingsTest do
       assert ctx.meeting.id in ids
     end
 
-    test "아카이브는 기본으로 숨긴다", ctx do
+    test "archived meetings are hidden by default", ctx do
       {:ok, _} = Meetings.set_status(ctx.meeting, "archived")
       assert Meetings.list_meetings(ctx.reviewer) == []
       assert [_] = Meetings.list_meetings(ctx.reviewer, status: "archived")
     end
 
-    test "토픽·기간·검색어로 거른다", ctx do
-      assert [_] = Meetings.list_meetings(ctx.reviewer, q: "주간")
-      assert [] = Meetings.list_meetings(ctx.reviewer, q: "없는단어")
+    test "filters by topic, period, and search term", ctx do
+      assert [_] = Meetings.list_meetings(ctx.reviewer, q: "Weekly")
+      assert [] = Meetings.list_meetings(ctx.reviewer, q: "nonexistentword")
     end
   end
 
-  describe "녹음 세션" do
-    test "번호가 1부터 이어진다", ctx do
+  describe "recording sessions" do
+    test "indexes run consecutively from 1", ctx do
       {:ok, s1} = Meetings.create_session(ctx.meeting)
       {:ok, s2} = Meetings.create_session(ctx.meeting)
       assert s1.session_index == 1
@@ -193,31 +193,31 @@ defmodule VR.MeetingsTest do
       assert String.starts_with?(s1.id, "mrss_")
     end
 
-    test "전사가 남은 세션이 있으면 pending 이다", ctx do
-      # 긴 회의는 20분마다 쪼개져 청크가 여럿이 되고 몇 분씩 시차를 두고 끝난다.
-      # 하나라도 남아 있으면 자동 요약을 시작하면 안 된다 — 반쪽 요약이 저장되고
-      # 나중 청크의 요약은 "이미 있음"으로 건너뛰어 영영 갱신되지 않는다.
+    test "pending while any session still awaits transcription", ctx do
+      # Long meetings split every 20 minutes into several chunks that finish minutes apart.
+      # Auto-summarize must not start while any remain — a half summary would be saved and
+      # later chunks would be skipped as "already summarized", never refreshed.
       {:ok, s1} = Meetings.create_session(ctx.meeting)
       {:ok, s2} = Meetings.create_session(ctx.meeting)
 
       assert Meetings.transcription_pending?(ctx.meeting.id)
 
       {:ok, _} = Meetings.set_session_status(s1, "completed")
-      assert Meetings.transcription_pending?(ctx.meeting.id), "s2 가 아직 남았다"
+      assert Meetings.transcription_pending?(ctx.meeting.id), "s2 is still outstanding"
 
       {:ok, _} = Meetings.set_session_status(s2, "completed")
       refute Meetings.transcription_pending?(ctx.meeting.id)
     end
 
-    test "실패한 세션은 기다리지 않는다", ctx do
-      # 실패는 끝난 상태다. 여기서 기다리면 요약이 영영 안 나온다.
+    test "failed sessions are not waited on", ctx do
+      # Failure is a terminal state. Waiting here means the summary never arrives.
       {:ok, s1} = Meetings.create_session(ctx.meeting)
       {:ok, _} = Meetings.set_session_status(s1, "failed")
 
       refute Meetings.transcription_pending?(ctx.meeting.id)
     end
 
-    test "업로드를 등록하면 상태가 uploaded 로 간다", ctx do
+    test "registering an upload moves status to uploaded", ctx do
       {:ok, session} = Meetings.create_session(ctx.meeting)
       assert session.status == "recording"
 
@@ -232,7 +232,7 @@ defmodule VR.MeetingsTest do
       assert updated.duration_seconds == 120
     end
 
-    test "합계가 회의에 캐시된다", ctx do
+    test "totals are cached on the meeting", ctx do
       {:ok, s1} = Meetings.create_session(ctx.meeting)
       {:ok, s2} = Meetings.create_session(ctx.meeting)
 
@@ -254,7 +254,7 @@ defmodule VR.MeetingsTest do
       assert meeting.total_duration_seconds == 150
     end
 
-    test "삭제한 세션은 합계에서 빠진다", ctx do
+    test "deleted sessions drop out of the totals", ctx do
       {:ok, s1} = Meetings.create_session(ctx.meeting)
 
       {:ok, _} =
@@ -272,16 +272,16 @@ defmodule VR.MeetingsTest do
     end
   end
 
-  describe "전사 검증" do
+  describe "transcript validation" do
     setup ctx do
       {:ok, session} = Meetings.create_session(ctx.meeting)
       Map.put(ctx, :session, session)
     end
 
-    test "올바른 세그먼트는 저장된다", %{session: session} do
+    test "valid segments are saved", %{session: session} do
       transcript = %{
         "segments" => [
-          %{"speaker" => "speaker_1", "text" => "안녕하세요", "start_ms" => 0, "end_ms" => 1500}
+          %{"speaker" => "speaker_1", "text" => "Hello", "start_ms" => 0, "end_ms" => 1500}
         ]
       }
 
@@ -289,13 +289,13 @@ defmodule VR.MeetingsTest do
       assert length(updated.transcript["segments"]) == 1
     end
 
-    test "형식이 깨진 세그먼트는 거부한다", %{session: session} do
+    test "malformed segments are rejected", %{session: session} do
       bad = %{"segments" => [%{"speaker" => "s1"}]}
       assert {:error, changeset} = Meetings.update_transcript(session, %{transcript: bad})
       assert errors_on(changeset).transcript
     end
 
-    test "segments 배열이 없으면 거부한다", %{session: session} do
+    test "rejects a transcript without a segments array", %{session: session} do
       assert {:error, changeset} =
                Meetings.update_transcript(session, %{transcript: %{"foo" => 1}})
 
@@ -303,23 +303,23 @@ defmodule VR.MeetingsTest do
     end
   end
 
-  describe "목록과 상세의 판정이 일치한다" do
-    test "Reviewer 를 넘기면 목록에서도 사라진다", %{reviewer: account} do
+  describe "list and detail decisions agree" do
+    test "handing off the Reviewer removes it from the list too", %{reviewer: account} do
       other = account_fixture()
-      {:ok, meeting} = Meetings.create_meeting(account, %{title: "양도할 회의"})
+      {:ok, meeting} = Meetings.create_meeting(account, %{title: "Meeting to Hand Off"})
 
-      # 만든 사람은 owner 이자 Reviewer 다
+      # The creator is both owner and Reviewer
       assert Enum.any?(Meetings.list_meetings(account), &(&1.id == meeting.id))
 
-      # Reviewer 만 넘긴다. owner_id 는 그대로 남는다.
+      # Hand off only the Reviewer. owner_id stays put.
       {:ok, meeting} =
         Meetings.update_permissions(meeting, %{
           reviewer_id: other.id,
           permissions: %{"view" => %{"mode" => "assignees_only", "accountIds" => []}}
         })
 
-      # AccessLevel 은 owner_id 를 보지 않는다. 목록도 같아야 한다 —
-      # 어긋나면 "목록엔 보이는데 열면 404" 가 된다.
+      # AccessLevel does not look at owner_id. The list must agree —
+      # otherwise you get "visible in the list but 404 on open".
       assert Meetings.level(meeting, account) == :lv3
       refute Enum.any?(Meetings.list_meetings(account), &(&1.id == meeting.id))
 
@@ -327,11 +327,11 @@ defmodule VR.MeetingsTest do
       assert Enum.any?(Meetings.list_meetings(other), &(&1.id == meeting.id))
     end
 
-    test "목록에 나온 회의는 모두 열린다", %{reviewer: account} do
+    test "every meeting in the list can be opened", %{reviewer: account} do
       other = account_fixture()
       {:ok, _} = Friends.create_friendship(other.id, account.id)
-      {:ok, mine} = Meetings.create_meeting(account, %{title: "내것"})
-      {:ok, theirs} = Meetings.create_meeting(other, %{title: "친구것"})
+      {:ok, mine} = Meetings.create_meeting(account, %{title: "Mine"})
+      {:ok, theirs} = Meetings.create_meeting(other, %{title: "Friend's"})
 
       {:ok, _} =
         Meetings.update_permissions(theirs, %{
@@ -340,7 +340,7 @@ defmodule VR.MeetingsTest do
 
       for meeting <- Meetings.list_meetings(account) do
         refute Meetings.level(meeting, account) == :lv3,
-               "목록에 나왔는데 열 수 없다: #{meeting.id}"
+               "listed but cannot be opened: #{meeting.id}"
       end
 
       ids = Enum.map(Meetings.list_meetings(account), & &1.id)

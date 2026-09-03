@@ -21,18 +21,18 @@ import type {
 import type { Meeting } from "@core/api";
 
 /**
- * 녹음 컨트롤.
+ * Recording controls.
  *
- * ## 유실 방지 순서
+ * ## Loss-prevention order
  *
- *     1. 녹음 시작 전에 세션을 먼저 만든다
- *     2. 녹음 종료 → Blob
- *     3. IndexedDB 저장 (Uploader.enqueue)
- *     4. presign → S3 PUT → 서버 등록
+ *     1. Create the session before recording starts
+ *     2. Recording ends → Blob
+ *     3. Save to IndexedDB (Uploader.enqueue)
+ *     4. presign → S3 PUT → register with the server
  *
- * 1번을 먼저 하는 이유: 녹음이 끝난 뒤에 세션을 만들려다 네트워크가 끊기면
- * 어디에 붙일지 모르는 Blob 이 남는다. 미리 만들어 두면 오프라인에서도
- * 큐에 넣을 대상이 정해져 있다.
+ * Why step 1 comes first: if we tried to create the session after recording
+ * ends and the network drops, we're left with a Blob that has nowhere to go.
+ * Creating it up front means even offline there's a known target to enqueue to.
  */
 export function RecorderPanel({
   meeting,
@@ -50,10 +50,12 @@ export function RecorderPanel({
   const [picking, setPicking] = useState(false);
 
   /**
-   * 마이크는 **기기에**, 전사 언어는 **계정에** 있다.
+   * The microphone lives on the **device**; the transcription language lives on
+   * the **account**.
    *
-   * 마이크는 자리에 딸린 설정이라(회의실 PC 는 늘 그 방의 마이크) 기기에 남고,
-   * 언어는 사람에 딸린 설정이라 기기를 바꿔도 따라와야 한다.
+   * The mic is tied to a place (a meeting-room PC always uses that room's mic),
+   * so it stays on the device. Language is tied to a person, so it must follow
+   * them across devices.
    */
   const [prefs, setPrefs] = usePrefs();
   const { account, setAccount } = useAccount();
@@ -63,7 +65,7 @@ export function RecorderPanel({
 
   const discardSession = useCallback((id: string | null) => {
     if (!id) return;
-    // 실패해도 무시한다 — 서버에 빈 세션이 하나 남을 뿐이고, 사용자를 막을 이유가 없다
+    // Ignore failures — at worst an empty session lingers on the server, and that's no reason to block the user
     void api.deleteSession(id).catch(() => {});
   }, []);
 
@@ -86,22 +88,23 @@ export function RecorderPanel({
     },
   });
 
-  // 녹음 시작에 실패하면 미리 만들어 둔 세션이 고아로 남는다.
-  // 마이크 거부·미지원처럼 데이터가 생길 수 없는 오류일 때 지운다.
+  // If recording fails to start, the pre-created session is orphaned.
+  // Delete it for errors where no data could have been produced (mic denied, unsupported).
   useEffect(() => {
     if (!recorder.error || !sessionId) return;
-    if (recorder.error.code === "interrupted") return; // 이건 데이터가 있다
+    if (recorder.error.code === "interrupted") return; // this one has data
 
     discardSession(sessionId);
     setSessionId(null);
   }, [recorder.error, sessionId, discardSession]);
 
   /**
-   * 골라 둔 마이크가 사라졌을 때 기본 장치로 되돌린다.
+   * Fall back to the default device when the chosen mic has disappeared.
    *
-   * 이 상태는 스스로 낫지 않는다 — 저장된 `micDeviceId` 가 계속 없는 장치를
-   * 가리켜서 [녹음] 을 몇 번을 눌러도 같은 자리에서 실패한다. 되돌릴 길을
-   * 화면에 두지 않으면 사용자는 녹음 설정 어딘가에 원인이 있다는 걸 모른다.
+   * This state does not heal on its own — the stored `micDeviceId` keeps
+   * pointing at a missing device, so [Record] fails at the same spot no matter
+   * how many times it's pressed. Without a way back on screen, the user has no
+   * idea the cause lives somewhere in the recording settings.
    */
   const fallbackToDefaultMic = useCallback(() => {
     setPrefs({ micDeviceId: null });
@@ -131,11 +134,12 @@ export function RecorderPanel({
     setPreparing(true);
 
     try {
-      // 녹음을 시작하기 전에 세션을 확보한다
+      // Secure the session before recording starts
       const session = await api.createSession(meeting.id, {
         started_at_unix: Math.floor(Date.now() / 1000),
-        // 전사는 언어를 알아야 한다. 서버 기본값(ko-KR)에 기대면 다른 언어 회의가
-        // 통째로 잘못 전사되고 크레딧만 나간다.
+        // Transcription needs to know the language. Relying on the server default
+        // (ko-KR) would mistranscribe an entire meeting in another language and
+        // burn credits for nothing.
         metadata: { language },
       });
 
@@ -176,8 +180,9 @@ export function RecorderPanel({
       )}
 
       {/*
-        오류가 아직 없어도 **누르기 전에** 말해야 하는 것이 있다. 권한이 이미
-        차단된 기기에서 [녹음] 은 눌러봐야 아무 창도 뜨지 않고 실패한다.
+        Even before any error, some things must be said **before the press**.
+        On a device where permission is already blocked, pressing [Record] just
+        fails with no prompt ever appearing.
       */}
       {!recorder.error && !recorder.canStart && canRecord && (
         <MicTrouble error={blockedBeforeStart(recorder.permission)} />
@@ -187,8 +192,9 @@ export function RecorderPanel({
         <Notice kind="error" icon="error" className="mb-4">{prepareError}</Notice>
       )}
 
-      {/* 중단은 `error` 로도 들어와 MicTrouble 이 절차까지 보여준다.
-          여기는 그게 없을 때만 서는 자리다 — 같은 말을 두 번 하지 않는다. */}
+      {/* An interruption also arrives as `error`, where MicTrouble shows the full
+          recovery steps. This slot only renders when that isn't present — never
+          say the same thing twice. */}
       {recorder.wasInterrupted && !recorder.error && (
         <Notice kind="warn" icon="phone_disabled" title={t("recorder.interruptedTitle")} className="mb-4">
           {t("recorder.interruptedBody")}
@@ -212,7 +218,7 @@ export function RecorderPanel({
             {formatDuration(recorder.elapsedSeconds)}
           </div>
 
-          {/* 상태 글자는 자리를 늘 잡아 둔다. 나타났다 사라지면 아래가 출렁인다. */}
+          {/* The status text always reserves its space. If it popped in and out, everything below would jump. */}
           <div
             style={{
               minHeight: 20,
@@ -226,9 +232,10 @@ export function RecorderPanel({
             {recorder.state === "requesting" && t("recorder.stateRequesting")}
             {recorder.state === "stopping" && t("recorder.stateStopping")}
             {/*
-              쉬는 자리에서도 **왜 못 누르는지**를 여기서 말한다. 예전에는
-              버튼만 흐려지고 이 줄은 비어 있어서, 색이 죽은 게 권한 때문인지
-              회의 상태 때문인지 화면 어디에도 없었다.
+              Even at rest, this is where we say **why the button can't be
+              pressed**. Previously the button just dimmed while this line stayed
+              empty, and nothing on screen said whether the dead color was about
+              permissions or the meeting's status.
             */}
             {!recorder.isActive && recorder.state !== "requesting" && recorder.state !== "stopping" && (
               <span style={idleHintTone(recorder.canStart)}>
@@ -238,8 +245,9 @@ export function RecorderPanel({
           </div>
         </div>
 
-        {/* 파형은 쉬는 동안에도 **가운데 평평한 선**으로 서 있는다. 비워 두면
-            화면 한가운데가 죽고, 녹음을 눌러도 뭐가 달라졌는지 눈에 안 띈다. */}
+        {/* The waveform stays up even at rest, as a **flat line through the
+            center**. Left empty, the middle of the screen goes dead and pressing
+            record produces no visible change. */}
         <canvas
           ref={recorder.canvasRef}
           className="vr-recorder__wave"
@@ -247,7 +255,7 @@ export function RecorderPanel({
           height={180}
         />
 
-        {/* 녹음 상태는 색과 파형으로만 드러난다. 소리로도 알려야 한다. */}
+        {/* Recording state only shows through color and the waveform. It must be announced audibly too. */}
         <div className="vr-sr-only" role="status" aria-live="assertive">
           {recorder.error
             ? `${errorTitle(t, recorder.error.code)}. ${guideText(t, recorder.error.message)}`
@@ -255,9 +263,10 @@ export function RecorderPanel({
         </div>
 
         {/*
-          입력 레벨. 녹음 **중일 때만** 의미가 있다 — 멈춰 있을 때는 스트림이
-          없어 peak 가 0 이고, 0 을 계속 보여주면 "마이크가 죽었다"로 읽힌다.
-          이게 없으면 무음으로 한 시간을 녹음하고도 끝나야 안다.
+          Input level. Only meaningful **while recording** — when stopped there
+          is no stream, peak is 0, and showing a constant 0 reads as "the mic is
+          dead". Without this, you could record an hour of silence and only find
+          out at the end.
         */}
         {recorder.isActive && (
           <div className="vr-level" role="img" aria-label={t("recorder.levelAria", { percent: Math.round(recorder.peak * 100) })}>
@@ -282,14 +291,14 @@ export function RecorderPanel({
             <button
               className="vr-rec-button"
               onClick={handleStart}
-              // 확실히 막힌 것만 잠근다. Safari 처럼 상태를 모르는 곳에서는
-              // 눌러 봐야 알 수 있으므로 열어 둔다.
+              // Lock only what is definitely blocked. Where the state is unknown
+              // (e.g. Safari), pressing is the only way to find out, so leave it enabled.
               disabled={
                 !canRecord || preparing || recorder.state === "requesting" || !recorder.canStart
               }
               data-blocked={!recorder.canStart ? "true" : undefined}
-              // 버튼이 흐려진 이유를 보조기술에도 남긴다.
-              // `disabled` 만으로는 "왜" 가 전달되지 않는다.
+              // Expose why the button is dimmed to assistive tech as well.
+              // `disabled` alone doesn't convey the "why".
               aria-label={recorder.canStart ? t("recorder.startAria") : t("recorder.startBlockedAria")}
               aria-describedby={!recorder.canStart ? MIC_TROUBLE_ID : undefined}
               type="button"
@@ -315,11 +324,12 @@ export function RecorderPanel({
         </div>
 
           {/*
-            녹음 설정은 **녹음 전에만** 바꾼다. 도중에 마이크를 바꾸면 스트림을
-            다시 열어야 해서 그 지점이 잘리고, 언어는 이미 시작한 세션에 못 미친다.
+            Recording preferences change **only before recording**. Switching
+            mics mid-recording means reopening the stream, which cuts at that
+            point, and a language change can't reach a session already underway.
 
-            칩이나 버튼으로 세우지 않는다 — 이 화면에서 누를 것은 녹음 버튼
-            하나여야 한다. 글자로만 두고 필요할 때만 누른다.
+            Not styled as a chip or button — the record button should be the one
+            pressable thing on this screen. Plain text, pressed only when needed.
           */}
           {!recorder.isActive && (
             <button type="button" className="vr-rec-prefs" onClick={() => setPicking(true)}>
@@ -367,22 +377,23 @@ export function RecorderPanel({
   );
 }
 
-/** 알림 띠와 [녹음] 버튼을 잇는 id. 버튼이 흐려진 이유를 보조기술이 읽게 한다. */
+/** Id linking the notice strip to the [Record] button, so assistive tech can read why the button is dimmed. */
 const MIC_TROUBLE_ID = "vr-mic-trouble";
 
 /**
- * 마이크가 왜 안 되는지, 이 기기에서 무엇을 눌러야 풀리는지.
+ * Why the mic isn't working, and what to press on this device to fix it.
  *
- * ## 왜 문구를 여기서 만들지 않나
+ * ## Why the copy isn't authored here
  *
- * 원인·절차·"다시 시도가 통하는가" 는 전부 `@core/recorder` 의 안내표에서 온다.
- * 화면마다 자기 문구를 쓰기 시작하면 데스크톱과 모바일이 서로 다른 해결책을
- * 말하게 되고, 어느 쪽이 맞는지 아무도 모르게 된다.
+ * Cause, steps, and "will retry work" all come from the guide table in
+ * `@core/recorder`. Once each screen starts writing its own copy, desktop and
+ * mobile end up prescribing different fixes and nobody knows which is right.
  *
- * ## [다시 시도] 를 아무 때나 띄우지 않는다
+ * ## [Retry] is not shown indiscriminately
  *
- * 차단이 굳은 상태에서 이 버튼을 띄우면 사용자는 같은 자리를 반복해서 누르다
- * 앱이 고장 났다고 결론 낸다. 권한 창이 실제로 다시 뜰 수 있을 때만 띄운다.
+ * Showing this button while the block is permanent makes users press the same
+ * spot over and over and conclude the app is broken. Show it only when the
+ * permission prompt can actually appear again.
  */
 function MicTrouble({
   error,
@@ -441,10 +452,11 @@ function MicTrouble({
 }
 
 /**
- * 아직 눌러 보지도 않았는데 이미 막혀 있는 경우.
+ * Already blocked before the button was ever pressed.
  *
- * `getUserMedia` 를 부르지 않았으니 예외가 없다. 그래도 화면은 같은 말을 해야
- * 한다 — 안내는 엔진이 실패했을 때와 **같은 표**에서 나온다.
+ * `getUserMedia` hasn't been called, so there's no exception. The screen must
+ * still say the same thing — the guidance comes from the **same table** as when
+ * the engine actually fails.
  */
 function blockedBeforeStart(permission: MicPermissionState): RecorderError {
   const recovery = micRecoveryGuide("permission_blocked");
@@ -457,7 +469,7 @@ function blockedBeforeStart(permission: MicPermissionState): RecorderError {
   };
 }
 
-/** 쉬는 상태에서 타이머 아래에 붙는 한 줄. 못 누르는 이유를 여기서 말한다. */
+/** The one line under the timer while idle. This is where we say why the button can't be pressed. */
 function idleHint(
   canStart: boolean,
   state: RecorderState,
@@ -473,10 +485,11 @@ function idleHintTone(canStart: boolean): React.CSSProperties | undefined {
 }
 
 /**
- * 스크린리더에 읽어 줄 녹음 상태.
+ * Recording state read out to screen readers.
  *
- * 화면에서는 빨간 점과 파형으로 드러나지만 그건 **보이는 사람만** 안다.
- * 특히 녹음이 끊긴 것(`error`)은 즉시 알아야 하는 사건이다.
+ * On screen it shows through the red dot and the waveform, but only **sighted
+ * users** get that. A dropped recording (`error`) in particular is an event
+ * that must be known immediately.
  */
 function recordingStatus(state: RecorderState): string {
   switch (state) {

@@ -6,16 +6,18 @@ import { Chip, EmptyState, Notice } from "@/components/ui";
 import { Icon } from "@/ui";
 
 /**
- * AI 요약.
+ * AI summary.
  *
- * **출처: sisyphus** n8n `autosquad-meeting-summary.json` 의 출력 스키마를
- * 그대로 그린다 ([04-pipeline.md](../../../../docs/04-pipeline.md)).
+ * **Source: sisyphus** — renders the output schema of n8n
+ * `autosquad-meeting-summary.json` as-is ([04-pipeline.md](../../../../docs/04-pipeline.md)).
  *
- * ## 근거를 누르면 그 지점이 재생된다
+ * ## Pressing a source plays that spot
  *
- * 이 제품의 핵심 UX다. `source` 는 서버가 실제 전사와 대조해 확인한 것만 붙는다
- * (지어낸 인용은 서버에서 걸러진다). 그래서 **`source` 가 있으면 반드시 재생된다**.
- * 없으면 근거 줄 자체를 그리지 않는다 — 눌러도 안 되는 버튼을 두지 않는다.
+ * This is the product's core UX. A `source` is attached only after the server
+ * verified it against the actual transcript (fabricated quotes are filtered
+ * server-side). So **if a `source` exists, playback always works**. Without
+ * one, the source line isn't drawn at all — never show a button that fails
+ * when pressed.
  */
 export function SummaryView({
   meeting,

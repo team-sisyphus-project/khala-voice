@@ -6,14 +6,15 @@ import { Button, Icon, Sheet } from "@/ui";
 import type { KhalaInbox, Meeting } from "@core/api";
 
 /**
- * 회의를 칼라 인박스로 보낸다.
+ * Sends a meeting to the Khala inbox.
  *
- * **요약이 본문이고 전사 원문이 첨부다. 오디오는 보내지 않는다** —
- * 목소리 자체가 개인정보라, 회의록을 공유하는 것과 음성 파일을 남의 인박스에
- * 넣는 것은 다른 일이다 (`docs/15-mcp-khala.md`).
+ * **The summary is the body; the raw transcript is the attachment. Audio is
+ * never sent** — a voice is itself personal data, and sharing meeting notes
+ * is a different act from putting an audio file in someone's inbox
+ * (`docs/15-mcp-khala.md`).
  *
- * Reviewer 만 보낼 수 있다. 화면에서 막는 것은 편의일 뿐이고 **서버가 다시
- * 판정한다** — Contributor 가 이 시트를 열어도 발송은 거절된다.
+ * Only Reviewers can send. Blocking in the UI is a convenience — **the server
+ * re-checks** — a Contributor opening this sheet still gets the send refused.
  */
 export function KhalaSendSheet({
   meeting,
@@ -37,7 +38,7 @@ export function KhalaSendSheet({
         const usable = r.inboxes.filter((i) => i.code);
         setInboxes(usable);
 
-        // 하나뿐이면 고를 것이 없다. 미리 골라 둔다.
+        // With only one, there's nothing to choose. Pre-select it.
         if (usable.length === 1 && usable[0]?.code) setRecipient(usable[0].code);
       })
       .catch((e: unknown) => {

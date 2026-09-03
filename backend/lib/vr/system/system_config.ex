@@ -1,10 +1,11 @@
 defmodule VR.System.SystemConfig do
   @moduledoc """
-  시스템 전역 설정 (key-value).
+  System-wide configuration (key-value).
 
-  값은 **항상 암호화되어** 저장된다. 비밀이 아닌 값도 암호화하는 편이
-  "이건 비밀인가?"를 매번 판단하지 않아도 되어 실수가 줄어든다.
-  화면에서 마스킹할지 여부는 `VR.Config.Registry`의 `secret` 플래그가 정한다.
+  Values are **always stored encrypted**. Encrypting non-secret values too means
+  never having to decide "is this a secret?" each time, which reduces mistakes.
+  Whether to mask a value on screen is decided by the `secret` flag in
+  `VR.Config.Registry`.
   """
 
   use Ecto.Schema
@@ -31,7 +32,7 @@ defmodule VR.System.SystemConfig do
 
   defp validate_known_key(changeset) do
     validate_change(changeset, :key, fn :key, key ->
-      if VR.Config.Registry.entry(key), do: [], else: [key: "알 수 없는 설정 키입니다"]
+      if VR.Config.Registry.entry(key), do: [], else: [key: "is not a known configuration key"]
     end)
   end
 end

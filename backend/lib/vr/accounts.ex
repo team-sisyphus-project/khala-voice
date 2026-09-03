@@ -1,14 +1,14 @@
 defmodule VR.Accounts do
   @moduledoc """
-  계정 · 세션 · 이메일 토큰.
+  Accounts, sessions, and email tokens.
 
-  ## 보안 원칙
+  ## Security principles
 
-  1. **토큰은 해시로 저장한다.** 원본은 쿠키와 메일 링크에만 존재한다.
-  2. **계정 존재 여부를 흘리지 않는다.** 로그인 실패와 비밀번호 재설정 요청은
-     계정이 있든 없든 같은 응답과 비슷한 소요 시간을 갖는다.
-  3. **비밀번호 변경은 다른 세션을 전부 끊는다.** 탈취된 세션을 확실히 무효화한다.
-  4. **로그인 시도를 센다.** 이메일별·IP별로 각각 제한한다.
+  1. **Tokens are stored as hashes.** The original exists only in cookies and email links.
+  2. **Never leak whether an account exists.** Failed logins and password reset requests
+     produce the same response and similar timing whether or not the account exists.
+  3. **Changing the password revokes all other sessions.** This reliably invalidates hijacked sessions.
+  4. **Login attempts are counted.** Rate-limited per email and per IP separately.
   """
 
   import Ecto.Query, warn: false
@@ -17,12 +17,12 @@ defmodule VR.Accounts do
   alias VR.Config
   alias VR.Repo
 
-  # 최근 15분 안의 실패 횟수가 이 값을 넘으면 잠근다
+  # Lock out when failures within the last 15 minutes exceed these values
   @max_failures_per_email 10
   @max_failures_per_ip 30
   @failure_window_minutes 15
 
-  # ── 조회 ─────────────────────────────────────────────────
+  # ── Lookup ───────────────────────────────────────────────
 
   def get_account(id), do: Repo.one(active_query() |> where([a], a.id == ^id))
 
@@ -45,9 +45,10 @@ defmodule VR.Accounts do
   defp active_query, do: from(a in Account, where: is_nil(a.deleted_at))
 
   @doc """
-  이메일 + 비밀번호로 계정을 찾는다.
+  Finds an account by email + password.
 
-  계정이 없어도 bcrypt 더미 검증을 수행해 응답 시간을 맞춘다.
+  Even when the account does not exist, a dummy bcrypt verification is performed
+  to keep response times consistent.
   """
   def get_account_by_email_and_password(email, password) do
     account = get_account_by_email(email)
@@ -55,14 +56,14 @@ defmodule VR.Accounts do
     if Account.valid_password?(account || %Account{}, password), do: account
   end
 
-  # ── 가입 ─────────────────────────────────────────────────
+  # ── Registration ─────────────────────────────────────────
 
   @doc """
-  가입.
+  Registration.
 
-  `policy.invite_code_required`가 켜져 있으면 유효한 초대 코드가 있어야 한다.
-  코드 확인과 계정 생성, 코드 소진을 **한 트랜잭션**으로 묶어
-  같은 코드로 두 계정이 만들어지는 것을 막는다.
+  When `policy.invite_code_required` is enabled, a valid invite code is required.
+  Code verification, account creation, and code consumption are wrapped in
+  **a single transaction** to prevent two accounts from being created with the same code.
   """
   def register_account(attrs) do
     result =
@@ -72,8 +73,8 @@ defmodule VR.Accounts do
         %Account{} |> Account.registration_changeset(attrs) |> Repo.insert()
       end
 
-    # 무료 플랜에 자동 구독시킨다. 실패해도 가입은 성립한다 —
-    # 요금 설정이 덜 됐다고 사용자가 못 들어오면 안 된다.
+    # Auto-subscribe to the free plan. Registration succeeds even if this fails —
+    # incomplete billing setup must not keep users out.
     with {:ok, account} <- result do
       VR.Billing.ensure_default_subscription(account.id)
       {:ok, account}
@@ -94,7 +95,7 @@ defmodule VR.Accounts do
     end)
     |> Ecto.Multi.insert(:account, Account.registration_changeset(%Account{}, attrs))
     |> Ecto.Multi.run(:consume, fn repo, %{invite: invite, account: account} ->
-      # status를 다시 조건에 넣어 동시 요청이 같은 코드를 쓰지 못하게 한다
+      # Re-check status in the condition so concurrent requests cannot use the same code
       case repo.update_all(
              from(i in InviteCode, where: i.id == ^invite.id and i.status == "available"),
              set: [
@@ -122,15 +123,15 @@ defmodule VR.Accounts do
         {:error,
          %Account{}
          |> Account.registration_changeset(attrs, hash_password: false)
-         |> Ecto.Changeset.add_error(:invite_code, "방금 다른 분이 사용했습니다. 다른 코드를 입력해 주세요.")}
+         |> Ecto.Changeset.add_error(:invite_code, "This code was just used by someone else. Please enter a different code.")}
 
       {:error, :account, changeset, _} ->
         {:error, changeset}
     end
   end
 
-  defp invite_error_message(:invalid_invite_code), do: "유효하지 않은 초대 코드입니다"
-  defp invite_error_message(_), do: "초대 코드를 확인해 주세요"
+  defp invite_error_message(:invalid_invite_code), do: "is not a valid invite code"
+  defp invite_error_message(_), do: "please check the invite code"
 
   defp claimable_invite(nil), do: nil
   defp claimable_invite(""), do: nil
@@ -147,7 +148,7 @@ defmodule VR.Accounts do
     )
   end
 
-  @doc "초대 코드를 발급한다."
+  @doc "Issues an invite code."
   def create_invite_code(attrs \\ %{}) do
     attrs |> InviteCode.build() |> Repo.insert()
   end
@@ -163,12 +164,12 @@ defmodule VR.Accounts do
   end
 
   @doc """
-  소셜 로그인으로 들어온 사용자를 찾거나 만든다.
+  Finds or creates a user arriving via social login.
 
-  1. `(제공자, 소셜ID)`로 찾는다
-  2. 없으면 이메일로 기존 계정을 찾아 **연결**한다
-     (같은 사람이 비밀번호로 먼저 가입했을 수 있다)
-  3. 그것도 없으면 새로 만든다
+  1. Look up by `(provider, social ID)`
+  2. If not found, look up an existing account by email and **link** it
+     (the same person may have registered with a password first)
+  3. If that also fails, create a new one
   """
   def find_or_create_social_account(provider, social_id, attrs) do
     cond do
@@ -195,41 +196,43 @@ defmodule VR.Accounts do
     end
   end
 
-  # ── 프로필 · 비밀번호 ────────────────────────────────────
+  # ── Profile and password ─────────────────────────────────
 
   def update_profile(%Account{} = account, attrs) do
     account |> Account.profile_changeset(attrs) |> Repo.update()
   end
 
-  @doc "테마만 바꾼다. 설정 화면을 거치지 않고 즉시 저장할 때 쓴다."
+  @doc "Changes only the theme. Used to save immediately without going through the settings screen."
   def update_theme(%Account{} = account, theme) do
     account |> Account.theme_changeset(theme) |> Repo.update()
   end
 
   @doc """
-  UI 표시 언어(`locale`)만 바꾼다. 설정 화면을 거치지 않고 즉시 저장할 때 쓴다.
+  Changes only the UI display language (`locale`). Used to save immediately without going through the settings screen.
 
-  **전사 언어(`transcribe_language`)와 다른 값이다.** 영어로 앱을 쓰면서
-  한국어 회의를 녹음하는 것이 흔하다 — 둘을 묶으면 그때마다 함께 바꿔야 한다.
+  **Distinct from the transcription language (`transcribe_language`).** It is common to
+  use the app in English while recording meetings in Korean — coupling the two would
+  force users to change both every time.
   """
   def update_locale(%Account{} = account, locale) do
     account |> Account.locale_changeset(locale) |> Repo.update()
   end
 
   @doc """
-  기본 전사 언어를 바꾼다. `nil` 이면 자동(브라우저 언어)으로 되돌린다.
+  Changes the default transcription language. `nil` reverts to automatic (browser language).
 
-  **대화(UI) 언어(`locale`)와 다른 값이다.** 한국어로 앱을 쓰면서 영어 회의를
-  녹음하는 것이 흔하다 — 둘을 묶으면 그때마다 UI 언어까지 바꿔야 한다.
+  **Distinct from the UI language (`locale`).** It is common to use the app in Korean
+  while recording meetings in English — coupling the two would force users to change
+  the UI language every time as well.
   """
   def update_transcribe_language(%Account{} = account, language) do
     account |> Account.transcribe_language_changeset(language) |> Repo.update()
   end
 
   @doc """
-  비밀번호를 바꾸고 **다른 모든 세션을 끊는다.**
+  Changes the password and **revokes all other sessions.**
 
-  `keep_session_id`로 지정한 세션만 남는다 (지금 쓰고 있는 브라우저).
+  Only the session specified by `keep_session_id` remains (the browser currently in use).
   """
   def update_password(%Account{} = account, attrs, opts \\ []) do
     Ecto.Multi.new()
@@ -245,9 +248,9 @@ defmodule VR.Accounts do
     end
   end
 
-  # ── 세션 ─────────────────────────────────────────────────
+  # ── Sessions ─────────────────────────────────────────────
 
-  @doc "로그인. `{원본_토큰, 세션}`을 돌려준다. 원본은 쿠키에만 심는다."
+  @doc "Login. Returns `{raw_token, session}`. The raw token is planted only in the cookie."
   def create_session(%Account{} = account, attrs \\ %{}) do
     {token, changeset} = AccountSession.build(account.id, attrs)
 
@@ -257,7 +260,7 @@ defmodule VR.Accounts do
     end
   end
 
-  @doc "서버가 확인한 MFA 성공 시각을 현재 로그인 세션에 기록한다."
+  @doc "Records the server-verified MFA success time on the current login session."
   def mark_session_mfa_verified(%AccountSession{account_id: account_id} = session, account_id) do
     session
     |> Ecto.Changeset.change(%{mfa_verified_at: DateTime.utc_now(:second)})
@@ -267,9 +270,9 @@ defmodule VR.Accounts do
   def mark_session_mfa_verified(%AccountSession{}, _account_id), do: {:error, :session_mismatch}
 
   @doc """
-  세션 토큰으로 계정을 찾는다. 유효하면 마지막 활동 시각을 갱신한다.
+  Finds an account by session token. If valid, refreshes the last activity time.
 
-  삭제 예약된 계정이 로그인하면 예약이 **취소된다.**
+  If an account scheduled for deletion logs in, the schedule is **canceled.**
   """
   def get_account_by_session_token(token) when is_binary(token) do
     with {:ok, hash} <- AccountSession.hash_token(token),
@@ -296,7 +299,7 @@ defmodule VR.Accounts do
   defp touch_session(session) do
     now = DateTime.utc_now(:second)
 
-    # 1분 안에 이미 갱신했으면 쓰기를 건너뛴다 (요청마다 UPDATE 하지 않기)
+    # Skip the write if it was already refreshed within the last minute (avoid an UPDATE per request)
     if DateTime.diff(now, session.last_activity_at || now, :second) >= 60 do
       Repo.update_all(
         from(s in AccountSession, where: s.id == ^session.id),
@@ -352,9 +355,9 @@ defmodule VR.Accounts do
 
   def revoke_all_sessions(account_id), do: revoke_other_sessions(account_id, nil)
 
-  # ── 이메일 토큰 ──────────────────────────────────────────
+  # ── Email tokens ─────────────────────────────────────────
 
-  @doc "일회성 토큰을 만든다. 원본 문자열을 돌려준다 — 메일 링크에만 쓴다."
+  @doc "Creates a one-time token. Returns the raw string — used only in email links."
   def create_email_token(%Account{} = account, context, sent_to \\ nil) do
     {token, changeset} = AccountToken.build(account.id, context, sent_to || account.email)
 
@@ -364,7 +367,7 @@ defmodule VR.Accounts do
     end
   end
 
-  @doc "토큰을 확인하고 **즉시 소진 처리한다.** 같은 토큰은 두 번 쓸 수 없다."
+  @doc "Verifies the token and **immediately marks it consumed.** The same token cannot be used twice."
   def consume_email_token(token, context) when is_binary(token) do
     now = DateTime.utc_now(:second)
 
@@ -390,7 +393,7 @@ defmodule VR.Accounts do
 
   def consume_email_token(_token, _context), do: :error
 
-  @doc "이메일 확인 완료 처리."
+  @doc "Marks email confirmation as complete."
   def confirm_account(token) do
     case consume_email_token(token, "confirm") do
       {:ok, account, _} ->
@@ -401,7 +404,7 @@ defmodule VR.Accounts do
     end
   end
 
-  @doc "재설정 토큰으로 비밀번호를 바꾸고 모든 세션을 끊는다."
+  @doc "Changes the password using a reset token and revokes all sessions."
   def reset_password(token, attrs) do
     case consume_email_token(token, "reset_password") do
       {:ok, account, _} ->
@@ -412,7 +415,7 @@ defmodule VR.Accounts do
     end
   end
 
-  # ── 로그인 시도 제한 ─────────────────────────────────────
+  # ── Login attempt rate limiting ──────────────────────────
 
   def record_login_attempt(email, ip, success?) do
     %LoginAttempt{}
@@ -421,9 +424,9 @@ defmodule VR.Accounts do
   end
 
   @doc """
-  지금 로그인을 시도해도 되는지.
+  Whether a login attempt is allowed right now.
 
-  이메일별·IP별로 최근 실패를 각각 센다.
+  Recent failures are counted per email and per IP separately.
   """
   def login_allowed?(email, ip) do
     since = DateTime.add(DateTime.utc_now(:second), -@failure_window_minutes, :minute)
@@ -460,16 +463,16 @@ defmodule VR.Accounts do
     )
   end
 
-  @doc "로그인 성공 시 그 이메일의 실패 기록을 지운다."
+  @doc "Clears the failure records for that email on successful login."
   def clear_failures(email) when is_binary(email) do
     normalized = email |> String.trim() |> String.downcase()
     Repo.delete_all(from a in LoginAttempt, where: a.email == ^normalized and a.success == false)
     :ok
   end
 
-  # ── 삭제 예약 ────────────────────────────────────────────
+  # ── Scheduled deletion ───────────────────────────────────
 
-  @doc "계정 삭제를 예약한다. 유예 기간이 지나면 DeletionWorker가 처리한다."
+  @doc "Schedules account deletion. After the grace period, the DeletionWorker handles it."
   def schedule_deletion(%Account{} = account) do
     at = DateTime.add(DateTime.utc_now(:second), Account.deletion_grace_days(), :day)
 
@@ -478,13 +481,13 @@ defmodule VR.Accounts do
       |> Ecto.Changeset.change(%{scheduled_deletion_at: at})
       |> Repo.update()
 
-    # 예약과 동시에 모든 세션을 끊는다
+    # Revoke all sessions at the same time as scheduling
     with {:ok, _} <- result, do: revoke_all_sessions(account.id)
 
     result
   end
 
-  @doc "삭제 예약 취소. 유예 기간 안에 로그인하면 자동으로 호출된다."
+  @doc "Cancels scheduled deletion. Called automatically when the user logs in within the grace period."
   def cancel_deletion(%Account{scheduled_deletion_at: nil} = account), do: {:ok, account}
 
   def cancel_deletion(%Account{} = account) do

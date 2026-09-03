@@ -1,310 +1,312 @@
-# 11. 로드맵
+# 11. Roadmap
 
-각 마일스톤은 독립적으로 배포 가능하고 검증 가능해야 한다.
+Every milestone must be independently deployable and verifiable.
 
-## M0 — 기반  ✅ 완료
+## M0 — Foundation  ✅ Done
 
-| 항목 | 산출물 |
+| Item | Deliverable |
 |---|---|
-| 리포 구조 | `backend/`, `packages/core/`, `apps/web/` |
-| Phoenix 앱 | 부팅, Repo, Oban, Cloak(`CLOAK_KEY` 없으면 부팅 실패) |
-| 설정 계층 | `VR.Config` (DB → ENV → nil), `SystemConfig` 스키마 |
-| 시크릿 방어 | `.gitignore`, `.env.example`, gitleaks pre-commit + CI |
-| CI | 컴파일 · 포맷 · 테스트 · 시크릿 스캔 |
-| 컨테이너 | **FFmpeg 포함** Dockerfile |
+| Repo structure | `backend/`, `packages/core/`, `apps/web/` |
+| Phoenix app | Boots, Repo, Oban, Cloak (boot fails without `CLOAK_KEY`) |
+| Config layers | `VR.Config` (DB → ENV → nil), `SystemConfig` schema |
+| Secret defense | `.gitignore`, `.env.example`, gitleaks pre-commit + CI |
+| CI | Compile · format · test · secret scan |
+| Container | Dockerfile **with FFmpeg included** |
 
-**완료 기준**: 빈 앱이 뜨고, 시크릿이 커밋되지 않으며, `ffmpeg -version`이 컨테이너에서 동작한다.
+**Done when**: an empty app boots, secrets cannot be committed, and `ffmpeg -version` works inside the container.
 
-**실제 구현된 것** (계획보다 앞당김 — 배포 후 DB로 키를 넣을 수 있어야 하므로
-어드민 설정 화면을 M0에 포함했다):
+**What was actually built** (pulled forward from the plan — since keys must be enterable
+via the DB after deployment, the admin settings screen was included in M0):
 
-- `VR.Config` — DB → 환경변수 → nil 3단 해석, 리터럴 기본값 없음
-- `VR.Config.Registry` — 설정 키 선언. **어드민 화면이 여기서 생성된다**
-- `VR.Vault` / `VR.Encrypted.Binary` — Cloak AES-256-GCM. `CLOAK_KEY` 없으면 부팅 실패
-- `SystemConfig` / `AuthProvider` / `LlmProvider` 스키마 + 마이그레이션
-- 어드민 LiveView — 대시보드 · 설정(그룹별) · 소셜 로그인 · LLM 제공자
-- Oban(4개 큐) · ExAws · Dockerfile(FFmpeg+UTF-8 로케일) · CI(gitleaks 포함) · pre-commit 훅
-- 테스트 27개 통과
+- `VR.Config` — three-tier resolution DB → env var → nil, no literal defaults
+- `VR.Config.Registry` — config key declarations. **The admin screen is generated from this**
+- `VR.Vault` / `VR.Encrypted.Binary` — Cloak AES-256-GCM. Boot fails without `CLOAK_KEY`
+- `SystemConfig` / `AuthProvider` / `LlmProvider` schemas + migrations
+- Admin LiveView — dashboard · settings (grouped) · social login · LLM providers
+- Oban (4 queues) · ExAws · Dockerfile (FFmpeg + UTF-8 locale) · CI (including gitleaks) · pre-commit hook
+- 27 tests passing
 
-## M1 — 계정 · 친구  ✅ 완료
+## M1 — Accounts · Friends  ✅ Done
 
-| 항목 |
+| Item |
 |---|
 | Account · AccountSession · AccountToken · LoginAttempt |
-| 이메일 가입 · 로그인 · 확인 메일 · 비밀번호 재설정 |
-| `AuthProvider` + 소셜 로그인 ON/OFF (어드민 UI 포함) |
-| 기기 세션 목록 · 원격 로그아웃 |
-| FriendInvitation · Friendship, 이메일/링크 초대 |
-| 계정 삭제 예약 + `DeletionWorker` |
+| Email signup · login · confirmation email · password reset |
+| `AuthProvider` + social login ON/OFF (admin UI included) |
+| Device session list · remote logout |
+| FriendInvitation · Friendship, email/link invitations |
+| Scheduled account deletion + `DeletionWorker` |
 
-**완료 기준**: 소셜 제공자를 어드민에서 켜고 끄면 로그인 화면과 OAuth 라우트가 함께 반응한다.
-키 없이 켜면 노출되지 않는다.
+**Done when**: toggling a social provider in admin makes the login screen and OAuth routes
+react together. Enabling one without keys does not expose it.
 
-**진행 상황**
+**Progress**
 
-- [x] `VR.IdGenerator` — 접두사 ID (`acct_…`, `frnd_…`, `finv_…`)
-- [x] `Account` · `AccountSession` · `AccountToken` · `LoginAttempt` 스키마 + 마이그레이션
-- [x] `VR.Accounts` — 가입 · 로그인 · 세션 · 이메일 토큰 · 시도 제한 · 삭제 예약 · 소셜 연결
-- [x] `Friendship` · `FriendInvitation` 스키마 + 마이그레이션
-- [x] `VR.Friends` — 친구 목록 · 초대 생성/수락/거절/취소 · 차단
-- [x] 테스트 81개
-- [x] 디자인 시스템 이식 — sisyphus 토큰 + `.vr-*` 컴포넌트 ([12-design-system.md](12-design-system.md))
-- [x] 웹 레이어 — 로그인 · 가입 · 비밀번호 재설정 · 이메일 확인
-- [x] `VRWeb.UserAuth` — 세션 쿠키(http_only · SameSite=Lax · 서명), 세션 고정 방어
-- [x] 초대 코드 정책 (`policy.invite_code_required`) + 트랜잭션 소진
-- [x] OAuth 실제 흐름 — Google · GitHub, state CSRF 방어, 꺼진 제공자는 404
-- [x] 메일 발송 (확인 · 재설정 · 친구 초대)
-- [x] 어드민 인증을 `Account.is_admin` 으로 교체 + `mix vr.make_admin`
-- [x] 테스트 96개
-- [x] 친구 화면 — 이메일/링크 초대, 보낸 초대 관리, 수락 화면
-- [x] 계정 설정 화면 — 프로필 · 비밀번호 · 기기 세션 · 삭제 예약
-- [x] `DeletionWorker` (매시) · `InvitationCleanupWorker` (매일)
+- [x] `VR.IdGenerator` — prefixed IDs (`acct_…`, `frnd_…`, `finv_…`)
+- [x] `Account` · `AccountSession` · `AccountToken` · `LoginAttempt` schemas + migrations
+- [x] `VR.Accounts` — signup · login · sessions · email tokens · attempt limits · scheduled deletion · social linking
+- [x] `Friendship` · `FriendInvitation` schemas + migrations
+- [x] `VR.Friends` — friend list · invitation create/accept/decline/cancel · block
+- [x] 81 tests
+- [x] Design system port — sisyphus tokens + `.vr-*` components ([12-design-system.md](12-design-system.md))
+- [x] Web layer — login · signup · password reset · email confirmation
+- [x] `VRWeb.UserAuth` — session cookie (http_only · SameSite=Lax · signed), session fixation defense
+- [x] Invite code policy (`policy.invite_code_required`) + transactional consumption
+- [x] Real OAuth flows — Google · GitHub, state CSRF defense, disabled providers return 404
+- [x] Email delivery (confirmation · reset · friend invitation)
+- [x] Admin auth switched to `Account.is_admin` + `mix vr.make_admin`
+- [x] 96 tests
+- [x] Friends screen — email/link invitations, sent-invitation management, acceptance screen
+- [x] Account settings screen — profile · password · device sessions · scheduled deletion
+- [x] `DeletionWorker` (hourly) · `InvitationCleanupWorker` (daily)
 
-## M2 — 녹음 · 업로드 (핵심)  🔨 진행 중
+## M2 — Recording · Upload (core)  🔨 In progress
 
-| 항목 |
+| Item |
 |---|
-| Meeting · RecordingSession 스키마 + API |
-| `packages/core/recorder` — MediaRecorder · 파형 · 타이머 · **통일된 일시정지** |
-| `packages/core/upload` — IndexedDB 큐 · 재시도 · 실패 배너 |
+| Meeting · RecordingSession schemas + API |
+| `packages/core/recorder` — MediaRecorder · waveform · timer · **unified pause** |
+| `packages/core/upload` — IndexedDB queue · retry · failure banner |
 | `VR.Storage.S3` presign (ExAws) |
-| `apps/web` 최소 UI — 목록 · 상세 · 녹음 |
-| SSE 기본 배선 |
+| Minimal `apps/web` UI — list · detail · recording |
+| Basic SSE wiring |
 
-**완료 기준**: 녹음 → S3 업로드 → 세션 등록이 끝까지 동작하고,
-**비행기 모드에서 녹음한 것이 온라인 복귀 후 자동 업로드된다.**
+**Done when**: recording → S3 upload → session registration works end to end, and
+**something recorded in airplane mode uploads automatically once back online.**
 
-**진행 상황**
+**Progress**
 
-- [x] `Meeting` · `RecordingSession` 스키마 + 마이그레이션 (pg_trgm 검색 인덱스 포함)
-- [x] `VR.Access.AccessLevel` — Reviewer / Contributor / Viewer, 게스트 역할
-- [x] `VR.Meetings` — 권한 기반 조회, 필터 목록, 세션 관리, 전사 검증
-- [x] `VR.Storage` + S3 presign (ExAws SigV4, n8n 제거)
-- [x] REST API 12개 엔드포인트 + Viewer 마스킹
-- [x] 테스트 137개
-- [x] `packages/core/recorder` — MediaRecorder 엔진 · 파형 · **통일된 일시정지** · 중단 감지
-- [x] `packages/core/upload` — IndexedDB 큐 · 순차 업로드 · 재시도 · 진행률
-- [x] `packages/core/api` — 타입 있는 API 클라이언트
-- [x] 실기기 스파이크 페이지 `/spike/recorder` + HTTPS 개발 설정
-- [ ] **모바일 실기기 백그라운드 녹음 검증** ← 최우선 리스크 · [절차](13-device-testing.md)
-- [x] `apps/web` React SPA (Vite) — Phoenix 가 `/app` 에서 서빙
-- [x] `useRecorder` 훅 — 엔진을 React 에 연결 (파형은 캔버스 직접 그리기)
-- [x] 회의 목록 · 상세 · 녹음 · 세션 목록 · 아카이브 검색
-- [x] 테마 4종 (라이트 · 다크 · 연필 · 게임) — 사용자별 설정 · 지연 로드
-- [x] 반응형 — 하단 탭바(모바일) / 상단 네비(데스크톱), 같은 라우트
-- [x] 시스템 어드민 계정 관리 — 승격 · 강등 · 삭제 + **잠금 방지**
-- [x] 부트스트랩 어드민 (`mix vr.bootstrap_admin`) — 실사용자 승격 후 삭제해 입구를 닫는다
-- [x] 어드민 전용 MFA (TOTP) — 운영 외 환경은 6자리 숫자 우회
-- [ ] 어드민 계정 관리 화면 (`/_admin/accounts`)
-- [ ] MFA 설정 화면
-- [ ] 토픽 · 라벨 CRUD + 아카이브 필터 UI
-- [ ] SSE 연결 (지금은 폴링)
+- [x] `Meeting` · `RecordingSession` schemas + migrations (including pg_trgm search indexes)
+- [x] `VR.Access.AccessLevel` — Reviewer / Contributor / Viewer, guest roles
+- [x] `VR.Meetings` — permission-based reads, filtered lists, session management, transcription validation
+- [x] `VR.Storage` + S3 presign (ExAws SigV4, n8n removed)
+- [x] 12 REST API endpoints + Viewer masking
+- [x] 137 tests
+- [x] `packages/core/recorder` — MediaRecorder engine · waveform · **unified pause** · interruption detection
+- [x] `packages/core/upload` — IndexedDB queue · sequential upload · retry · progress
+- [x] `packages/core/api` — typed API client
+- [x] Real-device spike page `/spike/recorder` + HTTPS dev setup
+- [ ] **Mobile real-device background recording verification** ← top risk · [procedure](13-device-testing.md)
+- [x] `apps/web` React SPA (Vite) — served by Phoenix at `/app`
+- [x] `useRecorder` hook — wires the engine into React (waveform drawn directly on canvas)
+- [x] Meeting list · detail · recording · session list · archive search
+- [x] 4 themes (Light · Dark · Pencil · Game) — per-user setting · lazy load
+- [x] Responsive — bottom tab bar (mobile) / top nav (desktop), same routes
+- [x] System admin account management — promote · demote · delete + **lockout prevention**
+- [x] Bootstrap admin (`mix vr.bootstrap_admin`) — promote a real user, then delete it to close the door
+- [x] Admin-only MFA (TOTP) — non-production environments bypass with any 6-digit number
+- [ ] Admin account management screen (`/_admin/accounts`)
+- [ ] MFA setup screen
+- [ ] Topic · Label CRUD + archive filter UI
+- [ ] SSE connection (currently polling)
 
-## M3 — 전사 · 화자  ✅ 완료
+## M3 — Transcription · Speakers  ✅ Done
 
-| 항목 |
+| Item |
 |---|
-| `GoogleSTT` 이식 + `VR.Config` 연결 + 개발 모드(목 응답) |
-| `AudioSplitter` + `AudioSplitWorker` (20분 초과 분할) |
+| `GoogleSTT` port + `VR.Config` wiring + dev mode (mock responses) |
+| `AudioSplitter` + `AudioSplitWorker` (split recordings over 20 minutes) |
 | `TranscriptionWorker` |
-| 전사 뷰 (채팅 스타일) · 통합 오디오 플레이어 · 세그먼트 하이라이트 |
-| 화자 편집 — 칩 변경 · 세그먼트 변경 · 추가/삭제 · 텍스트 편집 · 분할 · 원본 복원 · 재전사 |
+| Transcription view (chat style) · unified audio player · segment highlighting |
+| Speaker editing — chip changes · segment changes · add/delete · text editing · splitting · original restore · re-transcription |
 
-**완료 기준**: 30분 이상 녹음이 분할 → 전사 → 화자 매핑까지 도달하고,
-GCP 자격증명 없이도 개발 모드로 전체 UI를 확인할 수 있다.
+**Done when**: a 30+ minute recording makes it through split → transcription → speaker mapping,
+and the entire UI is viewable in dev mode without GCP credentials.
 
-**진행 상황** — 전부 sisyphus 이식 ([14-provenance.md](14-provenance.md#전사-파이프라인-m3-예정))
+**Progress** — all ported from sisyphus ([14-provenance.md](14-provenance.md#transcription-pipeline))
 
-- [x] `VR.Transcription.GoogleSTT` — batchRecognize · GCS 왕복 · 5초 폴링 · 임시파일 정리
-- [x] `VR.Transcription.Audio` — ffprobe 길이 · 19분 분할 · MP3 변환 (**FFmpeg 실측 확인**)
-- [x] `TranscriptionWorker` — 변환 → STT → 저장 → **크레딧 계량** → 집계
-- [x] `AudioSplitWorker` — 20분 초과 분할 → 청크 세션 생성 → 원본 삭제 → 재큐잉
-- [x] 개발 모드 — GCP 키 없이 목 전사 (5세그먼트 · 3화자)
-- [x] `POST /api/sessions/:id/transcribe` + React 전사 버튼
-- [x] `packages/core/domain/transcript` — 화자·세그먼트 조작 로직 (UI 프레임워크 없음)
-- [x] 전사 뷰 (채팅 스타일) · 통합 오디오 플레이어 · 재생 중 세그먼트 하이라이트
-- [x] 화자 편집 — 이름 · 친구 연결 · 추가/삭제 · 세그먼트 화자 변경 · 텍스트 편집 · 분할 · 원본 복원
+- [x] `VR.Transcription.GoogleSTT` — batchRecognize · GCS round-trip · 5-second polling · temp-file cleanup
+- [x] `VR.Transcription.Audio` — ffprobe duration · 19-minute splits · MP3 conversion (**verified with real FFmpeg runs**)
+- [x] `TranscriptionWorker` — convert → STT → save → **credit metering** → aggregation
+- [x] `AudioSplitWorker` — split over 20 minutes → create chunk sessions → delete original → re-enqueue
+- [x] Dev mode — mock transcription without GCP keys (5 segments · 3 speakers)
+- [x] `POST /api/sessions/:id/transcribe` + React transcribe button
+- [x] `packages/core/domain/transcript` — speaker/segment manipulation logic (no UI framework)
+- [x] Transcription view (chat style) · unified audio player · playing-segment highlight
+- [x] Speaker editing — name · friend linking · add/delete · segment speaker change · text editing · splitting · original restore
 - [x] `PATCH /api/sessions/:id/speakers` · `GET /api/friends`
-- [x] 테스트 — 백엔드 240개 + core 26개 (`node --test`)
+- [x] Tests — 240 backend + 26 core (`node --test`)
 
-**M3 완료.** 30분 초과 녹음이 분할→전사→화자 매핑까지 도달하고,
-GCP 자격증명 없이 개발 모드로 전체 UI를 확인할 수 있다.
+**M3 complete.** Recordings over 30 minutes make it through split → transcription → speaker
+mapping, and the entire UI is viewable in dev mode without GCP credentials.
 
-## M4 — AI 요약  ✅ 완료
+## M4 — AI Summary  ✅ Done
 
-| 항목 |
+| Item |
 |---|
-| `LLM.Client` + Gemini / Anthropic / OpenAI 어댑터 |
-| `LlmProvider` 어드민 (키 · 모델 · 우선순위 · 폴백) |
-| 프롬프트 파일 + 직렬화 · 스키마 검증 · 정규화 |
+| `LLM.Client` + Gemini / Anthropic / OpenAI adapters |
+| `LlmProvider` admin (keys · models · priority · fallback) |
+| Prompt files + serialization · schema validation · normalization |
 | `SummaryWorker` (auto / retry) |
-| 요약 뷰 + **출처 클릭 → 오디오 점프** |
+| Summary view + **click a source → jump in the audio** |
 
-**완료 기준**: 요약 항목을 클릭하면 해당 발언 지점이 재생된다.
-제공자를 어드민에서 바꿔도 출력 스키마가 동일하다.
+**Done when**: clicking a summary item plays the corresponding utterance.
+Switching providers in admin leaves the output schema unchanged.
 
-**진행 상황**
+**Progress**
 
-- [x] `VR.Summarize.Serializer` — `[session_id|speaker|HH:MM:SS] 발화` 직렬화 (sisyphus 규약)
-- [x] `VR.Summarize.Prompt` — 시스템 프롬프트 + JSON 스키마 (sisyphus n8n 프롬프트 이식)
-- [x] `VR.Summarize.Normalizer` — 정규화 + **`source` 를 실제 전사와 대조해 날조 차단**
-- [x] `VR.Summarize.LLM` + Gemini / Anthropic / OpenAI 어댑터 · 재시도 가치 있는 실패만 폴백
-- [x] `SummaryWorker` — `meeting_id` unique · auto 가드 · retry 강제
-- [x] 개발 모드 — 키 없이 목 요약. **실제 전사에서 인용을 뽑아 점프까지 확인 가능**
-- [x] 토큰 계량 — devkanban `price_tokens/3` 계산식 이식 (단가 없으면 계량 생략)
-- [x] 어드민 — 제공자 CRUD · 단가 · 개발 모드 / 자동 요약 스위치
+- [x] `VR.Summarize.Serializer` — `[session_id|speaker|HH:MM:SS] utterance` serialization (sisyphus convention)
+- [x] `VR.Summarize.Prompt` — system prompt + JSON schema (ported from the sisyphus n8n prompt)
+- [x] `VR.Summarize.Normalizer` — normalization + **cross-checks `source` against the actual transcription to block fabrication**
+- [x] `VR.Summarize.LLM` + Gemini / Anthropic / OpenAI adapters · fallback only on retry-worthy failures
+- [x] `SummaryWorker` — unique per `meeting_id` · auto guard · forced retry
+- [x] Dev mode — mock summary without keys. **Pulls quotes from the real transcription, so the jump is verifiable too**
+- [x] Token metering — devkanban `price_tokens/3` formula ported (metering skipped when no unit price)
+- [x] Admin — provider CRUD · unit prices · dev mode / auto-summary switches
 - [x] `POST /api/meetings/:id/summarize`
-- [x] 요약 뷰 — 근거 칩 클릭 → 그 지점 재생 · 원문 펼치기
-- [x] 테스트 35개 추가 (직렬화 12 · 정규화 15 · 계량/폴백 8)
+- [x] Summary view — click an evidence chip → play that point · expand the original text
+- [x] 35 tests added (serialization 12 · normalization 15 · metering/fallback 8)
 
-**부수 수확** — 오버드래프트 상태에서 워커 재시도가 **같은 사용을 여러 번 차감하던 버그**를
-계량을 붙이다 발견해 고쳤다. 무료 플랜은 잔액 0 이 기본 상태라 이 경로가 정상 경로다.
-→ [06-billing.md](06-billing.md#멱등성)
+**Side harvest** — while wiring up metering we found and fixed a bug where worker retries in
+an overdraft state **charged the same usage multiple times.** On the free plan a zero balance
+is the normal state, so this path is the normal path.
+→ [06-billing.md](06-billing.md#idempotency)
 
-## M5 — 공유 · 권한 · 분류  ✅ 완료
+## M5 — Sharing · Permissions · Taxonomy  ✅ Done
 
-| 항목 |
+| Item |
 |---|
 | `Access.AccessLevel` — Reviewer / Contributor / Viewer |
-| 공개 범위 설정 UI (`me_only` / `assignees_only` / `selected_friends` / `all_friends`) |
-| `SharedLink` + `granted_role` + PIN + 1회성 |
-| 게스트 뷰 `/share/:token` |
+| Visibility settings UI (`me_only` / `assignees_only` / `selected_friends` / `all_friends`) |
+| `SharedLink` + `granted_role` + PIN + one-time links |
+| Guest view `/share/:token` |
 | Topic · Label CRUD |
-| **아카이브 필터 검색** (토픽 · 라벨 · 기간 · 참여자 · 전문검색) |
-| 마크다운 내보내기 |
+| **Archive filter search** (topic · label · date range · participant · full-text) |
+| Markdown export |
 
-**완료 기준**: 1회성 링크를 발급해 비로그인 상태에서 열면 지정한 역할로만 접근된다.
-아카이브된 회의를 토픽/라벨로 찾을 수 있다.
+**Done when**: issuing a one-time link and opening it while logged out grants only the
+designated role. Archived meetings are findable by topic/label.
 
-**진행 상황**
+**Progress**
 
-- [x] **보안 하드닝** (게스트 링크의 선행 — 자세한 내용은 [10-porting-map.md](10-porting-map.md) B8~B10)
-  - [x] 클라이언트가 준 `audio_url` 을 받지 않는다. presign 이 키를 정해 `storage_key` 에 기록
-  - [x] 워커 SSRF 가드 — `Storage.own_object_url?/1` 통과 + `max_redirects: 0`
-  - [x] `audio_href` → `GET /api/sessions/:id/audio` → presigned GET 302 (Viewer 는 404)
-  - [x] 아카이브 잠금 — 업로드 · presign · 전사 · 전사본 수정
-- [x] **Topic · Label CRUD** — 스키마 · 컨텍스트 · REST · 소프트 삭제 + detach · 정렬 · 소유권 검증
-- [x] **목록 쿼리 하드닝** — `count_meetings/2` · 라벨 배열 타입 명시 · LIKE 이스케이프 · 참여자 필터 · offset
-- [x] **아카이브 필터 검색 UI** — 토픽 · 라벨(AND/OR) · 기간 · 참여자 · 전문검색 · **URL 쿼리 동기화**
-- [x] 분류 관리 화면 (`/app/taxonomy`)
-- [x] **`SharedLink`** — 토큰 sha256 해시 · PIN Bcrypt · `granted_role` · 1회성 · 만료 · 재발급
-- [x] **`GuestSession`** (신규) — 회의 하나에만 묶인다. 폐기·비활성·만료가 즉시 끊는다
-- [x] **게스트 공개 API** — 경로에 회의 id 가 없다. 전사·요약·업로드 라우트를 두지 않았다
-- [x] 게스트 뷰 `/share/:token` + Reviewer 공유 다이얼로그
-- [x] 마크다운 내보내기 (`GET /api/meetings/:id/export.md`)
-- [x] **적대적 검증** — 5개 렌즈로 44건 지적 → 반증 후 실제 결함만 수정 (아래)
-- [x] **공개 범위 설정 UI** — 4개 범위 · 친구 지정 · Contributor 지정 · **Reviewer 양도**
-- [x] **"나만" 함정 경고** — 서버는 Contributor 검사를 공개 범위보다 먼저 하므로 "나만" 으로 바꿔도 Contributor 는 계속 본다. 사용자는 비공개로 만들었다고 믿는다
+- [x] **Security hardening** (prerequisite for guest links — details in [10-porting-map.md](10-porting-map.md) B8–B10)
+  - [x] Client-supplied `audio_url` is no longer accepted. Presign chooses the key and records it in `storage_key`
+  - [x] Worker SSRF guard — must pass `Storage.own_object_url?/1` + `max_redirects: 0`
+  - [x] `audio_href` → `GET /api/sessions/:id/audio` → presigned GET 302 (Viewer gets 404)
+  - [x] Archive lock — upload · presign · transcription · transcript edits
+- [x] **Topic · Label CRUD** — schemas · context · REST · soft delete + detach · ordering · ownership validation
+- [x] **List query hardening** — `count_meetings/2` · explicit label array types · LIKE escaping · participant filter · offset
+- [x] **Archive filter search UI** — topic · label (AND/OR) · date range · participant · full-text · **URL query sync**
+- [x] Taxonomy management screen (`/app/taxonomy`)
+- [x] **`SharedLink`** — sha256 token hash · Bcrypt PIN · `granted_role` · one-time use · expiry · rotation
+- [x] **`GuestSession`** (new) — bound to exactly one meeting. Revocation, deactivation, and expiry cut it off immediately
+- [x] **Guest public API** — no meeting id in the paths. Transcription/summary/upload routes were never added
+- [x] Guest view `/share/:token` + Reviewer share dialog
+- [x] Markdown export (`GET /api/meetings/:id/export.md`)
+- [x] **Adversarial review** — 44 findings across 5 lenses → refuted each, fixed only the real defects (below)
+- [x] **Visibility settings UI** — 4 scopes · friend selection · Contributor selection · **Reviewer handover**
+- [x] **"Only me" trap warning** — the server checks Contributor before visibility, so switching to "Only me" still lets Contributors see the meeting. Users believe they made it private
 
-**적대적 검증에서 고친 것**
+**Fixed via the adversarial review**
 
-| 문제 | 고침 |
+| Problem | Fix |
 |---|---|
-| 공유 토큰이 URL 경로라 Phoenix 요청 로그에 **평문으로** 남았다 | `VR.LogRedactor` — 로거 앞단에서 `slt_`/`gst_` 를 가린다 |
-| PIN 5회 잠금이 read-modify-write 라 동시 요청에 무너졌다 | 증가와 잠금을 **한 UPDATE 문**으로 |
-| 로그인만 하면 `guest_link_enabled` 차단을 우회하고 1회성 링크를 태울 수 있었다 | 스위치는 로그인 여부와 무관. 권한 없는 계정은 익명과 동일 취급 |
-| 계정 진입 경로가 요청 본문을 버려 PIN·이름이 전달되지 않았다 (로그인한 제3자가 5번 두드려 링크를 15분 잠글 수 있었다) | `params` 를 그대로 전달 |
-| `is_active: false` 와 만료 단축이 이미 들어온 게스트를 못 끊었다 | `fetch_live_guest` 가 링크 상태를 매 요청 재확인 (소진은 예외 — 문서화된 정책) |
-| `speaker_map[].account_id` 가 게스트에게 나갔다 | 이름만 남기고 계정 id 제거 |
-| `X-Forwarded-For` 를 무조건 믿어 IP 잠금이 무력했다 | `app.trust_proxy_headers` 로 명시적으로 켤 때만 |
-| gitleaks 첫 allowlist 에 `targetRules` 가 없어 `docs/` 아래 **모든 규칙이 꺼져** 있었다 | 범용 규칙에만 적용. `slt_`/`gst_` 탐지 규칙 추가 |
+| Share tokens sat in URL paths, so Phoenix request logs kept them **in plaintext** | `VR.LogRedactor` — masks `slt_`/`gst_` ahead of the logger |
+| The 5-attempt PIN lockout was read-modify-write and collapsed under concurrent requests | Increment and lockout in **one UPDATE statement** |
+| Merely logging in bypassed the `guest_link_enabled` switch and could burn one-time links | The switch is independent of login state. Unauthorized accounts are treated like anonymous users |
+| The account entry path discarded the request body, so PIN and name never arrived (a logged-in third party could knock 5 times and lock the link for 15 minutes) | Pass `params` through unchanged |
+| `is_active: false` and shortened expiry could not cut off guests already inside | `fetch_live_guest` re-verifies link state on every request (exhaustion is the exception — documented policy) |
+| `speaker_map[].account_id` leaked to guests | Keep only the name; drop the account id |
+| `X-Forwarded-For` was trusted unconditionally, neutering IP lockouts | Only honored when `app.trust_proxy_headers` is explicitly enabled |
+| The first gitleaks allowlist lacked `targetRules`, so **every rule was disabled** under `docs/` | Applied only to generic rules. Added `slt_`/`gst_` detection rules |
 
-## M6 — 구독 · 크레딧  ✅ 완료
+## M6 — Subscription · Credits  ✅ Done
 
-| 항목 |
+| Item |
 |---|
 | Plan · PlanRevision · Subscription |
 | CreditLot · CreditLedgerEntry (FIFO · append-only) |
-| ServicePricing · ModelPricing + 전사/요약 사용량 기록 |
+| ServicePricing · ModelPricing + transcription/summary usage recording |
 | MonthlyGrantWorker · CreditExpiryWorker |
-| 어드민 — 플랜 · 크레딧 지급/회수 · 원장 · 감사 로그 |
-| 사용자 화면 — 잔액 · 사용 내역 |
-| Free 플랜 자동 구독 |
+| Admin — plans · credit grants/revocations · ledger · audit log |
+| User screens — balance · usage history |
+| Automatic Free plan subscription |
 
-**완료 기준**: 전사 1건 후 원장에 정확한 크레딧과 원가가 기록된다.
-잔액이 음수여도 서비스는 계속 동작한다.
+**Done when**: after one transcription, the ledger records the exact credits and cost.
+The service keeps working even with a negative balance.
 
-**진행 상황** — 전부 devkanban 이식 ([14-provenance.md](14-provenance.md#요금-정책--06-billingmd))
+**Progress** — all ported from devkanban ([14-provenance.md](14-provenance.md#billing-policy--06-billingmd))
 
-- [x] `Plan` · `PlanRevision` — 메타/상업 조건 분리, 리비전 핀 고정으로 그랜드파더링
-- [x] `Subscription` — 계정당 1개, 기간 관리
+- [x] `Plan` · `PlanRevision` — meta/commercial-terms split, revision pinning for grandfathering
+- [x] `Subscription` — one per account, period management
 - [x] `CreditLot` · `CreditLedgerEntry` — append-only, `Σ delta == Σ remaining`
-- [x] **FIFO 소비** — 만료 임박 → 무기한 → 삽입순, `FOR UPDATE` 잠금
-- [x] **오버드래프트** — 사후 계량은 잔액이 모자라도 기록한다
-- [x] `CreditConversionSetting` — 싱글턴 USD→크레딧, 올림
+- [x] **FIFO consumption** — expiring-soon → indefinite → insertion order, `FOR UPDATE` locking
+- [x] **Overdraft** — post-hoc metering records usage even when the balance falls short
+- [x] `CreditConversionSetting` — singleton USD→credit, rounded up
 - [x] `MonthlyGrantWorker` · `CreditExpiryWorker`
-- [x] 가입 시 무료 플랜 자동 구독 + 첫 기간 크레딧 지급
-- [x] 어드민 요금 화면 (`/_admin/billing`) — 환산율 · 리비전 발행
-- [x] 테마 4종 · 어드민 계정 관리 · MFA (앞선 작업)
-- [x] 테스트 223개
-- [x] 사용자 요금 화면 (`/app/billing`) — 잔액 · 남은 묶음 · **사용 내역 + 계산 근거**
-- [x] 전사·요약 워커에서 `charge_usage` 호출 (M3/M4 에서 연결됨)
+- [x] Automatic free plan subscription on signup + first-period credit grant
+- [x] Admin billing screen (`/_admin/billing`) — conversion rate · revision issuance
+- [x] 4 themes · admin account management · MFA (earlier work)
+- [x] 223 tests
+- [x] User billing screen (`/app/billing`) — balance · remaining lots · **usage history + calculation basis**
+- [x] `charge_usage` called from the transcription/summary workers (wired in M3/M4)
 
-## M7 — PWA · 마감  🔨 진행 중
+## M7 — PWA · Finishing  🔨 In progress
 
-| 항목 |
+| Item |
 |---|
-| manifest · 서비스 워커 · 설치 프롬프트 |
-| 푸시 알림 (전사/요약 완료) |
-| i18n 6개 언어 정리 |
-| 접근성 (`aria-live`, 색상 외 구분) |
-| **실기기 검증** — iOS Safari / Android Chrome 백그라운드 녹음 |
-| 오픈소스 준비 — README · LICENSE · CONTRIBUTING · 시크릿 최종 스캔 |
+| manifest · service worker · install prompt |
+| Push notifications (transcription/summary complete) |
+| i18n cleanup for 6 languages |
+| Accessibility (`aria-live`, non-color distinctions) |
+| **Real-device verification** — iOS Safari / Android Chrome background recording |
+| Open-source prep — README · LICENSE · CONTRIBUTING · final secret scan |
 
-**진행 상황**
+**Progress**
 
-- [x] **PWA** — manifest · 아이콘(192/512/maskable/apple-touch) · 서비스 워커 · 설치 배너
-- [x] **푸시 알림** — VAPID 구독 · 전사/요약 완료 시 발송 · 기기별 구독 관리
-- [x] 기기 설정 화면 (`/app/settings`) — 알림 · 홈 화면 추가 안내
-- [x] 접근성 — 녹음 상태 `aria-live` 안내 · 색상 외 구분(체크·굵기) · 화자 이름 병기
-- [x] 오픈소스 준비 — README 기능표 · CONTRIBUTING · SECURITY · 시크릿 스캔 0건
-- [ ] **LICENSE** — 라이선스 선택은 프로젝트 소유자의 결정이라 비워 둠
-- [ ] i18n 6개 언어 (아래)
-- [ ] 실기기 검증 (지금은 불가)
+- [x] **PWA** — manifest · icons (192/512/maskable/apple-touch) · service worker · install banner
+- [x] **Push notifications** — VAPID subscriptions · sent on transcription/summary completion · per-device subscription management
+- [x] Device settings screen (`/app/settings`) — notifications · add-to-home-screen guidance
+- [x] Accessibility — `aria-live` announcements for recording state · non-color distinctions (checkmarks · weight) · speaker names alongside colors
+- [x] Open-source prep — README feature table · CONTRIBUTING · SECURITY · zero findings in secret scan
+- [ ] **LICENSE** — left empty; choosing a license is the project owner's decision
+- [ ] i18n for 6 languages (below)
+- [ ] Real-device verification (not currently possible)
 
-### 서비스 워커에서 조심한 것
+### What the service worker is careful about
 
-녹음 앱이라 잘못 캐시하면 회의가 날아간다. 범위를 좁게 잡았다.
+This is a recording app — a bad cache can lose a meeting. The scope is deliberately narrow.
 
-| 규칙 | 왜 |
+| Rule | Why |
 |---|---|
-| `/api/` 는 **절대** 가로채지 않는다 | 인증 걸린 응답을 캐시하면 로그아웃 뒤에도 남의 회의록이 보인다 |
-| GET 이 아니면 손대지 않는다 | S3 presigned PUT 이 서비스 워커를 거치면 서명이 어긋난다 |
-| 해시 붙은 자산만 캐시 우선 | 이름이 같은데 내용이 바뀌는 파일을 캐시하면 사용자가 옛 코드에 갇힌다 |
-| 셸은 네트워크 우선 | 새 배포를 즉시 받는다. 오프라인일 때만 캐시로 떨어진다 |
+| **Never** intercept `/api/` | Caching authenticated responses shows someone else's meeting notes even after logout |
+| Never touch non-GET requests | An S3 presigned PUT that passes through the service worker breaks the signature |
+| Cache-first only for hashed assets | Caching files whose names stay the same while content changes traps users on old code |
+| Network-first for the shell | New deployments arrive immediately. Falls back to cache only when offline |
 
-### i18n 이 남은 이유
+### Why i18n is still open
 
-문자열이 **488개 / 31개 파일**이다. 기계적으로 옮기는 것은 가능하지만
-ja · es · zh_CN · zh_TW 번역은 원어민 검토 없이는 제품에 넣을 품질이 안 된다.
-절반만 키로 바꾸면 sisyphus 가 비판받던 "하드코딩과 키가 섞인" 상태가 되므로,
-**한 번에 끝내는 별도 작업**으로 둔다.
+There are **488 strings across 31 files.** A mechanical migration is possible, but
+the ja · es · zh_CN · zh_TW translations aren't product quality without native-speaker
+review. Converting only half the strings to keys would recreate the "hardcoded strings
+mixed with keys" state sisyphus was criticized for, so this stays a **separate,
+do-it-all-at-once task.**
 
-인프라 준비는 돼 있다 — 계정에 `locale` 필드(6개 언어)가 있고
-`packages/core` 가 프레임워크 비의존이라 번역 계층을 넣을 자리가 있다.
+The infrastructure is ready — accounts have a `locale` field (6 languages) and
+`packages/core` is framework-independent, so there's a natural place for a translation layer.
 
 ---
 
-## 리스크
+## Risks
 
-| # | 리스크 | 영향 | 대응 |
+| # | Risk | Impact | Response |
 |---|---|---|---|
-| R1 | **모바일 백그라운드에서 녹음 중단** | 긴 회의 유실 | M2에서 조기 실기기 테스트. 화면 꺼짐 방지(Wake Lock), 주기적 부분 저장, 중단 감지 시 즉시 세션 마감 |
-| R2 | iOS Safari의 MediaRecorder 제약 | 포맷·동작 차이 | mp4/aac 폴백 유지. 초기부터 실기기 검증 |
-| R3 | STT 폴링 30분 초과 | 긴 오디오 실패 | 분할 임계값(20분) 준수, 폴링 상한 조정 가능하게 |
-| R4 | FFmpeg 미설치 | 20분 초과 전사 전부 실패 | 부팅 시 바이너리 존재 확인 + 어드민 경고 배너 |
-| R5 | LLM 출력 스키마 위반 | 요약 파싱 실패 | 구조화 출력 강제 + 검증 실패 시 1회 재시도 후 `summary_failed` |
-| R6 | 화자분리 정확도 | 사용자 수동 교정 부담 | 세그먼트 단위 교정 UI가 핵심 완화책. 단축키 제공 |
-| R7 | 한국어 전문검색 품질 | 아카이브 검색 부실 | `pg_bigm`/trigram 우선 검증. 부족하면 별도 인덱싱 검토 |
-| R8 | 크레딧 원장 중복 기록 | 집계 오류 | `idempotency_key` unique 제약. 워커 재시도 안전성 테스트 |
+| R1 | **Recording stops in the mobile background** | Long meetings lost | Early real-device testing in M2. Keep-screen-on (Wake Lock), periodic partial saves, close the session immediately on interruption detection |
+| R2 | iOS Safari MediaRecorder restrictions | Format/behavior differences | Keep the mp4/aac fallback. Real-device verification from the start |
+| R3 | STT polling exceeding 30 minutes | Long audio fails | Respect the split threshold (20 minutes), make the polling cap adjustable |
+| R4 | FFmpeg not installed | Every transcription over 20 minutes fails | Binary presence check at boot + admin warning banner |
+| R5 | LLM output schema violations | Summary parsing fails | Enforce structured output + one retry on validation failure, then `summary_failed` |
+| R6 | Speaker diarization accuracy | Manual correction burden on users | Per-segment correction UI is the key mitigation. Provide keyboard shortcuts |
+| R7 | Korean full-text search quality | Weak archive search | Validate `pg_bigm`/trigram first. Consider separate indexing if insufficient |
+| R8 | Duplicate credit ledger entries | Aggregation errors | `idempotency_key` unique constraint. Worker retry safety tests |
 
 ---
 
-## 검증 우선순위
+## Verification priorities
 
-기능이 아니라 **불확실성**이 큰 것부터 확인한다.
+Verify by **uncertainty**, not by feature.
 
-1. **M2에서 모바일 실기기 녹음** — 여기서 막히면 제품 전제가 흔들린다 (R1, R2)
-2. **M3에서 20분 초과 분할 전사** — 파이프라인에서 가장 복잡한 경로 (R3, R4)
-3. **M4에서 요약 출처 점프** — 핵심 UX가 실제로 성립하는지 (R5)
-4. 나머지는 이식 위주라 상대적으로 예측 가능하다
+1. **Mobile real-device recording in M2** — a failure here shakes the product's premise (R1, R2)
+2. **Split transcription over 20 minutes in M3** — the most complex path in the pipeline (R3, R4)
+3. **Summary source jump in M4** — whether the core UX actually holds (R5)
+4. The rest is mostly porting and therefore comparatively predictable

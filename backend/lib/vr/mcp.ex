@@ -1,14 +1,14 @@
 defmodule VR.MCP do
   @moduledoc """
-  우리 MCP 서버 — **외부가 우리 아카이브를 읽는 쪽**.
+  Our MCP server — **the side where external parties read our archive**.
 
-  반대 방향(우리가 칼라에게 보내는 것)은 `VR.Khala` 다.
-  설계는 [`docs/15-mcp-khala.md`](../../docs/15-mcp-khala.md).
+  The opposite direction (us sending to Khala) is `VR.Khala`.
+  Design notes: [`docs/15-mcp-khala.md`](../../docs/15-mcp-khala.md).
 
-  ## 토큰
+  ## Tokens
 
-  평문은 발급 순간에만 존재하고 해시만 저장한다 (`VR.MCP.Token`).
-  조회는 늘 해시로 한다.
+  The plaintext exists only at the moment of issuance; only the hash is stored
+  (`VR.MCP.Token`). Lookups are always by hash.
   """
 
   import Ecto.Query
@@ -16,7 +16,7 @@ defmodule VR.MCP do
   alias VR.MCP.Token
   alias VR.Repo
 
-  @doc "새 토큰. `{평문, 토큰}` — 평문은 다시 구할 수 없다."
+  @doc "A new token. `{plaintext, token}` — the plaintext can never be recovered."
   def issue_token(account_id, attrs \\ %{}) do
     {plain, changeset} = Token.build(account_id, attrs)
 
@@ -26,7 +26,7 @@ defmodule VR.MCP do
     end
   end
 
-  @doc "이 계정의 살아 있는 토큰들. 평문은 없다."
+  @doc "The live tokens for this account. No plaintext."
   def list_tokens(account_id) do
     Repo.all(
       from t in Token,
@@ -35,7 +35,7 @@ defmodule VR.MCP do
     )
   end
 
-  @doc "토큰을 끊는다. 행은 남긴다 — 언제 끊었는지가 기록이다."
+  @doc "Revoke a token. The row is kept — when it was revoked is part of the record."
   def revoke_token(account_id, id) do
     case Repo.one(from t in Token, where: t.id == ^id and t.account_id == ^account_id) do
       nil ->
@@ -47,10 +47,10 @@ defmodule VR.MCP do
   end
 
   @doc """
-  평문 토큰으로 계정을 찾는다.
+  Find the account for a plaintext token.
 
-  **만료·취소된 토큰은 없는 것과 같다.** 왜 거절됐는지 구분해 알려주지 않는다 —
-  구분하면 "그 토큰은 있었다"는 사실이 새어 나간다.
+  **An expired or revoked token is treated as nonexistent.** We do not say why
+  it was rejected — distinguishing would leak the fact that "that token existed".
   """
   def authenticate(plain) when is_binary(plain) do
     hash = Token.hash(plain)
@@ -66,8 +66,8 @@ defmodule VR.MCP do
         :error
 
       token ->
-        # 마지막 사용 시각은 기록해 둔다. 안 쓰는 토큰을 지울 근거가 된다.
-        # 실패해도 인증을 막지 않는다.
+        # Record the last-used time. It becomes the basis for pruning unused tokens.
+        # Failure here does not block authentication.
         _ =
           Repo.update_all(from(t in Token, where: t.id == ^token.id),
             set: [last_used_at: DateTime.utc_now(:second)]

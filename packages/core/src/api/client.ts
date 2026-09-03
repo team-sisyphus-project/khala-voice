@@ -31,7 +31,7 @@ export class ApiRequestError extends Error {
     this.fieldErrors = fieldErrors;
   }
 
-  /** 다시 시도해볼 만한 오류인가. 4xx 는 재시도해도 같은 결과다. */
+  /** Is this error worth retrying? A 4xx gives the same result on retry. */
   get retryable(): boolean {
     return this.status === 0 || this.status === 408 || this.status === 429 || this.status >= 500;
   }
@@ -39,15 +39,15 @@ export class ApiRequestError extends Error {
 
 export interface ApiClientOptions {
   baseUrl?: string;
-  /** CSRF 토큰. Phoenix 가 meta 태그로 넣어준다 */
+  /** CSRF token. Phoenix injects it via a meta tag */
   csrfToken?: string;
 }
 
 /**
- * 타입 있는 API 클라이언트.
+ * Typed API client.
  *
- * 세션 쿠키로 인증한다 (`credentials: "same-origin"`).
- * 토큰을 JS 가 들고 있지 않으므로 XSS 로 세션이 새지 않는다.
+ * Authenticates with the session cookie (`credentials: "same-origin"`).
+ * JS never holds a token, so XSS cannot leak the session.
  */
 export class ApiClient {
   #baseUrl: string;
@@ -60,23 +60,24 @@ export class ApiClient {
       document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
   }
 
-  // ── 계정 ───────────────────────────────────────────────
+  // ── Account ────────────────────────────────────────────
 
   me(): Promise<CurrentAccount> {
     return this.#request("GET", "/api/me");
   }
 
-  /** 기본 전사 언어. `null` 이면 자동(브라우저 언어)으로 되돌린다. */
+  /** Default transcription language. `null` reverts to auto (browser language). */
   /**
-   * 지금 이 기기에서 로그아웃한다. 다른 기기는 그대로 둔다.
+   * Logs out this device only. Other devices are left alone.
    *
-   * 성공하면 세션이 없어지므로 **호출한 쪽이 로그인 화면으로 보내야 한다.**
+   * On success the session is gone, so **the caller must redirect to the
+   * sign-in screen.**
    */
   logout(): Promise<void> {
     return this.#request("DELETE", "/api/me/session");
   }
 
-  // ── 칼라 연동 ──────────────────────────────────────────
+  // ── Khala integration ──────────────────────────────────
 
   khalaStatus(): Promise<KhalaStatus> {
     return this.#request("GET", "/api/khala");
@@ -90,7 +91,7 @@ export class ApiClient {
     return this.#request("DELETE", "/api/khala");
   }
 
-  /** 회의를 칼라 인박스로 보낸다. Reviewer 만 할 수 있다 — 서버가 다시 판정한다. */
+  /** Sends a meeting to a Khala inbox. Reviewer only — the server re-checks. */
   sendMeetingToKhala(
     meetingId: string,
     body: { recipient_inbox_code: string; attach_transcript?: boolean },
@@ -102,13 +103,13 @@ export class ApiClient {
     );
   }
 
-  // ── MCP 읽기 토큰 ──────────────────────────────────────
+  // ── MCP read tokens ────────────────────────────────────
 
   mcpTokens(): Promise<{ tokens: MCPToken[] }> {
     return this.#request("GET", "/api/mcp-tokens");
   }
 
-  /** 평문 토큰은 **이 응답에만** 들어 있다. */
+  /** The plaintext token appears **only in this response**. */
   createMCPToken(body: { name: string }): Promise<MCPTokenIssued> {
     return this.#request("POST", "/api/mcp-tokens", body);
   }
@@ -127,22 +128,24 @@ export class ApiClient {
     return this.#request("PATCH", "/api/me/theme", { theme });
   }
 
-  /** UI 표시 언어를 바꾼다. 전사 언어와 별개다. */
+  /** Changes the UI display language. Separate from the transcription language. */
   updateLocale(locale: string): Promise<CurrentAccount> {
     return this.#request("PATCH", "/api/me/locale", { locale });
   }
 
-  /** 친구 목록. 화자를 사람에 연결할 때 쓴다. */
+  /** Friend list. Used when linking speakers to people. */
   friends(): Promise<{ friends: Friend[] }> {
     return this.#request("GET", "/api/friends");
   }
 
-  // ── 회의 ───────────────────────────────────────────────
+  // ── Meetings ───────────────────────────────────────────
 
   /**
-   * 회의 목록. `total` 은 필터에 걸린 **전체** 개수다 (이 페이지 개수가 아니다).
+   * Meeting list. `total` is the **overall** count matching the filter
+   * (not this page's count).
    *
-   * `label_ids` 는 쉼표로 잇는다. 서버가 배열도 받지만 URL 쿼리로는 문자열이 자연스럽다.
+   * `label_ids` is comma-joined. The server accepts arrays too, but a string
+   * is more natural in a URL query.
    */
   listMeetings(
     params: Record<string, string | undefined> = {},
@@ -154,15 +157,15 @@ export class ApiClient {
     return this.#request("GET", `/api/meetings${suffix}`);
   }
 
-  /** 이 회의에 붙일 수 있는 분류 — **회의 owner 의 것**이다 */
+  /** Taxonomy attachable to this meeting — it belongs to the **meeting owner** */
   meetingTaxonomy(id: string): Promise<{ topics: Topic[]; labels: Label[] }> {
     return this.#request("GET", `/api/meetings/${encodeURIComponent(id)}/taxonomy`);
   }
 
   /**
-   * 공개 범위 · Reviewer · Contributor · 게스트 스위치. **Reviewer 만.**
+   * View scope · reviewer · contributors · guest switch. **Reviewer only.**
    *
-   * `permissions` 는 **통째로 교체된다.** 일부만 보내면 나머지가 지워진다.
+   * `permissions` is **replaced wholesale.** Sending part of it wipes the rest.
    */
   updateMeetingPermissions(
     id: string,
@@ -176,19 +179,19 @@ export class ApiClient {
     return this.#request("PATCH", `/api/meetings/${encodeURIComponent(id)}/permissions`, body);
   }
 
-  /** 내 요금 상태. 계정 id 를 보내지 않는다 — 서버가 세션에서 안다 */
+  /** My billing status. No account id is sent — the server knows it from the session */
   billing(limit?: number): Promise<BillingSummary> {
     const suffix = limit ? `?limit=${limit}` : "";
     return this.#request("GET", `/api/me/billing${suffix}`);
   }
 
-  // ── 웹 푸시 ──────────────────────────────────────────────
+  // ── Web push ─────────────────────────────────────────────
 
   pushStatus(): Promise<{ enabled: boolean; public_key: string | null; subscriptions: number }> {
     return this.#request("GET", "/api/me/push");
   }
 
-  /** 브라우저의 `PushSubscription.toJSON()` 을 그대로 보낸다 */
+  /** Sends the browser's `PushSubscription.toJSON()` as-is */
   subscribePush(subscription: unknown): Promise<void> {
     return this.#request("POST", "/api/me/push", subscription);
   }
@@ -197,13 +200,13 @@ export class ApiClient {
     return this.#request("DELETE", "/api/me/push", { endpoint });
   }
 
-  // ── 공유 링크 (Reviewer) ─────────────────────────────────
+  // ── Share links (Reviewer) ───────────────────────────────
 
   listShareLinks(meetingId: string): Promise<{ share_links: SharedLink[] }> {
     return this.#request("GET", `/api/meetings/${encodeURIComponent(meetingId)}/share-links`);
   }
 
-  /** 응답의 `url` 과 `pincode` 는 **이때 한 번만** 온다 */
+  /** The response's `url` and `pincode` arrive **only this once** */
   createShareLink(
     meetingId: string,
     body: {
@@ -222,7 +225,7 @@ export class ApiClient {
     return this.#request("PATCH", `/api/share-links/${encodeURIComponent(id)}`, body);
   }
 
-  /** 주소를 잃어버렸을 때. 기존 URL 이 즉시 무효가 된다 */
+  /** For a lost address. The old URL becomes invalid immediately */
   rotateShareLink(id: string): Promise<SharedLink> {
     return this.#request("POST", `/api/share-links/${encodeURIComponent(id)}/rotate`, {});
   }
@@ -231,12 +234,12 @@ export class ApiClient {
     return this.#request("POST", `/api/share-links/${encodeURIComponent(id)}/pincode`, { enabled });
   }
 
-  /** 폐기. **이 링크로 들어와 있는 게스트도 즉시 끊긴다** */
+  /** Revoke. **Guests currently in via this link are cut off immediately** */
   deleteShareLink(id: string): Promise<void> {
     return this.#request("DELETE", `/api/share-links/${encodeURIComponent(id)}`);
   }
 
-  // ── 분류 ─────────────────────────────────────────────────
+  // ── Taxonomy ─────────────────────────────────────────────
 
   listTopics(): Promise<{ topics: Topic[] }> {
     return this.#request("GET", "/api/topics");
@@ -250,12 +253,12 @@ export class ApiClient {
     return this.#request("PATCH", `/api/topics/${encodeURIComponent(id)}`, body);
   }
 
-  /** 지우면 쓰던 회의에서 떨어진다. 몇 개가 풀렸는지 돌려준다 */
+  /** Deleting detaches it from meetings that used it. Returns how many were detached */
   deleteTopic(id: string): Promise<{ status: string; detached_meetings: number }> {
     return this.#request("DELETE", `/api/topics/${encodeURIComponent(id)}`);
   }
 
-  /** **전체 목록을 통째로** 보낸다. 일부만 보내면 서버가 거부한다 */
+  /** Sends **the entire list wholesale.** The server rejects partial lists */
   reorderTopics(ids: string[]): Promise<{ topics: Topic[] }> {
     return this.#request("PATCH", "/api/topics/reorder", { ids });
   }
@@ -296,7 +299,7 @@ export class ApiClient {
     return this.#request("DELETE", `/api/meetings/${encodeURIComponent(id)}`);
   }
 
-  // ── 녹음 세션 ──────────────────────────────────────────
+  // ── Recording sessions ─────────────────────────────────
 
   createSession(
     meetingId: string,
@@ -313,10 +316,11 @@ export class ApiClient {
   }
 
   /**
-   * 업로드 완료를 알린다.
+   * Reports upload completion.
    *
-   * **주소를 보내지 않는다.** 저장 위치는 presign 단계에서 서버가 정했다 —
-   * 클라이언트가 준 주소를 서버가 그대로 받아 내려받으면 SSRF 가 된다.
+   * **No URL is sent.** The server chose the storage location at presign
+   * time — if the server downloaded from a client-supplied URL as-is,
+   * that would be SSRF.
    */
   registerUpload(
     sessionId: string,
@@ -329,18 +333,18 @@ export class ApiClient {
     return this.#request("POST", `/api/sessions/${encodeURIComponent(sessionId)}/upload`, body);
   }
 
-  /** 전사를 시작한다. 큐잉만 하고 즉시 돌아온다 — 완료는 폴링으로 확인한다. */
+  /** Starts transcription. Only enqueues and returns immediately — poll for completion. */
   transcribeSession(sessionId: string): Promise<RecordingSession> {
     return this.#request("POST", `/api/sessions/${encodeURIComponent(sessionId)}/transcribe`);
   }
 
   /**
-   * 화자 매핑 또는 전사 본문을 갱신한다.
+   * Updates the speaker mapping or the transcript body.
    *
-   * 둘 다 같은 엔드포인트다 — 화자 칩 변경은 `speaker_map`,
-   * 세그먼트 변경·텍스트 편집은 `transcript` 를 보낸다.
+   * Both use the same endpoint — speaker chip changes send `speaker_map`,
+   * segment changes and text edits send `transcript`.
    */
-  /** 요약을 다시 만든다. 큐잉만 하고 바로 돌아온다 — 완료는 폴링으로 확인한다 */
+  /** Regenerates the summary. Only enqueues and returns right away — poll for completion */
   summarize(meetingId: string): Promise<{ status: string; meeting_id: string }> {
     return this.#request("POST", `/api/meetings/${encodeURIComponent(meetingId)}/summarize`, {});
   }
@@ -356,7 +360,7 @@ export class ApiClient {
     return this.#request("DELETE", `/api/sessions/${encodeURIComponent(sessionId)}`);
   }
 
-  // ── 내부 ───────────────────────────────────────────────
+  // ── Internal ───────────────────────────────────────────
 
   async #request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const headers: Record<string, string> = { Accept: "application/json" };
@@ -374,8 +378,8 @@ export class ApiClient {
         body: body === undefined ? undefined : JSON.stringify(body),
       });
     } catch {
-      // 네트워크 자체가 실패한 경우. status 0 으로 재시도 가능 표시.
-      throw new ApiRequestError(0, "network_error", "네트워크에 연결할 수 없습니다");
+      // The network itself failed. status 0 marks it retryable.
+      throw new ApiRequestError(0, "network_error", "Could not reach the network");
     }
 
     if (response.status === 204) return undefined as T;
@@ -385,7 +389,7 @@ export class ApiClient {
 
     if (!response.ok) {
       const code = (payload as { code?: string })?.code ?? "unknown";
-      const message = (payload as { message?: string })?.message ?? `요청 실패 (${response.status})`;
+      const message = (payload as { message?: string })?.message ?? `Request failed (${response.status})`;
       const fieldErrors = (payload as { errors?: Record<string, string[]> })?.errors;
       throw new ApiRequestError(response.status, code, message, fieldErrors);
     }

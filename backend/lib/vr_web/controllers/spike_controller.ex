@@ -1,9 +1,10 @@
 defmodule VRWeb.SpikeController do
   @moduledoc """
-  실기기 검증용 스파이크 페이지.
+  Spike page for real-device verification.
 
-  **개발 환경에서만 열린다.** 로그인도 요구하지 않는다 —
-  폰에서 로그인 흐름까지 태우면 검증하려는 것(녹음 자체)이 흐려진다.
+  **Only available in the dev environment.** It requires no sign-in either —
+  pushing a phone through the sign-in flow would blur what we're actually
+  verifying (the recording itself).
   """
 
   use VRWeb, :controller

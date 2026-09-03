@@ -1,9 +1,10 @@
 defmodule VRWeb.AuthLive.ForgotPasswordLive do
   @moduledoc """
-  비밀번호 재설정 요청.
+  Password reset request.
 
-  **계정이 있든 없든 같은 메시지를 보여준다.** 여기서 응답이 갈리면
-  이메일 주소로 가입 여부를 확인하는 도구가 되어버린다.
+  **Shows the same message whether the account exists or not.** If the response
+  differed here, this screen would become a tool for checking whether an email
+  address is registered.
   """
 
   use VRWeb, :live_view

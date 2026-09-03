@@ -1,16 +1,17 @@
 defmodule VRWeb.KhalaController do
   @moduledoc """
-  칼라 계정 연결 — OAuth 2.0 인가 코드 흐름(PKCE).
+  Khala account linking — OAuth 2.0 authorization code flow (PKCE).
 
-  브라우저가 왕복하는 부분만 여기 있다. 토큰을 쓰는 일은 `VR.Khala` 가 한다.
+  Only the browser round-trip lives here. Using the tokens is `VR.Khala`'s job.
 
-  ## 세션에 담는 것
+  ## What goes in the session
 
-  PKCE 검증자와 `state` 를 세션에 담는다. **쿠키가 아니라 세션이다** —
-  검증자가 새어 나가면 PKCE 가 지켜 주는 것이 없어진다.
+  The PKCE verifier and `state` are stored in the session. **The session, not a
+  cookie** — if the verifier leaks, PKCE no longer protects anything.
 
-  `state` 는 CSRF 방어다. 콜백으로 돌아온 값이 우리가 보낸 것과 다르면
-  누군가 우리 사용자를 남의 인가 코드로 연결하려는 것이다.
+  `state` is the CSRF defense. If the value that comes back on the callback
+  differs from the one we sent, someone is trying to link our user to somebody
+  else's authorization code.
   """
 
   use VRWeb, :controller
@@ -20,7 +21,7 @@ defmodule VRWeb.KhalaController do
   alias VR.Khala
   alias VR.Khala.OAuth
 
-  @doc "칼라 로그인으로 보낸다."
+  @doc "Redirects to the Khala sign-in page."
   def connect(conn, _params) do
     redirect_uri = callback_url(conn)
 
@@ -37,18 +38,18 @@ defmodule VRWeb.KhalaController do
       |> redirect(external: OAuth.authorize_url(meta, client_id, redirect_uri, challenge, state))
     else
       :disabled ->
-        conn |> put_flash(:error, "칼라 연동이 꺼져 있습니다") |> redirect(to: "/go/settings")
+        conn |> put_flash(:error, "Khala integration is disabled") |> redirect(to: "/go/settings")
 
       {:error, reason} ->
-        Logger.warning("[Khala] 연결 시작 실패: #{inspect(reason)}")
+        Logger.warning("[Khala] failed to start connection: #{inspect(reason)}")
 
         conn
-        |> put_flash(:error, "칼라에 연결하지 못했습니다")
+        |> put_flash(:error, "Could not connect to Khala")
         |> redirect(to: "/go/settings")
     end
   end
 
-  @doc "칼라가 되돌려 보낸다."
+  @doc "Handles the redirect back from Khala."
   def callback(conn, params) do
     account = conn.assigns.current_account
     expected = get_session(conn, :khala_state)
@@ -59,15 +60,15 @@ defmodule VRWeb.KhalaController do
 
     cond do
       params["error"] ->
-        # 사용자가 거절했을 수도 있다. 오류로 겁주지 않는다.
-        conn |> put_flash(:info, "칼라 연결을 취소했습니다") |> redirect(to: "/go/settings")
+        # The user may simply have declined. Don't alarm them with an error.
+        conn |> put_flash(:info, "Khala connection was cancelled") |> redirect(to: "/go/settings")
 
       is_nil(expected) or params["state"] != expected ->
-        # 우리가 시작하지 않은 콜백이다
-        conn |> put_flash(:error, "연결 요청이 만료되었습니다") |> redirect(to: "/go/settings")
+        # A callback we did not initiate
+        conn |> put_flash(:error, "The connection request has expired") |> redirect(to: "/go/settings")
 
       is_nil(params["code"]) or is_nil(verifier) or is_nil(client_id) ->
-        conn |> put_flash(:error, "칼라에 연결하지 못했습니다") |> redirect(to: "/go/settings")
+        conn |> put_flash(:error, "Could not connect to Khala") |> redirect(to: "/go/settings")
 
       true ->
         finish(conn, account, client_id, params["code"], verifier)
@@ -78,17 +79,18 @@ defmodule VRWeb.KhalaController do
     with {:ok, meta} <- OAuth.discover(),
          {:ok, tokens} <- OAuth.exchange(meta, client_id, code, verifier, callback_url(conn)),
          {:ok, _connection} <- Khala.connect(account.id, client_id, tokens) do
-      # 인박스는 첫 발송 때 만들어도 되지만, 여기서 만들어 두면 설정 화면이
-      # 바로 "연결됨 · 인박스 이름"을 보여줄 수 있다. 실패해도 연결은 유효하다.
+      # The inbox could be created on first send, but creating it here lets the
+      # settings screen show "Connected · inbox name" right away. The connection
+      # remains valid even if this fails.
       _ = Khala.ensure_inbox(account.id)
 
-      conn |> put_flash(:info, "칼라에 연결했습니다") |> redirect(to: "/go/settings")
+      conn |> put_flash(:info, "Connected to Khala") |> redirect(to: "/go/settings")
     else
       {:error, reason} ->
-        Logger.warning("[Khala] 토큰 교환 실패: #{inspect(reason)}")
+        Logger.warning("[Khala] token exchange failed: #{inspect(reason)}")
 
         conn
-        |> put_flash(:error, "칼라에 연결하지 못했습니다")
+        |> put_flash(:error, "Could not connect to Khala")
         |> redirect(to: "/go/settings")
     end
   end
@@ -100,6 +102,6 @@ defmodule VRWeb.KhalaController do
     |> delete_session(:khala_client_id)
   end
 
-  # 칼라에 등록한 것과 인가 요청에 쓰는 것이 **같아야** 한다.
+  # The URL registered with Khala and the one used in the authorization request **must match**.
   defp callback_url(_conn), do: url(~p"/khala/callback")
 end

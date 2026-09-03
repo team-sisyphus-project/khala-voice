@@ -1,35 +1,39 @@
 /**
- * **출처: devkanban** `mobile/src/press.ts` — 그대로 가져왔다.
+ * **Source: devkanban** `mobile/src/press.ts` — brought over verbatim.
  *
- * 버튼의 누름 반응 · 헤더 표현 · 인풋 · 모달의 표현 방식을 그대로 쓰기 위해
- * 마크업(클래스 이름)까지 원본과 같게 둔다. CSS 가 이 이름에 걸려 있다.
+ * To reuse the button press feedback, header treatment, inputs, and modal
+ * styling as-is, even the markup (class names) matches the original. The CSS
+ * is keyed to these names.
  */
 
 /**
- * 누름 상태 추적 — 손가락이 닿아 있는 동안 그 컨트롤에 `data-pressed`를 건다.
- * 그림은 전부 CSS(`styles/press.css`)가 그리고, 여기서는 **언제 켜고 끄는가**만
- * 정한다.
+ * Press-state tracking — while a finger is down, the control gets
+ * `data-pressed`. All the drawing is done by CSS (`styles/press.css`); here we
+ * only decide **when it turns on and off**.
  *
- * 왜 `:active`를 안 쓰는가:
+ * Why not `:active`:
  *
- *   1. iOS 사파리는 `:active`를 컨트롤에 인색하게 준다 — 요소나 조상에 터치
- *      리스너가 없으면 아예 안 붙는 경우가 있어서, 같은 버튼이 기기마다 다르게
- *      반응한다.
- *   2. **스크롤을 시작해도 안 풀리는 구간**이 있다. 목록을 훑으려고 행에 손을
- *      댄 채 밀면 그 행이 눌린 채로 남아, 스크롤이 끝난 뒤에도 하나가 밝게 떠
- *      있다. 여기서는 `pointercancel`과 스크롤 양쪽으로 푼다.
- *   3. 손가락을 컨트롤 **밖으로 끌면** 네이티브는 즉시 하이라이트를 지우는데,
- *      터치 포인터는 암묵적 캡처라 `pointerleave`가 오지 않는다. 좌표로 직접
- *      판정한다(아래 `withinTarget`).
+ *   1. iOS Safari grants `:active` to controls stingily — without a touch
+ *      listener on the element or an ancestor it sometimes never applies, so
+ *      the same button reacts differently across devices.
+ *   2. There's a window where **starting to scroll doesn't release it**. Rest
+ *      a finger on a row to skim the list and push, and that row stays
+ *      pressed, one item glowing even after the scroll ends. Here we release
+ *      on both `pointercancel` and scroll.
+ *   3. Drag the finger **off the control** and native UIs clear the highlight
+ *      immediately, but touch pointers have implicit capture so
+ *      `pointerleave` never fires. We judge by coordinates instead
+ *      (`withinTarget` below).
  *
- * 대상은 선택자 하나로 정한다 — 컴포넌트마다 속성을 달지 않는다. 세기(얼마나
- * 커지는가)만 CSS 변수로 컴포넌트가 고른다. 빼려면 `data-press="off"`.
+ * Targets are defined by a single selector — no per-component attributes.
+ * Components only choose the intensity (how much it grows) via a CSS
+ * variable. Opt out with `data-press="off"`.
  */
 
 const PRESSABLE = 'button, [role="button"], a[href], summary, [data-press]'
 
-// 손가락이 이만큼 벗어나면 누름을 푼다. 0이면 경계에서 미세하게 떨 때
-// 깜빡이고, 너무 크면 이미 스크롤 중인데 계속 눌려 보인다.
+// Release the press once the finger strays this far. At 0 it flickers on tiny
+// jitters at the boundary; too large and it still looks pressed mid-scroll.
 const SLOP_PX = 12
 
 let pressed: HTMLElement | null = null
@@ -47,7 +51,7 @@ function pressableFrom(target: EventTarget | null): HTMLElement | null {
     return null
   }
 
-  // 비활성 컨트롤은 눌리지 않는다 — 반응하면 "먹혔다"고 읽힌다.
+  // Disabled controls don't press — reacting would read as "it registered".
   if (found.matches(":disabled") || found.getAttribute("aria-disabled") === "true") {
     return null
   }
@@ -80,7 +84,7 @@ function withinTarget(event: PointerEvent) {
 }
 
 function onPointerDown(event: PointerEvent) {
-  // 주 버튼(터치·펜·좌클릭)만. 우클릭·보조 버튼은 누름 연출 대상이 아니다.
+  // Primary button only (touch, pen, left-click). Right/auxiliary clicks get no press effect.
   if (!event.isPrimary || (event.pointerType === "mouse" && event.button !== 0)) {
     return
   }
@@ -111,9 +115,9 @@ function onPointerEnd(event: PointerEvent) {
 }
 
 /**
- * 앱 수명 동안 한 번 설치한다. 리스너는 전부 **캡처 단계**다 — 중간에서
- * `stopPropagation()`하는 핸들러가 있어도 누름 해제는 반드시 도달해야 한다
- * (안 그러면 컨트롤 하나가 눌린 채 영구히 남는다).
+ * Installed once for the app's lifetime. All listeners are in the **capture
+ * phase** — even with a `stopPropagation()` handler in between, the press
+ * release must get through (otherwise a control stays pressed forever).
  */
 export function installPressFeedback() {
   if (installed || typeof document === "undefined") {
@@ -128,10 +132,11 @@ export function installPressFeedback() {
   document.addEventListener("pointermove", onPointerMove, passive)
   document.addEventListener("pointerup", onPointerEnd, passive)
   document.addEventListener("pointercancel", onPointerEnd, passive)
-  // 스크롤이 시작되면 그건 누름이 아니라 훑기다. `pointercancel`이 오지 않는
-  // 브라우저를 위한 두 번째 그물이라 요소별이 아니라 문서 캡처로 받는다.
+  // Once scrolling starts, it's a skim, not a press. This is the second net for
+  // browsers that don't fire `pointercancel`, so it's a document-level capture
+  // listener, not per-element.
   document.addEventListener("scroll", release, passive)
-  // 탭 전환·시스템 시트로 화면이 넘어가면 pointerup이 영영 안 온다.
+  // Tab switches and system sheets take over the screen, and pointerup never arrives.
   document.addEventListener("visibilitychange", release)
   window.addEventListener("blur", release)
   document.addEventListener("contextmenu", release, { capture: true })

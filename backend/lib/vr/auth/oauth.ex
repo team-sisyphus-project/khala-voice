@@ -1,15 +1,16 @@
 defmodule VR.Auth.OAuth do
   @moduledoc """
-  OAuth 2.0 Authorization Code 흐름.
+  OAuth 2.0 Authorization Code flow.
 
-  제공자별 엔드포인트만 여기서 알고, 키·활성화 여부는 `VR.Auth.Providers`(DB)가 정한다.
-  라이브러리를 쓰지 않는 이유: 제공자 목록과 키를 **런타임에 DB에서** 바꿔야 하는데
-  대부분의 OAuth 라이브러리는 컴파일 타임 설정을 전제로 한다.
+  Only the per-provider endpoints are known here; keys and enablement are decided by
+  `VR.Auth.Providers` (DB). Why no library: the provider list and keys must change
+  **at runtime from the DB**, while most OAuth libraries assume compile-time configuration.
 
   ## CSRF
 
-  `state`에 난수를 넣고 세션에 같은 값을 둔 뒤 콜백에서 대조한다.
-  일치하지 않으면 거부한다. 이게 없으면 공격자가 자기 계정을 피해자 세션에 붙일 수 있다.
+  A random value goes into `state`, the same value is kept in the session, and the two
+  are compared at the callback. A mismatch is rejected. Without this, an attacker could
+  attach their own account to the victim's session.
   """
 
   require Logger
@@ -33,7 +34,7 @@ defmodule VR.Auth.OAuth do
 
   def supported?(provider), do: Map.has_key?(@providers, provider)
 
-  @doc "제공자 인증 페이지 URL을 만든다."
+  @doc "Builds the provider's authorization page URL."
   def authorize_url(provider, config, state) do
     spec = Map.fetch!(@providers, provider)
 
@@ -50,9 +51,9 @@ defmodule VR.Auth.OAuth do
   end
 
   @doc """
-  인증 코드를 프로필로 바꾼다.
+  Exchanges an authorization code for a profile.
 
-  `{:ok, %{provider_id, email, name}}` 또는 `{:error, reason}`.
+  `{:ok, %{provider_id, email, name}}` or `{:error, reason}`.
   """
   def fetch_profile(provider, config, code) do
     spec = Map.fetch!(@providers, provider)
@@ -63,7 +64,7 @@ defmodule VR.Auth.OAuth do
     end
   end
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
   defp scopes(%{scopes: scopes}, _spec) when is_list(scopes) and scopes != [], do: scopes
   defp scopes(_config, spec), do: spec.default_scopes
@@ -86,12 +87,12 @@ defmodule VR.Auth.OAuth do
         {:ok, token}
 
       {:ok, %{status: status, body: body}} ->
-        # 응답 본문에 토큰이 섞여 있을 수 있으니 통째로 로그에 남기지 않는다
-        Logger.warning("[OAuth] 토큰 교환 실패: status=#{status} error=#{inspect(body["error"])}")
+        # The response body may contain tokens, so never log it in full
+        Logger.warning("[OAuth] Token exchange failed: status=#{status} error=#{inspect(body["error"])}")
         {:error, :token_exchange_failed}
 
       {:error, reason} ->
-        Logger.warning("[OAuth] 토큰 요청 실패: #{inspect(reason)}")
+        Logger.warning("[OAuth] Token request failed: #{inspect(reason)}")
         {:error, :token_request_failed}
     end
   end
@@ -105,7 +106,7 @@ defmodule VR.Auth.OAuth do
 
     with {:ok, %{status: 200, body: user}} <-
            Req.get(spec.userinfo_url, headers: headers, receive_timeout: 15_000) do
-      # GitHub은 프로필에 이메일이 없을 수 있다 (비공개 설정). 별도 엔드포인트에서 가져온다.
+      # GitHub profiles may have no email (privacy setting). Fetch it from a separate endpoint.
       email = user["email"] || primary_github_email(headers)
       {:ok, Map.put(user, "email", email)}
     else

@@ -12,13 +12,13 @@ import { registerServiceWorker, watchInstallPrompt } from "@/lib/pwa";
 import { installPressFeedback } from "@/ui/press";
 import "./styles/app.css";
 
-// 설치 프롬프트는 앱이 뜨기 전에 올 수 있다. 리스너를 먼저 건다.
+// The install prompt can arrive before the app is up. Attach the listener first.
 watchInstallPrompt();
 registerServiceWorker();
 
-// 누름 반응(`styles/devkanban/press.css`)은 이 리스너가 `data-pressed` 를 걸어야
-// 살아난다. 빼먹으면 버튼이 눌려도 아무 일도 일어나지 않는다 — devkanban 에서
-// 가져오려던 것의 절반이 이것이다.
+// Press feedback (`styles/devkanban/press.css`) only comes alive when this
+// listener sets `data-pressed`. Leave it out and pressing a button does
+// nothing visible — half of what we wanted from devkanban is this.
 installPressFeedback();
 
 const root = document.getElementById("root");
@@ -30,19 +30,20 @@ createRoot(root).render(
       <IntroScreen>
         <BrowserRouter>
           <Routes>
-          {/* 표면을 정하지 않은 진입 — 폭(또는 사용자가 고른 값)으로 고른다 */}
+          {/* An entry with no surface decided — chosen by width (or the user's saved pick) */}
           <Route path="/" element={<SurfaceEntry />} />
           <Route path="/app" element={<SurfaceEntry />} />
           <Route path="/m" element={<SurfaceEntry />} />
 
-          {/* 표면 중립 딥링크 — 푸시·메일·워커가 만드는 링크는 여기로 온다.
-              받는 기기가 폰인지 데스크톱인지 서버는 모른다. */}
+          {/* Surface-neutral deep links — links built by push, mail, and workers
+              come here. The server can't know if the receiving device is a phone
+              or a desktop. */}
           <Route path="/go/*" element={<SurfaceEntry />} />
 
           <Route path="/m/*" element={<MobileApp />} />
           <Route path="/app/*" element={<DesktopApp />} />
 
-          {/* 공유 뷰는 두 표면 **바깥**이다. 그래서 남에게 보내는 링크는 한 종류다. */}
+          {/* The share view lives **outside** both surfaces. So there's only one kind of link to send to others. */}
           <Route path="/share/:token" element={<SharePage />} />
 
           <Route path="*" element={<SurfaceEntry />} />

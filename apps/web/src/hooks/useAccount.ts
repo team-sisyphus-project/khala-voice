@@ -8,10 +8,11 @@ let cached: CurrentAccount | null = null;
 const waiters = new Set<(account: CurrentAccount) => void>();
 
 /**
- * 현재 계정. 앱 전체에서 한 번만 받아 공유한다.
+ * The current account. Fetched once and shared app-wide.
  *
- * 서버가 준 테마로 정정한다 — 부팅 스크립트는 localStorage 캐시로
- * 먼저 칠했을 뿐이라 다른 기기에서 바꾼 값과 어긋날 수 있다.
+ * Corrects to the server-given theme — the boot script only painted from the
+ * localStorage cache first, which can disagree with a value changed on
+ * another device.
  */
 export function useAccount(): {
   account: CurrentAccount | null;
@@ -19,8 +20,8 @@ export function useAccount(): {
 } {
   const [account, setLocal] = useState<CurrentAccount | null>(cached);
 
-  // 설정 화면이 값을 바꾸면 캐시도 같이 움직여야 한다 — 안 그러면 녹음 화면이
-  // 옛 언어로 세션을 만든다.
+  // When the settings screen changes a value, the cache must move with it —
+  // otherwise the recording screen creates sessions with the old language.
   const setAccount = useCallback((next: CurrentAccount) => {
     cached = next;
     // UI language follows the account too — a settings change must re-render the

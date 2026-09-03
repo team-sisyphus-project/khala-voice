@@ -10,7 +10,7 @@ defmodule VR.TranscriptionTest do
   alias VR.Transcription.{Audio, GoogleSTT}
 
   setup do
-    # 개발 모드 — 실제 GCP 호출 없이 목 결과를 받는다
+    # Dev mode — returns mock results without real GCP calls
     {:ok, _} = Config.put("stt.dev_mode", "true")
     {:ok, _} = Config.put("stt.cost_per_minute_usd", "0.016")
     {:ok, _} = Credits.put_conversion_setting(%{credit_value_usd: Decimal.new("0.0015")})
@@ -21,7 +21,7 @@ defmodule VR.TranscriptionTest do
     end)
 
     account = account_fixture()
-    {:ok, meeting} = Meetings.create_meeting(account, %{title: "테스트 회의"})
+    {:ok, meeting} = Meetings.create_meeting(account, %{title: "Test Meeting"})
 
     %{account: account, meeting: meeting}
   end
@@ -39,61 +39,61 @@ defmodule VR.TranscriptionTest do
     session
   end
 
-  describe "개발 모드" do
-    test "GCP 자격증명 없이도 전사한다" do
+  describe "dev mode" do
+    test "transcribes without GCP credentials" do
       assert GoogleSTT.dev_mode?()
       assert {:ok, segments} = GoogleSTT.transcribe("https://cdn.test/a.mp3")
 
       assert length(segments) == 5
       assert %{speaker: "speaker_1", text: text, start_ms: 0} = hd(segments)
-      assert text =~ "안녕하세요"
+      assert text =~ "Hello"
     end
 
-    test "화자가 여러 명 나온다" do
+    test "produces multiple speakers" do
       {:ok, segments} = GoogleSTT.transcribe("https://cdn.test/a.mp3")
       speakers = segments |> Enum.map(& &1.speaker) |> Enum.uniq()
 
       assert length(speakers) == 3
     end
 
-    test "ready? 는 개발 모드에서 참이다" do
+    test "ready? is true in dev mode" do
       assert Transcription.ready?()
     end
   end
 
-  describe "큐잉" do
-    test "짧은 녹음은 전사 워커로 간다", %{meeting: meeting} do
+  describe "enqueueing" do
+    test "short recordings go to the transcription worker", %{meeting: meeting} do
       session = uploaded_session(meeting, 300)
 
       assert {:ok, job} = Transcription.enqueue(session)
       assert job.worker == "VR.Workers.TranscriptionWorker"
     end
 
-    test "20분을 넘으면 분할 워커로 간다", %{meeting: meeting} do
+    test "recordings over 20 minutes go to the split worker", %{meeting: meeting} do
       session = uploaded_session(meeting, 25 * 60)
 
       assert {:ok, job} = Transcription.enqueue(session)
       assert job.worker == "VR.Workers.AudioSplitWorker"
 
-      # 상태도 splitting 으로 바뀐다
+      # Status flips to splitting as well
       assert Meetings.get_session(session.id).status == "splitting"
     end
 
-    test "정확히 20분은 분할하지 않는다", %{meeting: meeting} do
+    test "exactly 20 minutes is not split", %{meeting: meeting} do
       session = uploaded_session(meeting, 20 * 60)
 
       assert {:ok, job} = Transcription.enqueue(session)
       assert job.worker == "VR.Workers.TranscriptionWorker"
     end
 
-    test "오디오가 없으면 거부한다", %{meeting: meeting} do
+    test "rejects sessions without audio", %{meeting: meeting} do
       {:ok, session} = Meetings.create_session(meeting)
       assert {:error, :no_audio} = Transcription.enqueue(session)
     end
   end
 
-  describe "전사 워커" do
-    test "전사하고 화자 맵을 만든다", %{meeting: meeting, account: account} do
+  describe "transcription worker" do
+    test "transcribes and builds the speaker map", %{meeting: meeting, account: account} do
       session = uploaded_session(meeting)
 
       assert :ok =
@@ -102,23 +102,23 @@ defmodule VR.TranscriptionTest do
       done = Meetings.get_session(session.id)
       assert done.status == "completed"
       assert length(done.transcript["segments"]) == 5
-      # 원본을 남겨 편집 후 복원할 수 있다
+      # Originals are kept so edits can be restored
       assert length(done.transcript["original_segments"]) == 5
 
-      # 화자마다 기본 이름이 붙는다
+      # Each speaker gets a default name
       assert map_size(done.speaker_map) == 3
-      assert %{"name" => "화자 1"} = done.speaker_map["speaker_1"]
+      assert %{"name" => "Speaker 1"} = done.speaker_map["speaker_1"]
 
       _ = account
     end
 
-    test "크레딧을 계량한다", %{meeting: meeting, account: account} do
+    test "meters credits", %{meeting: meeting, account: account} do
       {:ok, _} = Credits.grant(account.id, 1000)
       session = uploaded_session(meeting, 600)
 
       :ok = perform_job(VR.Workers.TranscriptionWorker, %{"session_id" => session.id})
 
-      # 10분 × $0.016 = $0.16 → $0.16/$0.0015 = 106.67 → 올림 107
+      # 10 min × $0.016 = $0.16 → $0.16/$0.0015 = 106.67 → rounds up to 107
       [entry | _] = Credits.list_ledger(account.id)
       assert entry.source == "usage"
       assert entry.charge_domain == "stt"
@@ -126,7 +126,7 @@ defmodule VR.TranscriptionTest do
       assert Credits.balance(account.id) == 893
     end
 
-    test "단가가 없으면 계량을 건너뛰되 전사는 성공한다", %{meeting: meeting, account: account} do
+    test "skips metering without a unit price but transcription still succeeds", %{meeting: meeting, account: account} do
       Config.delete("stt.cost_per_minute_usd")
       session = uploaded_session(meeting)
 
@@ -135,20 +135,20 @@ defmodule VR.TranscriptionTest do
       assert Credits.list_ledger(account.id) == []
     end
 
-    test "재시도돼도 두 번 계량되지 않는다", %{meeting: meeting, account: account} do
+    test "is not metered twice on retry", %{meeting: meeting, account: account} do
       {:ok, _} = Credits.grant(account.id, 1000)
       session = uploaded_session(meeting, 600)
 
       :ok = perform_job(VR.Workers.TranscriptionWorker, %{"session_id" => session.id})
       balance_after_first = Credits.balance(account.id)
 
-      # 같은 세션을 다시 돌린다 (워커 재시도 상황)
+      # Run the same session again (worker retry scenario)
       :ok = perform_job(VR.Workers.TranscriptionWorker, %{"session_id" => session.id})
 
       assert Credits.balance(account.id) == balance_after_first
     end
 
-    test "회의 집계가 갱신된다", %{meeting: meeting} do
+    test "meeting aggregates are refreshed", %{meeting: meeting} do
       session = uploaded_session(meeting, 600)
 
       :ok = perform_job(VR.Workers.TranscriptionWorker, %{"session_id" => session.id})
@@ -156,12 +156,12 @@ defmodule VR.TranscriptionTest do
       assert Meetings.get_meeting(meeting.id).total_duration_seconds == 600
     end
 
-    test "없는 세션은 취소한다" do
+    test "cancels for a nonexistent session" do
       assert {:cancel, :session_not_found} =
                perform_job(VR.Workers.TranscriptionWorker, %{"session_id" => "mrss_nope"})
     end
 
-    test "오디오가 없으면 취소한다", %{meeting: meeting} do
+    test "cancels when there is no audio", %{meeting: meeting} do
       {:ok, session} = Meetings.create_session(meeting)
 
       assert {:cancel, :no_audio} =
@@ -169,21 +169,21 @@ defmodule VR.TranscriptionTest do
     end
   end
 
-  describe "오디오 유틸" do
-    test "분할 임계값" do
+  describe "audio utils" do
+    test "split threshold" do
       refute Audio.needs_splitting?(20 * 60)
       assert Audio.needs_splitting?(20 * 60 + 1)
       refute Audio.needs_splitting?(nil)
     end
 
-    test "MP3 판정" do
+    test "MP3 detection" do
       assert Audio.mp3?("audio/mpeg")
       assert Audio.mp3?("audio/mp3")
       refute Audio.mp3?("audio/webm")
       refute Audio.mp3?(nil)
     end
 
-    test "구간 라벨" do
+    test "range labels" do
       assert Audio.range_label(0, 19 * 60) == "0:00~19:00"
       assert Audio.range_label(19 * 60, 19 * 60) == "19:00~38:00"
       assert Audio.range_label(0, 65) == "0:00~1:05"

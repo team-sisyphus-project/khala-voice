@@ -1,42 +1,46 @@
-# KHALA VOICE — 문서
+# KHALA VOICE — Documentation
 
-음성 회의 녹음 · 전사 · AI 요약 서비스. 데스크톱 웹 / 모바일 웹 / PWA.
+A voice meeting recording, transcription, and AI summary service. Desktop web / mobile web / PWA.
 
-`autosquad/sisyphus`의 Meeting Recorder 기능을 독립 앱으로 분리하고,
-계정 · 친구 · 공유 체계와 `devkanban`의 플랜 · 크레딧 체계를 결합한다.
+It splits the Meeting Recorder feature out of `autosquad/sisyphus` into a standalone app,
+combining an account / friends / sharing system with the plan and credit system from `devkanban`.
 
-## 읽는 순서
+## Reading order
 
-| # | 문서 | 내용 |
+| # | Document | Contents |
 |---|---|---|
-| 00 | [설정 체크리스트](00-setup-checklist.md) | **키를 어디에 넣는가** — 배포 후 이것부터 |
-| 01 | [개요](01-overview.md) | 제품 범위 · 확정 결정 · 비범위 · 용어 |
-| 02 | [아키텍처](02-architecture.md) | 스택 · 시스템 구성 · 리포 구조 · 배포 요구사항 |
-| 03 | [도메인 모델](03-domain-model.md) | 전체 컨텍스트와 스키마 |
-| 04 | [녹음 파이프라인](04-pipeline.md) | 녹음 → 업로드 → 전사 → 화자 → 요약 *(sisyphus 이식)* |
-| 05 | [인증 · 공유](05-auth-sharing.md) | 계정 · 소셜 로그인 · 친구 · 공유 링크 · 권한 |
-| 06 | [구독 · 크레딧](06-billing.md) | 플랜 · 크레딧 원장 · 사용량 집계 *(devkanban 이식)* |
-| 07 | [설정 · 어드민](07-config-admin.md) | 설정 해석 순서 · 시크릿 정책 · 시스템 어드민 |
-| 08 | [프론트엔드](08-frontend.md) | 라우팅 · core 분리 · 반응형 · PWA |
-| 09 | [API](09-api.md) | REST 엔드포인트 명세 |
-| 10 | [이식 대조표](10-porting-map.md) | sisyphus / devkanban에서 무엇을 어떻게 가져오는가 |
-| 11 | [로드맵](11-roadmap.md) | 마일스톤 |
-| 12 | [디자인 시스템](12-design-system.md) | 테마 4종 · 컴포넌트 규격 *(devkanban 이식)* |
-| 13 | [실기기 테스트](13-device-testing.md) | 모바일 백그라운드 녹음 검증 절차 |
-| 14 | [출처](14-provenance.md) | **무엇이 sisyphus/devkanban 어디서 왔는가** |
+| 00 | [Setup checklist](00-setup-checklist.md) | **Where the keys go** — start here after deploying |
+| 01 | [Overview](01-overview.md) | Product scope, settled decisions, non-goals, terminology |
+| 02 | [Architecture](02-architecture.md) | Stack, system layout, repo structure, deployment requirements |
+| 03 | [Domain model](03-domain-model.md) | Full context map and schemas |
+| 04 | [Recording pipeline](04-pipeline.md) | Recording → upload → transcription → speakers → summary *(ported from sisyphus)* |
+| 05 | [Auth & sharing](05-auth-sharing.md) | Accounts, social login, friends, share links, permissions |
+| 06 | [Subscriptions & credits](06-billing.md) | Plans, credit ledger, usage metering *(ported from devkanban)* |
+| 07 | [Config & admin](07-config-admin.md) | Config resolution order, secrets policy, system admin |
+| 08 | [Frontend](08-frontend.md) | Routing, core separation, responsive design, PWA |
+| 09 | [API](09-api.md) | REST endpoint specification |
+| 10 | [Porting map](10-porting-map.md) | What we take from sisyphus / devkanban, and how |
+| 11 | [Roadmap](11-roadmap.md) | Milestones |
+| 12 | [Design system](12-design-system.md) | Four themes, component specs *(ported from devkanban)* |
+| 13 | [Device testing](13-device-testing.md) | Verification procedure for mobile background recording |
+| 14 | [Provenance](14-provenance.md) | **What came from where in sisyphus/devkanban** |
 
-## 원칙
+## Principles
 
-1. **시크릿은 코드에 존재하지 않는다.** 이 리포는 오픈소스로 공개된다.
-   설정은 `DB → 환경변수 → 없음` 순으로만 해석하며, 코드에 리터럴 기본값을 두지 않는다.
+1. **Secrets never live in code.** This repo will be published as open source.
+   Configuration is resolved strictly in the order `DB → environment variables → none`,
+   with no literal defaults in code.
    → [07-config-admin.md](07-config-admin.md)
-2. **비즈니스 로직은 UI에서 분리한다.** 프론트 로직은 `packages/core`에 두고
-   UI는 그 위의 껍데기로 만든다. UI를 몇 벌 만들지는 나중에 바꿀 수 있는 결정으로 유지한다.
+2. **Business logic stays out of the UI.** Frontend logic lives in `packages/core`
+   and the UI is a thin shell on top. How many UIs we ship remains a decision we can change later.
    → [08-frontend.md](08-frontend.md)
-3. **외부 워크플로 의존을 두지 않는다.** sisyphus가 n8n에 위임하던 S3 presign과
-   AI 요약을 앱 안에서 직접 구현한다. 프롬프트도 리포에서 버전 관리한다.
-4. **가져온 것은 출처를 남긴다.** sisyphus / devkanban 에서 온 것은
-   코드 주석과 [14-provenance.md](14-provenance.md) 에 원본 경로까지 적는다.
-   원본이 고쳐졌을 때 여기도 고쳐야 하는지 판단할 수 있어야 한다.
-5. **집계는 항상 돌린다.** 지금은 실질 과금이 0이지만 크레딧 원장은 정확히 기록해서
-   실사용량과 원가가 보이게 한다. 유료화는 스위치를 켜는 일이 되게 한다.
+3. **No external workflow dependencies.** The S3 presigning and AI summarization that
+   sisyphus delegated to n8n are implemented directly inside the app. Prompts are
+   version-controlled in the repo as well.
+4. **Everything ported keeps its provenance.** Anything taken from sisyphus / devkanban
+   is annotated in code comments and in [14-provenance.md](14-provenance.md), down to the
+   original path. When the original gets fixed, we must be able to judge whether this
+   copy needs the fix too.
+5. **Metering always runs.** Actual billing is zero for now, but the credit ledger is
+   recorded precisely so that real usage and cost stay visible. Going paid should be a
+   matter of flipping a switch.

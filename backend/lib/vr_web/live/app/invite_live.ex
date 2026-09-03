@@ -1,9 +1,9 @@
 defmodule VRWeb.AppLive.InviteLive do
   @moduledoc """
-  친구 초대 링크를 연 화면.
+  Screen shown when a friend invitation link is opened.
 
-  **로그인하지 않아도 볼 수 있다** — 누가 초대했는지 보여줘야 가입할 마음이 생긴다.
-  수락은 로그인 후에만 된다.
+  **Viewable without signing in** — seeing who invited you is what makes you
+  want to sign up. Accepting works only after signing in.
   """
 
   use VRWeb, :live_view

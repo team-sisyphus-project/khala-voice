@@ -1,9 +1,9 @@
 defmodule VR.Accounts.InviteCode do
   @moduledoc """
-  가입 초대 코드.
+  Registration invite code.
 
-  `policy.invite_code_required`를 켜면 가입 시 유효한 코드가 필요하다.
-  코드는 한 번 쓰면 소진된다.
+  When `policy.invite_code_required` is enabled, a valid code is required to register.
+  A code is consumed after a single use.
   """
 
   use Ecto.Schema
@@ -26,7 +26,7 @@ defmodule VR.Accounts.InviteCode do
     timestamps(type: :utc_datetime)
   end
 
-  @doc "사람이 읽고 옮겨적기 쉬운 코드를 만든다. 헷갈리는 글자(0/O/1/I)를 뺀다."
+  @doc "Generates a code that is easy for people to read and transcribe. Confusing characters (0/O/1/I) are excluded."
   def build(attrs \\ %{}) do
     %__MODULE__{}
     |> change(%{

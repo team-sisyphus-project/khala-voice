@@ -1,94 +1,102 @@
-# 06. 구독 · 크레딧
+# 06. Subscriptions & Credits
 
-> **출처: devkanban.** 요금 정책과 관련된 모든 구조는 `devkanban` 리포에서 가져왔다.
-> 설계 원칙은 `docs/billing-commerce-design.md`, 구현은 `lib/manualsquad/billing/*` 참조.
-> 무엇이 어떻게 바뀌었는지는 [14-provenance.md](14-provenance.md#요금-정책--06-billingmd) 에 정리했다.
+> **Source: devkanban.** Every structure related to pricing policy comes from the
+> `devkanban` repo. Design principles are in `docs/billing-commerce-design.md`; the
+> implementation is `lib/manualsquad/billing/*`.
+> What changed and how is laid out in [14-provenance.md](14-provenance.md).
 
-지금은 무료 플랜만 있고 실제 결제는 없다. 그래도 **집계는 정확히 돌린다.**
+For now there is only a free plan and no actual payments. Even so, **metering runs precisely.**
 
-## 설계 원칙 (devkanban `billing-commerce-design.md` §2)
+## Design principles (devkanban `billing-commerce-design.md` §2)
 
-1. **카탈로그와 계약을 분리한다.** 상품 정의(`Plan`)와 계정이 가진 계약(`Subscription`)을
-   나누고, 구독은 특정 `PlanRevision` 을 **핀 고정**한다. 가격을 바꾸면 새 리비전이
-   발행되고 기존 구독은 자기 리비전을 유지한다 (그랜드파더링 자동).
-2. **원장은 append-only.** 잔액은 절대 직접 수정하지 않고 증감 기록의 합으로 도출한다.
-3. **결제 제공자는 중립.** `provider` + `external_id` 컬럼만 두고 연동은 나중에.
-4. 플랜 월 지급은 기간 말 만료(이월 없음). 관리자 지급은 명시적 만료가 없으면 무기한.
-5. **회수는 잔액을 음수로 만들 수 없다.**
+1. **Separate the catalog from the contract.** Product definitions (`Plan`) and the
+   contract an account holds (`Subscription`) are distinct, and a subscription **pins** a
+   specific `PlanRevision`. Changing a price issues a new revision while existing
+   subscriptions keep their own (automatic grandfathering).
+2. **The ledger is append-only.** Balances are never mutated directly; they are derived
+   as the sum of change records.
+3. **Payment-provider neutral.** Only `provider` + `external_id` columns exist;
+   integration comes later.
+4. Monthly plan grants expire at period end (no rollover). Admin grants are open-ended
+   unless given an explicit expiry.
+5. **Revocation can never drive a balance negative.**
 
 ---
 
-## 카탈로그
+## Catalog
 
-### Plan — 가변 메타
+### Plan — mutable metadata
 > devkanban `lib/manualsquad/billing/plan.ex`
 
 ```elixir
-key              # "free" — 코드에서 참조하는 키
+key              # "free" — the key referenced from code
 status           # draft | published | deprecated | retired
 display_name, description, name_i18n, description_i18n
 icon, sort_order, publicly_listed
 ```
 
-메타 수정은 **즉시 전원에게 반영**된다. 리비전을 만들지 않는다.
+Metadata edits **apply to everyone immediately**. No revision is created.
 
-### PlanRevision — 불변 상업 스냅샷
+### PlanRevision — immutable commercial snapshot
 > devkanban `lib/manualsquad/billing/plan_revision.ex`
 
 ```elixir
 revision           :integer
 prices             :map      # %{"KRW" => %{amount: 0}, "USD" => %{amount: 0}} (minor unit)
 interval           # month | year
-included_credits   :integer  # ★ 플랜이 매 기간 지급하는 크레딧
+included_credits   :integer  # ★ credits the plan grants each period
 limits             :map
 purchasable        :boolean
 published_at
 ```
 
-**가격 · 포함 크레딧 · 한도를 바꾸면 새 리비전을 발행한다.**
-발행 시 이전 리비전은 `purchasable = false` 가 되고, 기존 구독은 영향받지 않는다.
+**Changing the price, included credits, or limits issues a new revision.**
+On publish, the previous revision becomes `purchasable = false` and existing
+subscriptions are unaffected.
 
-#### 지급량 계산 — `granted_credits/1`
+#### Grant amount — `granted_credits/1`
 > devkanban `plan_revision.ex:102`
 
 ```elixir
-# 크레딧 팩이 연결돼 있으면 팩 기준
+# if a credit pack is attached, the pack wins
 granted_credits(%{credit_pack_revision: pack}) -> pack.credits + pack.bonus_credits
-# 아니면 플랜의 included_credits
+# otherwise the plan's included_credits
 granted_credits(%{included_credits: n}) -> n
 granted_credits(_) -> 0
 ```
 
-**플랜은 크레딧을 기본으로 준다.** 구독이 활성인 동안 `MonthlyGrantWorker` 가
-매 기간 `included_credits` 만큼 지급하고, 그 크레딧은 기간 말에 만료된다(이월 없음).
+**Plans grant credits by default.** While a subscription is active, `MonthlyGrantWorker`
+grants `included_credits` each period, and those credits expire at period end
+(no rollover).
 
 ### Subscription
 > devkanban `lib/manualsquad/billing/subscription.ex`
 
 ```elixir
-account_id                # devkanban 은 organization_id
-plan_revision_id          # 핀 고정
+account_id                # devkanban uses organization_id
+plan_revision_id          # pinned
 state                     # active | past_due | paused | canceled
 current_period_start / current_period_end
 cancel_at, scheduled_change
-provider, provider_subscription_id   # 결제 연동 자리
+provider, provider_subscription_id   # placeholder for payment integration
 ```
 
-계정당 활성 구독 1개. **가입 시 자동으로 Free 플랜 최신 리비전에 구독**시킨다.
+One active subscription per account. **On signup, accounts are automatically subscribed
+to the latest revision of the Free plan.**
 
 ---
 
-## 크레딧
+## Credits
 
-### CreditLot — 지급 묶음
+### CreditLot — a granted bundle
 > devkanban `lib/manualsquad/billing/credit_lot.ex`
 
 ```elixir
 account_id
 source        # plan_grant | admin_grant
-amount        # 지급량
-remaining     # 잔량 (음수 가능 — 오버드래프트)
-expires_at    # nil = 무기한
+amount        # granted amount
+remaining     # remaining balance (may go negative — overdraft)
+expires_at    # nil = never expires
 origin        :map
 ```
 
@@ -97,143 +105,148 @@ origin        :map
 
 ```elixir
 account_id
-delta             # +지급 / -사용
+delta             # +grant / -usage
 source            # plan_grant | admin_grant | usage | expiry | admin_revoke | adjustment
 reason, actor_id, credit_lot_id
-idempotency_key   # unique — 중복 적용 방지
+idempotency_key   # unique — prevents double application
 
-# 사용(usage) 상세 — 나중에 재계산할 수 있게 스냅샷을 남긴다
+# usage details — snapshotted so it can be recomputed later
 charge_domain     # "stt" | "llm"
 usage_cost_usd    :decimal
 credit_value_usd  :decimal
-computed_credits  :decimal   # 반올림 전
-charged_credits   :integer   # 실제 기록값
+computed_credits  :decimal   # before rounding
+charged_credits   :integer   # actual recorded value
 rounding_policy   # "ceil"
 pricing_snapshot  :map
 ```
 
-### 불변식
+### Invariant
 
 ```
-잔액 = Σ ledger.delta = Σ lot.remaining
+balance = Σ ledger.delta = Σ lot.remaining
 ```
 
-- **소비 순서: 만료 임박 순 → FIFO.** 만료되는 플랜 크레딧을 먼저 쓰고 무기한을 나중에
-- **관리자 회수는 잔액 이하로만** 가능
-- **사용량 계량은 오버드래프트 허용** — 작업이 이미 끝난 뒤에 계량되므로 막을 수 없다.
-  부족분은 `remaining` 이 음수인 묶음으로 기록해 위 불변식을 유지한다
+- **Consumption order: nearest expiry first → FIFO.** Spend expiring plan credits before
+  open-ended ones
+- **Admin revocation is capped at the current balance**
+- **Usage metering allows overdraft** — metering happens after the work is already done,
+  so it cannot be blocked. Shortfalls are recorded in a lot with a negative `remaining`
+  to preserve the invariant above
 
-### 멱등성
+### Idempotency
 > devkanban `usage_idempotency_key/2`
 
-한 번의 사용이 여러 묶음에 걸치면 원장 항목도 여러 개가 된다.
-`idempotency_key` 는 unique 이므로 항목마다 파생시킨다.
+When one usage event spans multiple lots, there are multiple ledger entries.
+`idempotency_key` is unique, so each entry derives its own key.
 
-| 항목 | 파생 열쇠 |
+| Entry | Derived key |
 |---|---|
-| 묶음에서 차감 | `<base>:lot:<credit_lot_id>` |
-| 부족분 (오버드래프트) | `<base>:overdraft` |
+| Deduction from a lot | `<base>:lot:<credit_lot_id>` |
+| Shortfall (overdraft) | `<base>:overdraft` |
 
-**오버드래프트에는 묶음 id 를 쓰지 않는다.** 부족분을 기록할 때마다 새 묶음이 생기므로
-열쇠가 매번 달라지고, 유니크 제약이 영영 걸리지 않는다. 그러면 워커가 재시도될 때마다
-같은 사용이 다시 차감된다. **무료 플랜은 잔액 0 이 기본 상태**라 이 경로가 정상 경로다 —
-즉 이 실수는 드문 예외가 아니라 모든 사용자에게 매번 일어난다.
+**The overdraft key never uses a lot id.** Every time a shortfall is recorded, a new lot
+is created, so the key would differ each time and the unique constraint would never bite.
+The worker would then re-deduct the same usage on every retry. **On the free plan a zero
+balance is the normal state**, making this the normal path — meaning this mistake would
+not be a rare edge case but something that happens to every user, every time.
 
-회귀 테스트: `test/vr/billing_test.exs` — "사용량 계량 idempotency"
+Regression test: `test/vr/billing_test.exs` — "usage metering idempotency"
 
 ---
 
-## 사용량 → 크레딧 환산
+## Usage → credit conversion
 
-> **출처: devkanban** `lib/manualsquad/billing/credit_conversion_setting.ex` +
-> `credit_conversions.ex`. **sisyphus 방식(서비스별 `cookie_rate`)을 쓰지 않는다.**
+> **Source: devkanban** `lib/manualsquad/billing/credit_conversion_setting.ex` +
+> `credit_conversions.ex`. **We do not use the sisyphus approach (a per-service `cookie_rate`).**
 
-### CreditConversionSetting — 싱글턴
+### CreditConversionSetting — singleton
 
 ```elixir
-singleton_key     "current"   # 항상 하나
+singleton_key     "current"   # always exactly one
 currency          "USD"
-credit_value_usd  :decimal    # 1 크레딧 = $N
-rounding_policy   "ceil"      # 항상 올림
+credit_value_usd  :decimal    # 1 credit = $N
+rounding_policy   "ceil"      # always round up
 ```
 
-### 공식
+### Formula
 
 ```
 computed_credits = usage_cost_usd / credit_value_usd
 charged_credits  = ceil(computed_credits)
 ```
 
-**왜 이 방식인가** — sisyphus 는 서비스마다 `cookie_rate` 를 따로 뒀다.
-그러면 제공자 단가가 바뀔 때마다 서비스별 환산율을 다시 계산해야 한다.
-devkanban 방식은 **실제 USD 원가에서 파생**되므로 단가가 바뀌어도
-원가 계산만 고치면 되고, 크레딧 정책은 한 곳(`credit_value_usd`)에만 있다.
+**Why this approach** — sisyphus kept a separate `cookie_rate` per service. That means
+recomputing every per-service conversion rate each time a provider's unit price changes.
+The devkanban approach **derives from actual USD cost**, so when unit prices change only
+the cost calculation needs fixing, and credit policy lives in exactly one place
+(`credit_value_usd`).
 
-**올림(ceil)인 이유** — 정책이 하나뿐이라 단순하고, 소수점 이하를 흘리지 않는다.
-devkanban 도 `rounding_policies` 를 `["ceil"]` 하나로 못박아 뒀다.
+**Why ceil** — a single policy keeps things simple and no fractional remainder leaks.
+devkanban likewise pinned `rounding_policies` to just `["ceil"]`.
 
-### 원가 산출
+### Cost derivation
 
-환산의 입력인 `usage_cost_usd` 는 이 앱이 직접 계산한다.
+`usage_cost_usd`, the input to the conversion, is computed by this app directly.
 
-| 대상 | 원가 |
+| Target | Cost |
 |---|---|
-| 전사 | `ceil(duration_seconds / 60)` 분 × 분당 STT 단가 |
-| 요약 | (입력 토큰 × 입력 단가 + 출력 토큰 × 출력 단가) / 1M |
+| Transcription | `ceil(duration_seconds / 60)` minutes × per-minute STT price |
+| Summary | (input tokens × input price + output tokens × output price) / 1M |
 
-단가는 어드민에서 관리한다 → [07-config-admin.md](07-config-admin.md)
+Unit prices are managed in the admin UI → [07-config-admin.md](07-config-admin.md)
 
 ---
 
-## 무료 플랜 정책
+## Free plan policy
 
-| 항목 | 값 |
+| Item | Value |
 |---|---|
-| Free 플랜 `included_credits` | **매 기간 지급** (어드민에서 정한다) |
-| 소진 시 | `policy.hard_stop_on_zero_credits` 가 꺼져 있으면 계속 동작 (오버드래프트) |
-| 사용자 화면 | 잔액 · 사용 내역 표시 |
+| Free plan `included_credits` | **Granted each period** (set in admin) |
+| On exhaustion | Keeps working (overdraft) as long as `policy.hard_stop_on_zero_credits` is off |
+| User screen | Shows balance and usage history |
 
-**지금 실질 과금이 0인 이유**는 API 키를 시스템 어드민이 넣기 때문이지,
-크레딧을 안 주기 때문이 아니다. 원장에는 정확한 사용량과 원가가 쌓이므로
-어드민에서 실사용을 볼 수 있다.
+**The reason actual billing is zero today** is that the system admin supplies the API
+keys — not that no credits are granted. The ledger accumulates precise usage and costs,
+so real usage is visible in the admin UI.
 
-**유료화할 때** 바꿀 것:
-1. 유료 플랜 발행 (`Plan` + `PlanRevision` 추가)
-2. Free 플랜의 `included_credits` 를 무료 한도로 조정
-3. `policy.hard_stop_on_zero_credits` **ON** — 잔액 부족 시 신규 요청 거부
-4. 결제 연동
+**To go paid**, change:
+1. Publish paid plans (add `Plan` + `PlanRevision`)
+2. Adjust the Free plan's `included_credits` to the free allowance
+3. Turn `policy.hard_stop_on_zero_credits` **ON** — reject new requests when out of balance
+4. Integrate payments
 
-스키마 변경 없이 진행된다.
+No schema changes required.
 
 ---
 
-## 워커
+## Workers
 
 > devkanban `billing/monthly_grant_worker.ex`, `billing/credit_expiry_worker.ex`
 
-| 워커 | 주기 | 동작 |
+| Worker | Cadence | Behavior |
 |---|---|---|
-| `MonthlyGrantWorker` | 매일 | 활성 구독마다 `granted_credits` 를 `current_period_end` 만료로 지급하고 기간을 넘김 |
-| `CreditExpiryWorker` | 매일 | `expires_at` 지난 묶음을 만료 처리하고 `expiry` 원장 기록 |
+| `MonthlyGrantWorker` | Daily | For each active subscription, grants `granted_credits` expiring at `current_period_end` and rolls the period forward |
+| `CreditExpiryWorker` | Daily | Expires lots past `expires_at` and records an `expiry` ledger entry |
 
 ---
 
-## 대외 명칭
+## Public-facing naming
 
 > devkanban `billing/commerce_settings.ex`
 
 ```elixir
-CommerceSettings   # 싱글턴
-  credit_term      %{singular: "쿠키", plural: "쿠키", icon: "cookie"}
+CommerceSettings   # singleton
+  credit_term      %{singular: "cookie", plural: "cookies", icon: "cookie"}
   plan_term
   locale_overrides
 ```
 
-내부 코드 · DB · 로그는 항상 `credit` 으로 쓰고, **화면 렌더링에서만** 이 용어를 적용한다.
+Internal code, the DB, and logs always say `credit`; this terminology applies **only at
+screen rendering time**.
 
 ---
 
-## 감사
+## Auditing
 
 > devkanban `billing/billing_audit_log.ex`
 
@@ -241,22 +254,24 @@ CommerceSettings   # 싱글턴
 actor_id, action, target_type, target_id, before, after, inserted_at
 ```
 
-대상: 플랜 발행/폐기, 리비전 발행, 구독 변경, 크레딧 수동 지급/회수, 환산율 변경.
-크레딧 수동 조작은 **사유 입력을 필수**로 한다.
+Covers: plan publish/retire, revision publish, subscription changes, manual credit
+grant/revoke, conversion-rate changes.
+Manual credit operations **require a reason** to be entered.
 
 ---
 
-## 이식하지 않은 것
+## Not ported
 
-devkanban 에는 있지만 이 앱에 넣지 않는다. 필요해지면 원본에서 가져온다.
+These exist in devkanban but are not included in this app. If needed, they can be taken
+from the original.
 
-| 항목 | devkanban 원본 |
+| Item | devkanban original |
 |---|---|
-| 결제 전반 | `order.ex` · `payment*.ex` · `payment_provider/` · webhook · refund · reconciliation |
-| 크레딧 팩 구매 | `credit_pack.ex` · `pack_revision.ex` |
-| 오토충전 | `auto_recharge_*.ex` |
-| 엔터프라이즈 계약 | `enterprise_contract*.ex` |
-| 트라이얼 전환 | `trial_conversion_worker.ex` |
-| 판매 기간 · 미리보기 | `plan_pricing.ex` · `plan_pricing_policy*.ex` |
-| 워크스페이스 런타임 계량 | `workspace_runtime_*.ex` |
-| sunset / scheduled change | `sunset_worker.ex` · `scheduled_change_worker.ex` |
+| Payments overall | `order.ex` · `payment*.ex` · `payment_provider/` · webhook · refund · reconciliation |
+| Credit pack purchases | `credit_pack.ex` · `pack_revision.ex` |
+| Auto-recharge | `auto_recharge_*.ex` |
+| Enterprise contracts | `enterprise_contract*.ex` |
+| Trial conversion | `trial_conversion_worker.ex` |
+| Sales windows / previews | `plan_pricing.ex` · `plan_pricing_policy*.ex` |
+| Workspace runtime metering | `workspace_runtime_*.ex` |
+| Sunset / scheduled change | `sunset_worker.ex` · `scheduled_change_worker.ex` |

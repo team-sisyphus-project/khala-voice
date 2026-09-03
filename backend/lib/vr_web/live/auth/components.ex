@@ -1,5 +1,5 @@
 defmodule VRWeb.AuthLive.Components do
-  @moduledoc "로그인·가입 화면 공용 레이아웃."
+  @moduledoc "Shared layout for the sign-in and sign-up screens."
   use Phoenix.Component
   use VRWeb, :verified_routes
   use Gettext, backend: VRWeb.Gettext
@@ -17,7 +17,7 @@ defmodule VRWeb.AuthLive.Components do
     >
       <div class="w-full" style="max-width: 400px;">
         <div class="text-center mb-7">
-          <%!-- 브랜드 마크. 인트로 화면·홈 아이콘과 **같은 그림**이다. --%>
+          <%!-- Brand mark. The **same image** as the intro screen and home icon. --%>
           <img
             src={~p"/images/icon-512.png"}
             alt=""
@@ -44,7 +44,7 @@ defmodule VRWeb.AuthLive.Components do
     """
   end
 
-  @doc "소셜 로그인 버튼 묶음. 활성화된 제공자가 없으면 아무것도 그리지 않는다."
+  @doc "Social sign-in button group. Renders nothing when no provider is enabled."
   attr :providers, :list, required: true
 
   def social_buttons(assigns) do
@@ -65,7 +65,7 @@ defmodule VRWeb.AuthLive.Components do
     """
   end
 
-  @doc "폼 오류 목록."
+  @doc "Form error list."
   attr :field, :any, required: true
 
   def field_errors(assigns) do

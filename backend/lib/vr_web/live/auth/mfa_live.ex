@@ -1,11 +1,13 @@
 defmodule VRWeb.AuthLive.MFALive do
   @moduledoc """
-  로그인 2단계 — 인증 코드 확인.
+  Sign-in step two — verification code check.
 
-  비밀번호는 통과했지만 아직 세션이 없다. 여기까지 통과해야 로그인된다.
+  The password passed, but there is no session yet. Sign-in completes only
+  after passing this step too.
 
-  **어느 계정을 기다리는지 화면에 보여주지 않는다.** 이메일을 노출하면
-  이 화면에 도달한 것만으로 그 계정에 MFA 가 걸려 있다는 사실이 새어 나간다.
+  **Does not show which account it is waiting for.** Exposing the email would
+  leak, just by reaching this screen, the fact that MFA is enabled on that
+  account.
   """
 
   use VRWeb, :live_view

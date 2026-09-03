@@ -1,11 +1,12 @@
 defmodule VR.Summarize.LlmProvider do
   @moduledoc """
-  AI 요약에 쓰는 LLM 제공자 설정.
+  LLM provider configuration used for AI summaries.
 
-  여러 제공자를 등록해 두고 `priority` 오름차순으로 시도한다.
-  앞선 제공자가 레이트리밋이나 5xx로 실패하면 다음으로 넘어간다.
+  Multiple providers can be registered and are tried in ascending `priority`
+  order. When an earlier provider fails with a rate limit or 5xx, we move on
+  to the next one.
 
-  `tier`는 `billing_model_pricing`과 조인해 토큰 사용량을 크레딧으로 환산하는 데 쓴다.
+  `tier` is joined with `billing_model_pricing` to convert token usage into credits.
   """
 
   use Ecto.Schema
@@ -27,7 +28,7 @@ defmodule VR.Summarize.LlmProvider do
     field :temperature, :decimal, default: Decimal.new("0.2")
     field :max_output_tokens, :integer, default: 16_384
 
-    # 토큰 단가 — 출처: devkanban `MS.Meters.UsageRecorder.price_tokens/3`
+    # Token pricing — origin: devkanban `MS.Meters.UsageRecorder.price_tokens/3`
     field :input_price_usd_per_1m, :decimal
     field :output_price_usd_per_1m, :decimal
     field :margin_rate, :decimal, default: Decimal.new("0")
@@ -69,7 +70,7 @@ defmodule VR.Summarize.LlmProvider do
     |> unique_constraint(:provider)
   end
 
-  @doc "빈 API 키는 기존 값 유지 (어드민 폼에서 마스킹된 필드를 안 건드린 경우)"
+  @doc "An empty API key keeps the existing value (when the masked field in the admin form was left untouched)"
   def admin_changeset(provider, attrs) do
     attrs =
       Enum.reduce(["api_key", :api_key], attrs, fn key, acc ->

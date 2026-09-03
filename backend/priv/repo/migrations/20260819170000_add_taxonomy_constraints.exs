@@ -2,13 +2,13 @@ defmodule VR.Repo.Migrations.AddTaxonomyConstraints do
   use Ecto.Migration
 
   @moduledoc """
-  토픽·라벨 이름 중복 방지.
+  Prevents duplicate topic/label names.
 
-  **부분 유니크**다. 소프트 삭제된 행까지 포함해 잠그면
-  "긴급"을 지운 뒤 같은 이름으로 다시 만들 수 없다.
+  It is a **partial unique** index. If soft-deleted rows were locked in as
+  well, deleting "Urgent" would mean the same name could never be created again.
 
-  `labels.sort_order` 는 두지 않는다 — 라벨은 이름순으로만 보여주기로 했다
-  (`docs/03-domain-model.md`). 나중에 필요하면 마이그레이션 하나로 되돌릴 수 있다.
+  No `labels.sort_order` — labels are shown in name order only, by decision
+  (`docs/03-domain-model.md`). If needed later, one migration brings it back.
   """
 
   def change do

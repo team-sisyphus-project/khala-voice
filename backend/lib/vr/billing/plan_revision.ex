@@ -1,12 +1,13 @@
 defmodule VR.Billing.PlanRevision do
   @moduledoc """
-  플랜의 **불변** 상업 스냅샷.
+  A plan's **immutable** commercial snapshot.
 
-  **출처: devkanban** `lib/manualsquad/billing/plan_revision.ex`
-  — 런타임 초 · 동시실행 수 · 크레딧 팩 연결을 제거했다.
+  **Source: devkanban** `lib/manualsquad/billing/plan_revision.ex`
+  — removed runtime seconds, concurrency counts, and credit pack links.
 
-  한 번 발행하면 고치지 않는다. 가격이나 포함 크레딧을 바꾸려면 **새 리비전을 발행**한다.
-  구독은 특정 리비전을 핀 고정하므로 기존 계약은 그대로 유지된다.
+  Once published, it is never edited. To change the price or included credits,
+  **publish a new revision.** Subscriptions pin a specific revision, so existing
+  contracts stay intact.
   """
 
   use Ecto.Schema
@@ -22,10 +23,10 @@ defmodule VR.Billing.PlanRevision do
 
   schema "plan_revisions" do
     field :revision, :integer
-    # 통화별 가격. %{"KRW" => %{"amount" => 0}} — minor unit (원, 센트)
+    # Prices per currency. %{"KRW" => %{"amount" => 0}} — minor unit (won, cents)
     field :prices, :map, default: %{}
     field :interval, :string, default: "month"
-    # 매 기간 지급하는 크레딧
+    # Credits granted each period
     field :included_credits, :integer, default: 0
     field :limits, :map, default: %{}
     field :purchasable, :boolean, default: true
@@ -60,17 +61,18 @@ defmodule VR.Billing.PlanRevision do
   end
 
   @doc """
-  이 리비전이 지급하는 크레딧.
+  The credits this revision grants.
 
-  **출처: devkanban** `plan_revision.ex:102` `granted_credits/1`.
-  devkanban 은 크레딧 팩 연결도 함께 봤지만 이 앱은 팩이 없어 `included_credits` 뿐이다.
+  **Source: devkanban** `plan_revision.ex:102` `granted_credits/1`.
+  devkanban also looked at credit pack links, but this app has no packs, so
+  it is only `included_credits`.
   """
   def granted_credits(%__MODULE__{included_credits: credits}) when is_integer(credits),
     do: credits
 
   def granted_credits(_revision), do: 0
 
-  @doc "이 통화의 가격(minor unit). 없으면 nil."
+  @doc "The price in this currency (minor unit). nil when absent."
   def price(%__MODULE__{prices: prices}, currency) do
     case prices do
       %{^currency => %{"amount" => amount}} when is_integer(amount) -> amount
@@ -78,7 +80,7 @@ defmodule VR.Billing.PlanRevision do
     end
   end
 
-  @doc "무료 리비전인가 — 모든 통화에서 0."
+  @doc "Whether this is a free revision — zero in every currency."
   def free?(%__MODULE__{prices: prices}) when map_size(prices) == 0, do: true
 
   def free?(%__MODULE__{prices: prices}) do
@@ -93,7 +95,7 @@ defmodule VR.Billing.PlanRevision do
     end
   end
 
-  # 가격 맵의 형태가 깨지면 결제 화면 전체가 망가진다. 저장 전에 막는다.
+  # A malformed price map breaks the entire checkout screen. Block it before saving.
   defp validate_prices(changeset) do
     case get_field(changeset, :prices) do
       prices when is_map(prices) ->
@@ -108,10 +110,10 @@ defmodule VR.Billing.PlanRevision do
 
         if valid?,
           do: changeset,
-          else: add_error(changeset, :prices, ~s(%{"KRW" => %{"amount" => 0}} 형태여야 합니다))
+          else: add_error(changeset, :prices, ~s(must be in the form %{"KRW" => %{"amount" => 0}}))
 
       _ ->
-        add_error(changeset, :prices, "맵이어야 합니다")
+        add_error(changeset, :prices, "must be a map")
     end
   end
 end

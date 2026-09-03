@@ -2,14 +2,14 @@ defmodule VR.Repo.Migrations.AddLlmTokenPricing do
   use Ecto.Migration
 
   @moduledoc """
-  LLM 토큰 단가.
+  LLM token pricing.
 
-  **출처: devkanban** `MS.Meters.UsageRecorder.price_tokens/3` —
-  `input_price_usd_per_1m` · `output_price_usd_per_1m` · `margin_rate` 구성과
-  계산식(백만 토큰당 단가 → 마진 가산)을 그대로 따른다.
+  **Source: devkanban** `MS.Meters.UsageRecorder.price_tokens/3` —
+  follows its `input_price_usd_per_1m` · `output_price_usd_per_1m` · `margin_rate`
+  fields and formula (per-million-token rate → add margin) as-is.
 
-  단가를 비워 두면 계량하지 않는다. STT 와 같은 규칙이다
-  (요금 설정이 덜 됐다고 요약을 실패시키지 않는다).
+  If the rates are left blank, usage is not metered. Same rule as STT
+  (an unfinished pricing setup must not fail summarization).
   """
 
   def change do

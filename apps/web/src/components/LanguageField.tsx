@@ -5,20 +5,22 @@ import { autoLanguage, LANGUAGES } from "@/lib/prefs";
 import type { CurrentAccount } from "@core/api";
 
 /**
- * 기본 전사 언어를 고른다.
+ * Picks the default transcription language.
  *
- * ## 대화(UI) 언어와 다른 값이다
+ * ## A different value from the UI language
  *
- * 한국어로 앱을 쓰면서 영어 회의를 녹음하는 일이 흔하다. 둘을 묶으면 그때마다
- * UI 언어까지 바꿔야 한다. 그래서 계정에 **따로** 둔다
- * (`transcribe_language` ≠ `locale`).
+ * Using the app in Korean while recording meetings in English is common. Tied
+ * together, every such change would drag the UI language along. So the account
+ * keeps them **separate** (`transcribe_language` ≠ `locale`).
  *
- * ## 자동이 따로 있다
+ * ## Auto is its own option
  *
- * 처음 쓰는 사람에게 고정값을 물리면 다른 언어권 사용자는 매 녹음마다 손으로
- * 바꿔야 하고, 한 번 잊으면 그 회의 전사는 통째로 버려진다(크레딧은 나간다).
- * 그래서 기본은 **자동**(브라우저 언어)이되, 고른 값은 그대로 남는다 —
- * "우리가 정해준 것"과 "내가 고른 것"이 구분돼야 나중에 자동으로 되돌릴 수 있다.
+ * Pinning a fixed value on first-time users means people in other locales must
+ * switch by hand for every recording, and one forgotten switch throws away the
+ * entire meeting's transcript (while spending credits). So the default is
+ * **auto** (browser language), while an explicit pick stays put — "what we
+ * decided for you" and "what I chose" must stay distinguishable so auto can be
+ * restored later.
  */
 export function LanguageField({
   account,
@@ -31,8 +33,8 @@ export function LanguageField({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 계정을 아직 못 받았으면 자동으로 보여준다 — 값이 없다고 빈칸을 두면
-  // "언어가 정해지지 않았다"로 읽힌다.
+  // Before the account arrives, show auto — leaving it blank for a missing
+  // value reads as "no language has been decided".
   const value = account?.transcribe_language ?? "";
 
   async function pick(next: string) {

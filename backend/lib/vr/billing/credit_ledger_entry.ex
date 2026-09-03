@@ -1,15 +1,15 @@
 defmodule VR.Billing.CreditLedgerEntry do
   @moduledoc """
-  크레딧 증감 기록. **append-only.**
+  Record of credit changes. **Append-only.**
 
-  **출처: devkanban** `lib/manualsquad/billing/credit_ledger_entry.ex`
-  — 환불 · 역결제 소스와 계량 레코드 참조를 제거했다.
+  **Source: devkanban** `lib/manualsquad/billing/credit_ledger_entry.ex`
+  — removed the refund/chargeback sources and metering record references.
 
-  잔액을 직접 고치지 않는 이유는 **감사 때문**이다.
-  "왜 크레딧이 이만큼인가"를 언제든 되짚을 수 있어야 하고,
-  그러려면 결과가 아니라 과정이 남아야 한다.
+  Balances are never mutated directly, **for the sake of auditability.**
+  We must be able to trace "why is the credit balance what it is" at any time,
+  which requires keeping the process, not just the result.
 
-      잔액 = Σ delta = Σ lot.remaining
+      balance = Σ delta = Σ lot.remaining
   """
 
   use Ecto.Schema
@@ -31,7 +31,7 @@ defmodule VR.Billing.CreditLedgerEntry do
     field :actor_id, :string
     field :idempotency_key, :string
 
-    # 사용(usage) 상세 — 나중에 재계산할 수 있게 남긴다
+    # Usage details — kept so the charge can be recomputed later
     field :charge_domain, :string
     field :usage_cost_usd, :decimal
     field :credit_value_usd, :decimal
@@ -78,11 +78,11 @@ defmodule VR.Billing.CreditLedgerEntry do
     end
   end
 
-  # 사용 기록인데 근거가 없으면 나중에 재계산할 수 없다
+  # A usage entry without cost evidence cannot be recomputed later
   defp validate_usage_details(changeset) do
     if get_field(changeset, :source) == "usage" do
       validate_required(changeset, [:charge_domain, :usage_cost_usd, :credit_value_usd],
-        message: "사용 기록에는 원가 근거가 필요합니다"
+        message: "usage entries require cost evidence"
       )
     else
       changeset

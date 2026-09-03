@@ -2,10 +2,11 @@ defmodule VR.Repo.Migrations.CreateSystemConfigs do
   use Ecto.Migration
 
   @moduledoc """
-  시스템 전역 설정 (key-value).
+  System-wide settings (key-value).
 
-  값은 항상 Cloak으로 암호화되어 `value_encrypted`에 들어간다.
-  평문 컬럼은 두지 않는다 — 실수로 비밀값이 평문에 들어가는 경로를 아예 만들지 않는다.
+  Values are always Cloak-encrypted into `value_encrypted`.
+  There is no plaintext column — we simply never create a path
+  for a secret to accidentally land in plaintext.
   """
 
   def change do

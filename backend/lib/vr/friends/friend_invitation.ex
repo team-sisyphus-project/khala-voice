@@ -1,15 +1,15 @@
 defmodule VR.Friends.FriendInvitation do
   @moduledoc """
-  친구 초대.
+  Friend invitation.
 
-  두 가지 방식을 같은 스키마로 처리한다.
+  Two modes handled by the same schema.
 
-  | 방식 | `email` | 흐름 |
+  | Mode | `email` | Flow |
   |---|---|---|
-  | 이메일 초대 | 있음 | 메일 발송 → 링크 클릭 → (미가입이면 가입) → 수락 |
-  | 링크 초대 | 없음 | 링크 생성 → 아무 경로로 전달 → 연 사람이 수락 |
+  | Email invitation | present | Send mail → click link → (sign up if needed) → accept |
+  | Link invitation | absent | Generate link → deliver by any channel → whoever opens it accepts |
 
-  토큰은 세션·이메일 토큰과 마찬가지로 **해시만** 저장한다.
+  Like session and email tokens, **only the hash** of the token is stored.
   """
 
   use Ecto.Schema
@@ -40,7 +40,7 @@ defmodule VR.Friends.FriendInvitation do
   def statuses, do: @statuses
   def validity_days, do: @validity_days
 
-  @doc "`{원본_토큰, changeset}`을 돌려준다. 원본은 링크에만 쓴다."
+  @doc "Returns `{raw_token, changeset}`. The raw token is used only in the link."
   def build(invited_by_id, attrs \\ %{}) do
     token = :crypto.strong_rand_bytes(@rand_size)
     now = DateTime.utc_now(:second)
@@ -93,7 +93,7 @@ defmodule VR.Friends.FriendInvitation do
 
       _ ->
         validate_format(changeset, :email, ~r/^[^@,;\s]+@[^@,;\s]+\.[^@,;\s]+$/,
-          message: "이메일 형식이 올바르지 않습니다"
+          message: "is not a valid email address"
         )
     end
   end

@@ -36,8 +36,8 @@ config :vr, VR.Mailer, adapter: Swoosh.Adapters.Local
 config :esbuild,
   version: "0.25.4",
   vr: [
-    # spike-recorder.ts 는 packages/core 의 TypeScript 소스를 직접 번들한다.
-    # 별도 빌드 산출물을 만들지 않아 소스맵이 항상 원본을 가리킨다.
+    # spike-recorder.ts bundles the TypeScript sources in packages/core directly.
+    # No separate build artifact is produced, so source maps always point at the originals.
     args:
       ~w(js/app.js js/spike-recorder.ts --bundle --target=es2022 --outdir=../priv/static/assets/js --external:/fonts/* --external:/images/* --alias:@=.),
     cd: Path.expand("../assets", __DIR__),
@@ -55,8 +55,8 @@ config :tailwind,
     cd: Path.expand("..", __DIR__)
   ]
 
-# 로그에 남으면 안 되는 파라미터.
-# Phoenix 기본값(password, token 등)에 이 앱의 것을 더한다.
+# Parameters that must never appear in logs.
+# Adds this app's parameters to the Phoenix defaults (password, token, etc.).
 config :phoenix, :filter_parameters, [
   "password",
   "token",
@@ -79,43 +79,43 @@ config :phoenix, :json_library, Jason
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"
 
-# ── Oban 잡 큐 ──────────────────────────────────────────────
+# ── Oban job queues ─────────────────────────────────────────
 config :vr, Oban,
   repo: VR.Repo,
   queues: [
-    # 전사 · 오디오 분할 (외부 API 부하 고려해 낮게)
+    # transcription & audio splitting (kept low for external API load)
     transcription: 2,
-    # AI 요약
+    # AI summary
     summarize: 2,
-    # 크레딧 지급 · 만료
+    # credit grants & expiry
     billing: 1,
-    # 예약 삭제 등
+    # scheduled deletion, etc.
     maintenance: 1
   ],
   plugins: [
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
     {Oban.Plugins.Cron,
      crontab: [
-       # 매시 정각 — 삭제 예약 만료 처리
+       # every hour on the hour — process expired deletion schedules
        {"0 * * * *", VR.Workers.DeletionWorker},
-       # 매일 03:10 — 만료된 친구 초대 정리
+       # daily 03:10 — clean up expired friend invitations
        {"10 3 * * *", VR.Workers.InvitationCleanupWorker},
-       # 매일 00:20 — 구독 기간 갱신 + 크레딧 지급
+       # daily 00:20 — renew subscription periods + grant credits
        {"20 0 * * *", VR.Workers.MonthlyGrantWorker},
-       # 매일 00:30 — 만료된 크레딧 정리 (지급 뒤에 돈다)
+       # daily 00:30 — clean up expired credits (runs after grants)
        {"30 0 * * *", VR.Workers.CreditExpiryWorker},
-       # 매일 02:40 — 365일이 지난 관리자 계정 감사 이벤트 영구 삭제
+       # daily 02:40 — permanently delete admin-account audit events older than 365 days
        {"40 2 * * *", VR.Workers.AdminAuditRetentionWorker}
      ]}
   ]
 
 # ── Cloak ───────────────────────────────────────────────────
-# 키는 런타임에 CLOAK_KEY 환경변수에서 읽는다 (VR.Vault 참조).
+# The key is read at runtime from the CLOAK_KEY environment variable (see VR.Vault).
 config :vr, VR.Vault, json_library: Jason
 
 # ── ExAws (S3 presign) ──────────────────────────────────────
-# 자격증명은 VR.Config를 통해 요청 시점에 주입한다.
-# 여기에 키를 두지 않는다.
+# Credentials are injected at request time via VR.Config.
+# No keys live here.
 config :ex_aws,
   json_codec: Jason,
   http_client: ExAws.Request.Req

@@ -19,33 +19,35 @@ import type {
   RecorderState,
 } from "./types";
 
-const DEFAULT_MAX_SECONDS = 3 * 60 * 60; // 3시간
+const DEFAULT_MAX_SECONDS = 3 * 60 * 60; // 3 hours
 const DEFAULT_TIMESLICE = 1000;
 const DEFAULT_FFT = 256;
 
 /**
- * 녹음 엔진.
+ * Recording engine.
  *
- * ## 일시정지 정책 — 한 세션을 유지한다
+ * ## Pause policy — one session, kept alive
  *
- * `MediaRecorder.pause()` / `resume()` 을 쓴다. 세션을 쪼개지 않는다.
+ * Uses `MediaRecorder.pause()` / `resume()`. The session is never split.
  *
- * **출처: sisyphus** `assets/webapp/meeting-recorder.js` 3539~4110.
+ * **Source: sisyphus** `assets/webapp/meeting-recorder.js` 3539~4110.
  *
- * sisyphus 데스크톱은 일시정지할 때마다 세션을 끊고 새로 만들었다.
- * 그러면 화자 번호 체계가 세션마다 독립적이라 "잠깐 멈췄다 이어서"가
- * 전사 단계에서 서로 다른 사람으로 갈라진다. 사용자 기대와도 다르다.
+ * sisyphus desktop tore down and recreated the session on every pause. With
+ * speaker numbering independent per session, "pause briefly, then continue"
+ * splits into different people at the transcription stage. It also defies
+ * user expectations.
  *
- * ## 경과 시간
+ * ## Elapsed time
  *
- * 벽시계 차이에서 일시정지 누적을 뺀다. `MediaRecorder` 는 멈춰 있는 동안
- * 데이터를 만들지 않으므로, 빼지 않으면 표시 시간과 실제 오디오 길이가 어긋난다.
+ * Wall-clock delta minus accumulated pause time. `MediaRecorder` produces no
+ * data while paused, so without the subtraction the displayed time drifts
+ * from the actual audio length.
  *
- * ## 중단 감지
+ * ## Interruption detection
  *
- * 모바일에서 전화가 오거나 앱이 백그라운드로 가면 OS 가 트랙을 끊는다.
- * `track.onended` 로 감지해 **가진 데이터까지는 살린다.**
- * 이게 없으면 1시간 녹음이 통째로 사라진다.
+ * On mobile, an incoming call or backgrounding makes the OS cut the track.
+ * We detect it via `track.onended` and **salvage the data we have.**
+ * Without this, an hour-long recording vanishes wholesale.
  */
 export class Recorder {
   readonly events = new Emitter<RecorderEvents>();
@@ -61,8 +63,8 @@ export class Recorder {
   #audioContext: AudioContext | null = null;
   #analyser: AnalyserNode | null = null;
   #frameId: number | null = null;
-  // TS 5.7+ 는 TypedArray 가 버퍼 타입으로 제네릭하다.
-  // getFloatTimeDomainData 는 SharedArrayBuffer 백킹을 받지 않는다.
+  // In TS 5.7+ TypedArray is generic over its buffer type.
+  // getFloatTimeDomainData does not accept SharedArrayBuffer backing.
   #levels: Float32Array<ArrayBuffer> | null = null;
 
   #startedAtMs = 0;
@@ -72,10 +74,10 @@ export class Recorder {
   #tickId: ReturnType<typeof setInterval> | null = null;
   #lastTickSecond = -1;
 
-  // 안내 문구는 기기마다 다르다. 한 번만 읽어 둔다 — 도중에 바뀌지 않는다.
+  // Guidance wording differs per device. Read once — it does not change mid-run.
   #platform: Platform;
   #unwatchPermission: (() => void) | null = null;
-  /** 구독으로 계속 갱신되는 최신 권한 상태. `start()` 가 동기로 읽는다. */
+  /** Latest permission state, kept fresh by the watch. `start()` reads it synchronously. */
   #permission: MicPermissionState = "unknown";
 
   constructor(options: RecorderOptions = {}) {
@@ -93,12 +95,12 @@ export class Recorder {
     });
   }
 
-  /** 마지막으로 확인된 권한 상태. 확인 전이거나 알 수 없으면 `unknown`. */
+  /** Last observed permission state. `unknown` before any check or when unknowable. */
   get permission(): MicPermissionState {
     return this.#permission;
   }
 
-  /** 이 기기가 어떤 브라우저·OS 인지. 안내 문구를 고르는 근거. */
+  /** What browser/OS this device is. The basis for picking guidance wording. */
   get platform(): Platform {
     return this.#platform;
   }
@@ -111,7 +113,7 @@ export class Recorder {
     return this.#state === "recording" || this.#state === "paused";
   }
 
-  /** 일시정지를 뺀 경과 시간(초). */
+  /** Elapsed time minus pauses (seconds). */
   get elapsedSeconds(): number {
     if (!this.#startedAtMs) return 0;
     const pausedNow = this.#pausedAtMs ? Date.now() - this.#pausedAtMs : 0;
@@ -122,32 +124,34 @@ export class Recorder {
     return this.#mimeType;
   }
 
-  // ── 장치 ───────────────────────────────────────────────
+  // ── Devices ────────────────────────────────────────────
 
-  /** 지금 이 브라우저가 보고하는 마이크 권한 상태. Safari 는 `unknown`. */
+  /** The microphone permission state this browser reports right now. Safari gives `unknown`. */
   static probePermission(): Promise<MicPermissionState> {
     return queryMicPermission();
   }
 
   /**
-   * 권한 상태 변화 구독. 구독 해제 함수를 돌려준다.
+   * Subscribes to permission state changes. Returns an unsubscribe function.
    *
-   * 사용자가 브라우저 설정에서 차단을 푸는 순간 버튼이 살아나야 한다.
-   * 이게 없으면 설정을 고쳐 놓고도 새로고침해야 한다는 걸 알 수 없다.
+   * The button must come alive the moment the user lifts the block in
+   * browser settings. Without this, they fix the setting and still cannot
+   * tell that a refresh is needed.
    */
   static watchPermission(onChange: (state: MicPermissionState) => void): () => void {
     return watchMicPermission(onChange);
   }
 
   /**
-   * 마이크 목록.
+   * Microphone list.
    *
-   * **권한을 받기 전에는 label 이 비어 있다.** 이건 브라우저의 지문 방지 정책이라
-   * 우회할 수 없다.
+   * **Labels are empty until permission is granted.** That is the browser's
+   * anti-fingerprinting policy and cannot be bypassed.
    *
-   * 라벨이 비었다고 무조건 "권한 주기" 버튼을 띄우면 안 된다. 이미 **차단**된
-   * 상태에서도 라벨은 비어 있고, 그때 그 버튼은 눌러도 아무 일이 없다 —
-   * 사용자는 버튼이 고장 났다고 읽는다. 그래서 권한 상태를 같이 돌려준다.
+   * Empty labels must not automatically raise a "grant permission" button.
+   * Labels are also empty when already **blocked**, and then the button does
+   * nothing when pressed — the user reads it as broken. So the permission
+   * state is returned alongside.
    */
   static async listMicrophones(): Promise<MicListResult> {
     const platform = detectPlatform();
@@ -173,7 +177,7 @@ export class Recorder {
       const all = await navigator.mediaDevices.enumerateDevices();
       inputs = all.filter((d) => d.kind === "audioinput");
     } catch (error) {
-      // 일부 브라우저는 권한이 없으면 enumerateDevices 자체를 거부한다.
+      // Some browsers reject enumerateDevices itself without permission.
       const code = classifyMediaError(error);
       return {
         devices: [],
@@ -192,11 +196,11 @@ export class Recorder {
     return {
       devices: inputs.map((d, i) => ({
         deviceId: d.deviceId,
-        // 라벨이 비었을 때의 대체 표기는 셸이 `index` 로 만든다 — core 는 문안 비생성.
+        // The shell builds the fallback label from `index` — core produces no wording.
         label: d.label,
         index: i + 1,
       })),
-      // 차단된 상태에서는 물어봐야 소용이 없다
+      // Asking is pointless while blocked
       needsPermission: labelsHidden && permission !== "denied",
       permission,
       ...(permission === "denied"
@@ -212,10 +216,12 @@ export class Recorder {
   }
 
   /**
-   * 권한만 받고 스트림은 바로 닫는다. 장치 라벨을 얻으려는 목적.
+   * Takes the permission and closes the stream immediately. The goal is
+   * getting device labels.
    *
-   * 예전에는 `boolean` 만 돌려줘서 **왜 실패했는지가 통째로 사라졌다.**
-   * 화면은 "권한 주기" 버튼을 다시 그리는 것 말고 할 수 있는 게 없었다.
+   * This used to return only a `boolean`, so **why it failed vanished
+   * entirely.** All the UI could do was redraw the "grant permission"
+   * button.
    */
   static async requestPermission(): Promise<MicPermissionRequestResult> {
     const platform = detectPlatform();
@@ -250,7 +256,7 @@ export class Recorder {
     }
   }
 
-  // ── 제어 ───────────────────────────────────────────────
+  // ── Control ────────────────────────────────────────────
 
   async start(): Promise<void> {
     if (this.isActive) return;
@@ -263,15 +269,17 @@ export class Recorder {
 
     this.#setState("requesting");
 
-    // 이미 차단이 굳었으면 굳이 물어보지 않는다.
+    // If the block has already hardened, do not bother asking.
     //
-    // Chrome 은 이 상태에서 `getUserMedia` 를 **아무 UI 없이 즉시** 거부한다.
-    // 그대로 두면 화면이 "마이크 준비 중" 을 한 번 깜빡이고 실패해서, 사용자는
-    // 뭔가 시도되긴 했다고 착각한다. 먼저 걸러 원인을 그대로 말한다.
+    // Chrome rejects `getUserMedia` here **immediately, with no UI at all.**
+    // Left alone, the screen flashes "preparing microphone" once and fails,
+    // and the user believes something was at least attempted. Filter first
+    // and state the cause plainly.
     //
-    // 여기서 `await` 로 다시 물어보지 않는다. 구독으로 이미 알고 있는 값을 쓴다 —
-    // `getUserMedia` 앞에 대기를 하나 더 두면 사용자 제스처와의 거리가 멀어져
-    // 권한 창이 뜨지 않는 브라우저가 있다. 아직 모르면(`unknown`) 그냥 물어본다.
+    // No re-querying with `await` here. Use the value the watch already
+    // knows — one more wait before `getUserMedia` puts distance between it
+    // and the user gesture, and some browsers then never show the prompt.
+    // If still unknown (`unknown`), just ask.
     const known = this.#permission;
     if (known === "denied") {
       this.#fail("permission_blocked", undefined, known);
@@ -281,7 +289,7 @@ export class Recorder {
     try {
       this.#stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          // 모노 강제 — Google STT 의 화자분리는 단일 채널만 지원한다
+          // Force mono — Google STT's speaker diarization supports single channel only
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
@@ -291,15 +299,15 @@ export class Recorder {
     } catch (error) {
       let code = classifyMediaError(error);
 
-      // 거부된 뒤에야 "굳었는지" 를 알 수 있다. 요청 전 상태는 아직 `prompt` 다.
+      // Only after a denial can we tell whether it "hardened". Before the request the state is still `prompt`.
       let permission: MicPermissionState = known;
       if (isPermissionCode(code)) {
         permission = await queryMicPermission();
         code = refinePermissionCode(code, permission);
       }
 
-      // 장치를 지정했는데 못 찾았다면 "마이크가 없다" 가 아니라
-      // "골라 둔 마이크가 사라졌다" 다. 할 일이 다르다.
+      // If a device was specified and not found, that is not "no microphone" —
+      // it is "the chosen microphone disappeared". The next step differs.
       if (code === "no_device" && this.#options.deviceId) code = "device_unavailable";
 
       this.#fail(code, error, permission);
@@ -323,7 +331,7 @@ export class Recorder {
     this.#drawWaveform();
   }
 
-  /** 일시정지. 스트림은 살려둔다 — 재개 시 권한을 다시 묻지 않기 위해. */
+  /** Pause. The stream stays alive — so resuming never re-asks for permission. */
   pause(): void {
     if (this.#state !== "recording" || !this.#recorder) return;
     if (this.#recorder.state !== "recording") return;
@@ -352,7 +360,7 @@ export class Recorder {
     else if (this.#state === "paused") this.resume();
   }
 
-  /** 녹음을 마치고 `complete` 이벤트로 결과를 준다. */
+  /** Finishes recording and delivers the result via the `complete` event. */
   stop(): void {
     if (!this.isActive || !this.#recorder) return;
 
@@ -360,13 +368,13 @@ export class Recorder {
     this.#stopTicking();
     this.#stopWaveform();
 
-    // onstop 에서 blob 을 만든다. 여기서 만들면 마지막 청크가 빠진다.
+    // The blob is built in onstop. Building it here would drop the last chunk.
     if (this.#recorder.state !== "inactive") {
       this.#recorder.stop();
     }
   }
 
-  /** 저장하지 않고 버린다. */
+  /** Discards without saving. */
   cancel(): void {
     if (this.#recorder && this.#recorder.state !== "inactive") {
       this.#recorder.onstop = null;
@@ -384,14 +392,14 @@ export class Recorder {
     this.events.removeAll();
   }
 
-  // ── 내부 ───────────────────────────────────────────────
+  // ── Internal ───────────────────────────────────────────
 
   #setupRecorder(): void {
     this.#mimeType = pickMimeType();
     const options = this.#mimeType ? { mimeType: this.#mimeType } : {};
     this.#recorder = new MediaRecorder(this.#stream!, options);
 
-    // 브라우저가 요청한 포맷을 거절하고 다른 걸 쓸 수 있다. 실제 값을 다시 읽는다.
+    // The browser may reject the requested format and use another. Re-read the actual value.
     this.#mimeType = this.#recorder.mimeType || this.#mimeType;
 
     this.#recorder.ondataavailable = (event) => {
@@ -415,7 +423,7 @@ export class Recorder {
     this.#teardown();
     this.#setState("idle");
 
-    // 빈 녹음은 올려봐야 전사도 못 하고 크레딧만 쓴다
+    // An empty recording cannot be transcribed and only burns credits
     if (blob.size === 0) {
       this.#fail("unknown", undefined, undefined, { key: "msg.emptyRecording" });
       return;
@@ -434,8 +442,8 @@ export class Recorder {
       this.#audioContext.createMediaStreamSource(this.#stream!).connect(this.#analyser);
       this.#levels = new Float32Array(this.#analyser.frequencyBinCount);
     } catch (error) {
-      // 파형은 있으면 좋은 것이지 필수가 아니다. 실패해도 녹음은 계속한다.
-      console.warn("[Recorder] 파형 분석기를 만들지 못했습니다:", error);
+      // The waveform is nice to have, not required. Recording continues even if this fails.
+      console.warn("[Recorder] could not create the waveform analyser:", error);
     }
   }
 
@@ -470,8 +478,8 @@ export class Recorder {
   #startTicking(): void {
     this.#stopTicking();
 
-    // 250ms 마다 확인하고 초가 바뀔 때만 이벤트를 낸다.
-    // 1초 간격 setInterval 은 드리프트가 쌓여 표시가 튄다.
+    // Check every 250ms and emit only when the second changes.
+    // A 1-second setInterval accumulates drift and makes the display jump.
     this.#tickId = setInterval(() => {
       if (this.#state !== "recording") return;
 
@@ -497,8 +505,8 @@ export class Recorder {
   }
 
   /**
-   * OS 가 마이크를 뺏어가는 경우를 감지한다.
-   * 전화 수신, 다른 앱의 마이크 점유, iOS 백그라운드 전환 등.
+   * Detects the OS taking the microphone away.
+   * Incoming calls, another app seizing the mic, iOS backgrounding, etc.
    */
   #watchInterruption(): void {
     for (const track of this.#stream?.getTracks() ?? []) {
@@ -511,7 +519,7 @@ export class Recorder {
           recovery: micRecoveryGuide("interrupted", this.#platform),
         });
 
-        // 가진 데이터까지는 살린다
+        // Salvage the data we have
         this.stop();
       });
     }
@@ -544,11 +552,11 @@ export class Recorder {
   }
 
   /**
-   * 실패를 알린다.
+   * Reports a failure.
    *
-   * 문구를 호출부에서 만들지 않는다. 같은 코드가 자리마다 다른 말을 하기
-   * 시작하면 어느 안내가 맞는지 알 수 없게 된다 — 원인·할 일은 전부
-   * `micRecoveryGuide` 한 곳에서 나온다.
+   * Wording is never built at the call site. Once the same code starts
+   * saying different things in different places, nobody knows which guidance
+   * is right — cause and steps all come from one place, `micRecoveryGuide`.
    */
   #fail(
     code: RecorderErrorCode,

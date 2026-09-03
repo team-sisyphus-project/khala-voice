@@ -1,14 +1,16 @@
 defmodule VR.MCP.Token do
   @moduledoc """
-  우리 MCP 서버를 읽을 수 있는 토큰.
+  A token that can read our MCP server.
 
-  **평문은 발급 순간에만 존재한다.** 해시만 저장하고, 잃어버리면 새로 만든다 —
-  공유 링크(`VR.Sharing.SharedLink`)와 같은 방식이다. 토큰이 DB 에 평문으로
-  있으면 DB 를 읽을 수 있는 사람이 곧 모든 아카이브를 읽을 수 있는 사람이 된다.
+  **The plaintext exists only at the moment of issuance.** Only the hash is
+  stored; if lost, create a new one — the same approach as share links
+  (`VR.Sharing.SharedLink`). If tokens sat in the DB as plaintext, anyone who
+  can read the DB could read every archive.
 
-  범위는 **아카이브 읽기 전용**이다 (`docs/15-mcp-khala.md`). 쓰기·삭제·오디오를
-  주지 않으므로 스코프 필드를 두지 않는다 — 필드가 있으면 언젠가 채우게 되고,
-  그때부터 "이 토큰으로 무엇을 할 수 있나"가 코드를 읽어야 알 수 있는 것이 된다.
+  The scope is **archive read-only** (`docs/15-mcp-khala.md`). We grant no
+  write, delete, or audio access, so there is no scope field — a field would
+  eventually get filled in, and from then on "what can this token do" becomes
+  something you have to read the code to know.
   """
 
   use Ecto.Schema
@@ -19,7 +21,7 @@ defmodule VR.MCP.Token do
 
   @token_prefix "mcp_"
   @rand_size 32
-  # 목록에서 알아보는 데 쓸 앞자리. 이것만으로는 복원할 수 없다.
+  # Leading characters used to recognize the token in lists. Not enough to reconstruct it.
   @visible 10
 
   @primary_key {:id, :string, autogenerate: false}
@@ -38,9 +40,9 @@ defmodule VR.MCP.Token do
   def token_prefix, do: @token_prefix
 
   @doc """
-  새 토큰. `{평문, changeset}` 을 돌려준다.
+  A new token. Returns `{plaintext, changeset}`.
 
-  평문은 이 시점 이후로 다시 구할 수 없다.
+  The plaintext can never be recovered after this point.
   """
   def build(account_id, attrs \\ %{}) do
     raw = :crypto.strong_rand_bytes(@rand_size)
@@ -59,6 +61,6 @@ defmodule VR.MCP.Token do
     {token, changeset}
   end
 
-  @doc "평문 토큰의 해시. 조회는 이 값으로만 한다."
+  @doc "The hash of a plaintext token. Lookups use only this value."
   def hash(token) when is_binary(token), do: :crypto.hash(:sha256, token)
 end

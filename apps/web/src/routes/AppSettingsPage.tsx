@@ -20,19 +20,20 @@ import { SETTINGS_SECTIONS } from "./settingsStructure";
 import type { SettingItem } from "./settingsStructure";
 
 /**
- * 설정 — iOS 설정 앱 문법.
+ * Settings — iOS Settings-app grammar.
  *
- * 묶음마다 작은 제목이 붙고, 그 아래 카드 하나에 행이 쌓인다. 한 카드에 여러
- * 성격을 몰아넣지 않는다 — "이건 화면 이야기, 저건 녹음 이야기"가 제목으로 갈린다.
+ * Each group gets a small title, with rows stacked in one card below it. Don't
+ * cram unrelated concerns into one card — "this is about display, that's about
+ * recording" is what the titles separate.
  *
- * ## 무엇이 여기 있고 무엇이 계정 설정에 있나
+ * ## What lives here vs. in account settings
  *
- * | 여기 (이 기기) | 계정 설정 (`/settings`) |
+ * | Here (this device) | Account settings (`/settings`) |
  * |---|---|
- * | 테마 · 녹음 기본값 · 알림 · 홈 화면 추가 | 프로필 · 비밀번호 · 로그인된 기기 · 계정 삭제 |
+ * | Theme · recording defaults · notifications · add to home screen | Profile · password · signed-in devices · account deletion |
  *
- * 테마는 계정에 저장되지만 **고르는 자리는 여기**다. 화면 모양을 바꾸려고
- * 계정 설정까지 들어가는 것은 iOS 문법이 아니다.
+ * The theme is stored on the account, but **it's picked here**. Making people
+ * dig into account settings to change how the screen looks is not iOS grammar.
  */
 export function AppSettingsPage() {
   const { t } = useTranslation();
@@ -50,9 +51,9 @@ export function AppSettingsPage() {
     try {
       await api.logout();
     } finally {
-      // 실패해도 로그인 화면으로 보낸다 — 서버 세션이 이미 끊겼을 수 있고,
-      // 이 화면에 남아 있으면 무엇이 되고 안 되는지 알 수 없다.
-      // SPA 라우터가 아니라 실제 이동이다: 남은 상태를 통째로 버린다.
+      // Send to the login screen even on failure — the server session may already
+      // be gone, and staying on this screen leaves it unclear what works and what doesn't.
+      // A real navigation, not the SPA router: it throws away all remaining state.
       window.location.href = "/login";
     }
   }
@@ -61,7 +62,7 @@ export function AppSettingsPage() {
   useEffect(() => onInstallAvailability(setInstallable), []);
 
   async function pickTheme(next: Theme) {
-    // 화면을 먼저 바꾸고 저장은 뒤따른다. 실패해도 화면은 바뀐 채로 둔다.
+    // Change the screen first; saving follows. On failure, leave the screen changed.
     setTheme(next);
     await applyTheme(next);
   }
@@ -71,7 +72,7 @@ export function AppSettingsPage() {
       case "theme":
         return (
           <div className="vr-settings-subgroup" data-setting-group={item}>
-            <h3 className="vr-settings-subgroup__title">테마</h3>
+            <h3 className="vr-settings-subgroup__title">Theme</h3>
             <div className="vr-theme-grid">
               {THEMES.map((themeItem) => (
                 <button
@@ -87,7 +88,7 @@ export function AppSettingsPage() {
               ))}
             </div>
 
-            {/* UI 언어는 계정에 있다(`locale`) — 기기를 바꿔도 따라온다. 전사 언어와 별개다. */}
+            {/* The UI language lives on the account (`locale`) — it follows across devices. Separate from the transcription language. */}
             <LocaleField account={account} onChange={setAccount} />
           </div>
         );
@@ -95,31 +96,31 @@ export function AppSettingsPage() {
       case "install":
         return (
           <div className="vr-settings-subgroup" data-setting-group={item}>
-            <h3 className="vr-settings-subgroup__title">홈 화면에 추가</h3>
+            <h3 className="vr-settings-subgroup__title">{t("settings.installSection")}</h3>
             {standalone ? (
               <Notice kind="ok" icon="check_circle">
-                이미 앱으로 실행 중입니다.
+                {t("settings.installedAlready")}
               </Notice>
             ) : installable ? (
               <>
                 <p className="vr-note vr-note--small">
-                  주소창 없이 열리고, 녹음 화면으로 바로 들어갑니다.
+                  {t("settings.installBenefit")}
                 </p>
                 <Button full onClick={() => void promptInstall()}>
-                  지금 추가
+                  {t("settings.installNow")}
                 </Button>
               </>
             ) : (
               <ol className="vr-note vr-note--small vr-install-guide">
                 <li>
-                  <strong>iPhone · iPad</strong> — 공유 버튼(<Icon name="ios_share" />) →
-                  &ldquo;홈 화면에 추가&rdquo;
+                  <strong>iPhone · iPad</strong> — Share button (<Icon name="ios_share" />) →
+                  &ldquo;Add to Home Screen&rdquo;
                 </li>
                 <li>
-                  <strong>Android</strong> — 메뉴(⋮) → &ldquo;홈 화면에 추가&rdquo;
+                  <strong>Android</strong> — Menu (⋮) → &ldquo;Add to Home Screen&rdquo;
                 </li>
                 <li>
-                  <strong>데스크톱</strong> — 주소창 오른쪽 설치 아이콘
+                  <strong>Desktop</strong> — install icon on the right of the address bar
                 </li>
               </ol>
             )}
@@ -130,14 +131,14 @@ export function AppSettingsPage() {
         return (
           <div className="vr-settings-subgroup" data-setting-group={item}>
             <Row
-              title="마이크"
-              meta={prefs.micDeviceId ? "고른 장치" : "기본 장치"}
+              title={t("settings.microphone")}
+              meta={prefs.micDeviceId ? t("settings.micSelected") : t("settings.micDefault")}
               chevron
               onClick={() => setEditingPrefs(true)}
             />
             <p className="vr-note vr-note--small">
-              마이크는 <strong>이 기기에서만</strong> 적용됩니다. 회의실 PC 와 폰은 각자
-              다른 마이크를 씁니다.
+              The microphone applies <strong>to this device only</strong>. The meeting-room
+              PC and your phone each use their own microphone.
             </p>
             <LanguageField account={account} onChange={setAccount} />
           </div>
@@ -154,8 +155,8 @@ export function AppSettingsPage() {
         return (
           <div className="vr-settings-subgroup" data-setting-group={item}>
             <Link className="vr-nav-row" to={routes.billing}>
-              <span className="vr-nav-row__title">크레딧 보기</span>
-              <span className="vr-nav-row__meta">잔액과 사용 내역</span>
+              <span className="vr-nav-row__title">{t("settings.creditsTitle")}</span>
+              <span className="vr-nav-row__meta">{t("settings.creditsMeta")}</span>
               <Icon name="chevron_right" />
             </Link>
           </div>
@@ -172,8 +173,8 @@ export function AppSettingsPage() {
         return (
           <div className="vr-settings-subgroup" data-setting-group={item}>
             <a className="vr-nav-row" href={routes.account}>
-              <span className="vr-nav-row__title">계정 설정</span>
-              <span className="vr-nav-row__meta">프로필 · 비밀번호 · 로그인된 기기</span>
+              <span className="vr-nav-row__title">{t("settings.accountTitle")}</span>
+              <span className="vr-nav-row__meta">{t("settings.accountMeta")}</span>
               <Icon name="chevron_right" />
             </a>
           </div>
@@ -182,7 +183,7 @@ export function AppSettingsPage() {
   }
 
   return (
-    <AppShell active="settings" title="설정">
+    <AppShell active="settings" title={t("settings.title")}>
       {SETTINGS_SECTIONS.map((section) => (
         <Section key={section.id} title={section.title} card className="vr-settings-section">
           {section.items.map((item) => (
@@ -191,13 +192,14 @@ export function AppSettingsPage() {
         </Section>
       ))}
 
-      {/* 로그아웃은 **맨 아래**다. iOS 설정 문법이고, 실수로 누르기 어려운 자리다. */}
+      {/* Log out sits at the **very bottom**. iOS Settings grammar, and a spot that's hard to press by accident. */}
       <Section card>
         <Button variant="danger" full icon="logout" onClick={() => void logout()} pending={loggingOut}>
-          로그아웃
+          Log out
         </Button>
         <p className="vr-note vr-note--small">
-          이 기기에서만 나갑니다. 다른 기기는 <a href={routes.account}>계정 설정</a>에서 끊습니다.
+          Signs you out on this device only. Disconnect other devices in{" "}
+          <a href={routes.account}>account settings</a>.
         </p>
       </Section>
 

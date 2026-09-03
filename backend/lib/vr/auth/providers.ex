@@ -1,13 +1,14 @@
 defmodule VR.Auth.Providers do
   @moduledoc """
-  소셜 로그인 제공자 조회/관리.
+  Social login provider lookup/management.
 
-  ## 활성화 판정
+  ## Activation criteria
 
-      enabled = true  AND  client_id 있음  AND  client_secret 있음
+      enabled = true  AND  client_id present  AND  client_secret present
 
-  셋 중 하나라도 빠지면 로그인 화면에 나타나지 않고, OAuth 라우트도 404가 된다.
-  키가 없는데 켜져 있으면 어드민에 경고를 띄운다.
+  If any of the three is missing, the provider does not appear on the login screen
+  and its OAuth routes return 404. If it is enabled but the keys are missing,
+  a warning is shown in the admin.
   """
 
   import Ecto.Query, warn: false
@@ -25,7 +26,7 @@ defmodule VR.Auth.Providers do
     "apple" => {"APPLE_OAUTH_CLIENT_ID", "APPLE_OAUTH_CLIENT_SECRET", "APPLE_OAUTH_REDIRECT_URI"}
   }
 
-  @doc "어드민용 — 모든 제공자 (미설정 포함)"
+  @doc "For the admin — all providers (including unconfigured ones)"
   def list_all do
     stored = Repo.all(from p in AuthProvider, order_by: [asc: :sort_order, asc: :provider])
     stored_map = Map.new(stored, &{&1.provider, &1})
@@ -37,14 +38,14 @@ defmodule VR.Auth.Providers do
     |> Enum.map(&decorate/1)
   end
 
-  @doc "로그인 화면용 — 실제로 쓸 수 있는 제공자만"
+  @doc "For the login screen — only providers that can actually be used"
   def list_active do
     list_all()
     |> Enum.filter(& &1.active)
     |> Enum.sort_by(&{&1.sort_order, &1.provider})
   end
 
-  @doc "이 제공자로 로그인할 수 있는가. OAuth 라우트가 이걸 보고 404를 낸다."
+  @doc "Can users log in with this provider? OAuth routes consult this to return 404."
   def active?(name) when is_binary(name) do
     case get(name) do
       nil -> false
@@ -54,7 +55,7 @@ defmodule VR.Auth.Providers do
 
   def get(name), do: Enum.find(list_all(), &(&1.provider == name))
 
-  @doc "제공자 설정 저장 (빈 비밀값은 기존 값 유지)"
+  @doc "Saves provider configuration (an empty secret keeps the existing value)"
   def upsert(name, attrs, opts \\ []) do
     attrs =
       attrs
@@ -69,9 +70,9 @@ defmodule VR.Auth.Providers do
   end
 
   @doc """
-  ON/OFF 토글.
+  ON/OFF toggle.
 
-  켤 때 키가 없으면 거부한다. 켜져 있는데 키가 없는 상태를 만들지 않는다.
+  Turning on without keys is refused. Never create a state that is enabled but keyless.
   """
   def set_enabled(name, enabled, opts \\ []) do
     provider = get(name)
@@ -86,18 +87,18 @@ defmodule VR.Auth.Providers do
   end
 
   @doc """
-  이 제공자로**만** 로그인할 수 있는 계정 수.
+  Number of accounts that can log in **only** with this provider.
 
-  끄기 전에 확인한다. 0이 아니면 그 계정들이 로그인 불가가 되므로
-  어드민이 확인 절차를 거치고, 해당 계정에 비밀번호 설정 안내를 보낸다.
+  Checked before turning off. If non-zero, those accounts would become unable to log in,
+  so the admin goes through a confirmation step and a password-setup notice is sent to them.
   """
   def locked_out_account_count(name) do
-    # M1에서 accounts 테이블이 생기면 실제 카운트로 교체한다.
+    # Replace with the real count once the accounts table lands in M1.
     _ = name
     0
   end
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
   defp decorate(%AuthProvider{} = p) do
     {id_env, secret_env, redirect_env} = Map.get(@env_map, p.provider, {nil, nil, nil})
@@ -116,7 +117,7 @@ defmodule VR.Auth.Providers do
       resolved_redirect_uri: redirect_uri,
       credentials_present: credentials_present,
       credentials_source: source_of(p.client_id, client_id),
-      # enabled 는 DB만 본다 — 환경변수로는 켜지지 않는다
+      # enabled reads only the DB — environment variables cannot turn it on
       active: p.enabled and credentials_present
     })
   end

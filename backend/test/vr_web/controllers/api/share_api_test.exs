@@ -10,7 +10,7 @@ defmodule VRWeb.API.ShareAPITest do
     stranger = account_fixture()
     {:ok, token, _} = Accounts.create_session(owner)
 
-    {:ok, meeting} = Meetings.create_meeting(owner, %{title: "공유 회의"})
+    {:ok, meeting} = Meetings.create_meeting(owner, %{title: "Shared Meeting"})
     {:ok, meeting} = Meetings.update_permissions(meeting, %{guest_link_enabled: true})
 
     authed =
@@ -34,14 +34,14 @@ defmodule VRWeb.API.ShareAPITest do
 
   defp guest_conn(anon, token), do: put_req_header(anon, "x-guest-token", token)
 
-  describe "Reviewer 링크 관리" do
-    test "발급 응답에만 URL 과 PIN 이 있다", ctx do
+  describe "Reviewer link management" do
+    test "URL and PIN exist only in the issue response", ctx do
       created = issue(ctx, %{"granted_role" => "viewer", "with_pincode" => true})
 
       assert created["url"] =~ "/share/slt_"
       assert created["pincode"] =~ ~r/^\d{6}$/
       assert created["has_pincode"] == true
-      # 해시는 절대 안 나간다
+      # Hashes never leave
       refute Map.has_key?(created, "token_hash")
       refute Map.has_key?(created, "pin_hash")
 
@@ -55,7 +55,7 @@ defmodule VRWeb.API.ShareAPITest do
       assert link["token_prefix"] =~ "slt_"
     end
 
-    test "Reviewer 가 아니면 404", ctx do
+    test "non-Reviewers get 404", ctx do
       {:ok, stranger_token, _} = Accounts.create_session(ctx.stranger)
 
       other =
@@ -70,7 +70,7 @@ defmodule VRWeb.API.ShareAPITest do
              |> json_response(404)
     end
 
-    test "Contributor 도 링크를 발급할 수 없다", ctx do
+    test "even a Contributor cannot issue links", ctx do
       contributor = account_fixture()
       {:ok, _} = Meetings.update_permissions(ctx.meeting, %{contributor_ids: [contributor.id]})
       {:ok, token, _} = Accounts.create_session(contributor)
@@ -85,7 +85,7 @@ defmodule VRWeb.API.ShareAPITest do
              |> json_response(404)
     end
 
-    test "남의 링크는 id 를 알아도 못 건드린다", ctx do
+    test "someone else's link cannot be touched even knowing its id", ctx do
       created = issue(ctx)
       {:ok, stranger_token, _} = Accounts.create_session(ctx.stranger)
 
@@ -98,7 +98,7 @@ defmodule VRWeb.API.ShareAPITest do
       assert other |> post(~p"/api/share-links/#{created["id"]}/rotate") |> json_response(404)
     end
 
-    test "재발급하면 새 URL 이 나온다", ctx do
+    test "rotation yields a new URL", ctx do
       created = issue(ctx)
 
       rotated =
@@ -108,14 +108,14 @@ defmodule VRWeb.API.ShareAPITest do
       assert rotated["token_prefix"] != created["token_prefix"]
     end
 
-    test "폐기하면 204", ctx do
+    test "revoking returns 204", ctx do
       created = issue(ctx)
       assert ctx.conn |> delete(~p"/api/share-links/#{created["id"]}") |> response(204)
     end
   end
 
-  describe "게스트 진입" do
-    test "들어가기 전에는 회의 내용을 주지 않는다", ctx do
+  describe "guest entry" do
+    test "no meeting content before entering", ctx do
       created = issue(ctx, %{"require_name" => true, "with_pincode" => true})
       token = created["url"] |> String.split("/share/") |> List.last()
 
@@ -124,12 +124,12 @@ defmodule VRWeb.API.ShareAPITest do
       assert body["require_name"] == true
       assert body["require_pincode"] == true
       assert body["granted_role"] == "viewer"
-      # 제목조차 없다
+      # Not even the title
       refute Map.has_key?(body, "title")
       refute Map.has_key?(body, "meeting_id")
     end
 
-    test "입장하면 게스트 토큰을 받는다", ctx do
+    test "entering yields a guest token", ctx do
       created = issue(ctx, %{"require_name" => false})
       token = created["url"] |> String.split("/share/") |> List.last()
 
@@ -142,7 +142,7 @@ defmodule VRWeb.API.ShareAPITest do
       assert String.starts_with?(body["guest_token"], "gst_")
     end
 
-    test "PIN 이 틀리면 401", ctx do
+    test "a wrong PIN is 401", ctx do
       created = issue(ctx, %{"require_name" => false, "with_pincode" => true})
       token = created["url"] |> String.split("/share/") |> List.last()
 
@@ -150,12 +150,12 @@ defmodule VRWeb.API.ShareAPITest do
       assert json_response(conn, 401)["code"] == "invalid_pincode"
     end
 
-    test "없는 토큰은 404", ctx do
-      assert ctx.anon |> get(~p"/api/public/share/slt_없음") |> json_response(404)
+    test "an unknown token is 404", ctx do
+      assert ctx.anon |> get(~p"/api/public/share/slt_missing") |> json_response(404)
     end
   end
 
-  describe "게스트가 보는 회의" do
+  describe "the meeting as guests see it" do
     setup ctx do
       created = issue(ctx, %{"granted_role" => "viewer", "require_name" => false})
       token = created["url"] |> String.split("/share/") |> List.last()
@@ -164,7 +164,7 @@ defmodule VRWeb.API.ShareAPITest do
       Map.put(ctx, :guest_token, body["guest_token"])
     end
 
-    test "묶인 회의를 본다", ctx do
+    test "sees the bound meeting", ctx do
       body =
         ctx.anon
         |> guest_conn(ctx.guest_token)
@@ -175,27 +175,27 @@ defmodule VRWeb.API.ShareAPITest do
       assert body["role"] == "viewer"
     end
 
-    test "참여자 계정 id 는 주지 않는다", ctx do
+    test "participant account ids are not provided", ctx do
       body =
         ctx.anon
         |> guest_conn(ctx.guest_token)
         |> get(~p"/api/public/guest/meeting")
         |> json_response(200)
 
-      # 사람 목록이 새어 나가지 않게 한다
+      # Keeps the people list from leaking
       refute Map.has_key?(body, "owner_id")
       refute Map.has_key?(body, "reviewer_id")
       refute Map.has_key?(body, "contributor_ids")
       refute Map.has_key?(body, "permissions")
     end
 
-    test "게스트 토큰 없이는 401", ctx do
+    test "401 without a guest token", ctx do
       conn = get(ctx.anon, ~p"/api/public/guest/meeting")
       assert json_response(conn, 401)["code"] == "guest_session_required"
     end
 
-    test "게스트 토큰으로 일반 API 는 못 쓴다", ctx do
-      # 게스트 토큰은 /api/public 밖에서 아무 의미가 없다
+    test "a guest token cannot use the regular API", ctx do
+      # Guest tokens mean nothing outside /api/public
       conn =
         ctx.anon
         |> guest_conn(ctx.guest_token)
@@ -204,8 +204,8 @@ defmodule VRWeb.API.ShareAPITest do
       assert json_response(conn, 401)
     end
 
-    test "게스트에게 전사 · 요약 · 업로드 경로가 없다", _ctx do
-      # 라우터에 아예 없다. 크레딧을 태울 경로를 링크에 딸려 보내지 않는다.
+    test "guests have no transcription, summary, or upload routes", _ctx do
+      # Absent from the router entirely. Do not ship credit-burning routes along with a link.
       routes = VRWeb.Router.__routes__() |> Enum.map(& &1.path)
       guest_routes = Enum.filter(routes, &String.starts_with?(&1, "/api/public"))
 
@@ -215,7 +215,7 @@ defmodule VRWeb.API.ShareAPITest do
       refute Enum.any?(guest_routes, &String.contains?(&1, "presign"))
     end
 
-    test "링크를 폐기하면 즉시 끊긴다", ctx do
+    test "revoking the link disconnects immediately", ctx do
       created =
         ctx.conn |> get(~p"/api/meetings/#{ctx.meeting.id}/share-links") |> json_response(200)
 
@@ -226,7 +226,7 @@ defmodule VRWeb.API.ShareAPITest do
       assert json_response(conn, 401)
     end
 
-    test "나가면 세션이 죽는다", ctx do
+    test "leaving kills the session", ctx do
       assert ctx.anon
              |> guest_conn(ctx.guest_token)
              |> delete(~p"/api/public/guest/session")
@@ -237,7 +237,7 @@ defmodule VRWeb.API.ShareAPITest do
     end
   end
 
-  describe "게스트에게 새면 안 되는 것" do
+  describe "what must not leak to guests" do
     setup ctx do
       {:ok, session} = Meetings.create_session(ctx.meeting)
 
@@ -257,10 +257,10 @@ defmodule VRWeb.API.ShareAPITest do
         Meetings.update_transcript(session, %{
           transcript: %{
             "segments" => [
-              %{"speaker" => "speaker_1", "text" => "말", "start_ms" => 0, "end_ms" => 3000}
+              %{"speaker" => "speaker_1", "text" => "words", "start_ms" => 0, "end_ms" => 3000}
             ]
           },
-          speaker_map: %{"speaker_1" => %{"name" => "김철수", "account_id" => ctx.owner.id}}
+          speaker_map: %{"speaker_1" => %{"name" => "John Doe", "account_id" => ctx.owner.id}}
         })
 
       %{session: session}
@@ -278,8 +278,8 @@ defmodule VRWeb.API.ShareAPITest do
       body["guest_token"]
     end
 
-    test "화자 매핑의 계정 id 가 나가지 않는다", ctx do
-      # 전사만 넘겨도 참여자 계정 id 가 통째로 새어 나가기 쉬운 자리다
+    test "account ids in the speaker map do not leave", ctx do
+      # Even just handing over the transcript is where participant account ids leak wholesale
       guest_token = enter_guest(ctx, %{"granted_role" => "viewer", "require_name" => false})
 
       body =
@@ -290,15 +290,15 @@ defmodule VRWeb.API.ShareAPITest do
 
       speaker_map = hd(body["recording_sessions"])["speaker_map"]
 
-      assert speaker_map["speaker_1"]["name"] == "김철수"
+      assert speaker_map["speaker_1"]["name"] == "John Doe"
       refute Map.has_key?(speaker_map["speaker_1"], "account_id")
       refute json_string(body) =~ ctx.owner.id
     end
 
-    test "요약 실패 원문과 과금액이 나가지 않는다", ctx do
+    test "raw summary-failure details and billing amounts do not leave", ctx do
       {:ok, _} =
         Meetings.update_summary(ctx.meeting, %{
-          last_summary_error: %{"reason" => "내부 예외 상세", "at" => "2026-01-01T00:00:00Z"}
+          last_summary_error: %{"reason" => "internal exception details", "at" => "2026-01-01T00:00:00Z"}
         })
 
       guest_token = enter_guest(ctx, %{"granted_role" => "viewer", "require_name" => false})
@@ -309,12 +309,12 @@ defmodule VRWeb.API.ShareAPITest do
         |> get(~p"/api/public/guest/meeting")
         |> json_response(200)
 
-      refute json_string(body) =~ "내부 예외 상세"
+      refute json_string(body) =~ "internal exception details"
       refute Map.has_key?(body, "total_credits_charged")
       refute Map.has_key?(hd(body["recording_sessions"]), "credits_charged")
     end
 
-    test "Viewer 게스트는 오디오 경로 자체가 없고 직접 불러도 404", ctx do
+    test "Viewer guests have no audio path at all, and calling directly is 404", ctx do
       guest_token = enter_guest(ctx, %{"granted_role" => "viewer", "require_name" => false})
 
       body =
@@ -331,7 +331,7 @@ defmodule VRWeb.API.ShareAPITest do
              |> json_response(404)
     end
 
-    test "Contributor 게스트는 게스트 전용 오디오 경로를 받는다", ctx do
+    test "Contributor guests receive the guest-only audio path", ctx do
       guest_token = enter_guest(ctx, %{"granted_role" => "contributor", "require_name" => false})
 
       body =
@@ -342,15 +342,15 @@ defmodule VRWeb.API.ShareAPITest do
 
       href = hd(body["recording_sessions"])["audio_href"]
 
-      # 계정 전용 경로를 주면 눌러도 401 만 난다
+      # Handing them the account-only path would just 401 on click
       assert href == "/api/public/guest/sessions/#{ctx.session.id}/audio"
     end
 
-    test "다른 회의의 세션 오디오는 게스트에게 404", ctx do
+    test "another meeting's session audio is 404 for guests", ctx do
       guest_token = enter_guest(ctx, %{"granted_role" => "contributor", "require_name" => false})
 
       other_owner = account_fixture()
-      {:ok, other} = Meetings.create_meeting(other_owner, %{title: "남의 회의"})
+      {:ok, other} = Meetings.create_meeting(other_owner, %{title: "Someone Else's Meeting"})
       {:ok, other_session} = Meetings.create_session(other)
 
       assert ctx.anon

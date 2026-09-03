@@ -1,10 +1,10 @@
 defmodule VR.Friends do
   @moduledoc """
-  친구 관계와 초대.
+  Friendships and invitations.
 
-  이 앱에서 친구 목록은 sisyphus의 "프로젝트 멤버" 자리를 대신한다.
-  회의의 Reviewer/Contributor 지정, 화자 매핑, 공개 범위(`all_friends`)가
-  전부 여기를 본다.
+  In this app, the friends list takes the place of sisyphus's "project members".
+  Meeting Reviewer/Contributor assignment, speaker mapping, and visibility scope
+  (`all_friends`) all look here.
   """
 
   import Ecto.Query, warn: false
@@ -15,9 +15,9 @@ defmodule VR.Friends do
   alias VR.Friends.{FriendInvitation, Friendship}
   alias VR.Repo
 
-  # ── 친구 목록 ────────────────────────────────────────────
+  # ── Friends list ─────────────────────────────────────────
 
-  @doc "내 친구 계정 목록 (차단된 관계 제외)."
+  @doc "The accounts of my friends (excluding blocked relationships)."
   def list_friends(account_id) do
     Repo.all(
       from a in Account,
@@ -30,7 +30,7 @@ defmodule VR.Friends do
     )
   end
 
-  @doc "두 계정이 친구인가. 권한 판정(`all_friends` 범위)에서 쓴다."
+  @doc "Whether two accounts are friends. Used in permission checks (the `all_friends` scope)."
   def friends?(nil, _other), do: false
   def friends?(_account_id, nil), do: false
   def friends?(same, same), do: false
@@ -49,7 +49,7 @@ defmodule VR.Friends do
     Repo.one(from f in Friendship, where: f.account_a_id == ^a and f.account_b_id == ^b)
   end
 
-  @doc "친구 관계를 만든다. 이미 있으면 그대로 돌려준다."
+  @doc "Creates a friendship. Returns the existing one if it already exists."
   def create_friendship(account_id, other_id) do
     case get_friendship(account_id, other_id) do
       nil -> account_id |> Friendship.build(other_id) |> Repo.insert()
@@ -73,7 +73,7 @@ defmodule VR.Friends do
 
   def unblock(account_id, other_id) do
     case get_friendship(account_id, other_id) do
-      # 차단한 사람만 풀 수 있다
+      # Only the person who blocked can unblock
       %Friendship{blocked_by_id: blocker} = f when blocker == account_id ->
         f |> Friendship.unblock_changeset() |> Repo.update()
 
@@ -85,12 +85,12 @@ defmodule VR.Friends do
     end
   end
 
-  # ── 초대 ─────────────────────────────────────────────────
+  # ── Invitations ──────────────────────────────────────────
 
   @doc """
-  초대를 만든다. `email`이 있으면 이메일 초대, 없으면 링크 초대다.
+  Creates an invitation. With `email` it is an email invitation; without, a link invitation.
 
-  `{:ok, invitation, 원본_토큰}`을 돌려준다. 토큰은 링크에만 쓴다.
+  Returns `{:ok, invitation, raw_token}`. The token is used only in the link.
   """
   def create_invitation(%Account{} = inviter, attrs \\ %{}) do
     email = normalize_email(attrs[:email] || attrs["email"])
@@ -107,7 +107,7 @@ defmodule VR.Friends do
     end
   end
 
-  @doc "내가 보낸 초대."
+  @doc "Invitations I have sent."
   def list_sent_invitations(account_id) do
     Repo.all(
       from i in FriendInvitation,
@@ -116,7 +116,7 @@ defmodule VR.Friends do
     )
   end
 
-  @doc "내 이메일로 온 대기 중인 초대."
+  @doc "Pending invitations sent to my email address."
   def list_received_invitations(%Account{} = account) do
     now = DateTime.utc_now(:second)
 
@@ -130,8 +130,8 @@ defmodule VR.Friends do
   end
 
   @doc """
-  토큰으로 초대를 조회한다. 로그인하지 않은 사람도 볼 수 있어야 한다
-  (초대 링크를 열면 누가 초대했는지 보여줘야 하므로).
+  Looks up an invitation by token. Must be visible even to people who are not
+  logged in (opening an invitation link should show who sent the invite).
   """
   def get_invitation_by_token(token) do
     now = DateTime.utc_now(:second)
@@ -150,7 +150,8 @@ defmodule VR.Friends do
   end
 
   @doc """
-  초대를 수락한다. 초대 상태 변경과 친구 관계 생성을 **한 트랜잭션**으로 묶는다.
+  Accepts an invitation. Bundles the invitation status change and friendship
+  creation into **one transaction.**
   """
   def accept_invitation(token, %Account{} = account) do
     with {:ok, invitation} <- get_invitation_by_token(token),
@@ -179,7 +180,7 @@ defmodule VR.Friends do
     end
   end
 
-  @doc "초대자가 자기 초대를 취소한다."
+  @doc "The inviter cancels their own invitation."
   def cancel_invitation(invitation_id, %Account{} = account) do
     case Repo.get(FriendInvitation, invitation_id) do
       %FriendInvitation{invited_by_id: owner} = invitation when owner == account.id ->
@@ -193,7 +194,7 @@ defmodule VR.Friends do
     end
   end
 
-  @doc "만료된 초대를 정리한다. 주기 작업에서 호출한다."
+  @doc "Cleans up expired invitations. Called from a periodic job."
   def expire_stale_invitations do
     now = DateTime.utc_now(:second)
 
@@ -206,7 +207,7 @@ defmodule VR.Friends do
     count
   end
 
-  # ── 내부 검증 ────────────────────────────────────────────
+  # ── Internal validation ──────────────────────────────────
 
   defp normalize_email(nil), do: nil
   defp normalize_email(""), do: nil

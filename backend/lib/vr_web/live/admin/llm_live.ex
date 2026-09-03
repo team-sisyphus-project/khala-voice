@@ -1,9 +1,9 @@
 defmodule VRWeb.Admin.LlmLive do
   @moduledoc """
-  AI 요약용 LLM 제공자 관리.
+  Manage LLM providers for AI summaries.
 
-  여러 제공자를 등록해 두면 `priority` 오름차순으로 시도하고,
-  레이트리밋이나 5xx로 실패하면 다음 제공자로 폴백한다.
+  With multiple providers registered, they are tried in ascending `priority`
+  order, falling back to the next provider on rate limits or 5xx failures.
   """
 
   use VRWeb, :live_view
@@ -21,7 +21,7 @@ defmodule VRWeb.Admin.LlmLive do
   defp load(socket) do
     assign(socket,
       providers: LlmProviders.list_all(),
-      # 제공자가 없어도 개발 모드면 요약은 동작한다. 실제와 다른 경고를 띄우지 않는다.
+      # Even without a provider, summaries work in dev mode. Don't show a warning that contradicts reality.
       ready: Summarize.ready?(),
       dev_mode: Summarize.dev_mode?(),
       auto_summarize: Config.fetch("llm.auto_summarize") in [true, "true"]
@@ -45,10 +45,10 @@ defmodule VRWeb.Admin.LlmLive do
 
     case LlmProviders.upsert(attrs) do
       {:ok, _} ->
-        {:noreply, socket |> put_flash(:info, "저장했습니다") |> assign(editing: nil) |> load()}
+        {:noreply, socket |> put_flash(:info, "Saved.") |> assign(editing: nil) |> load()}
 
       {:error, changeset} ->
-        {:noreply, put_flash(socket, :error, "저장 실패: #{errors(changeset)}")}
+        {:noreply, put_flash(socket, :error, "Save failed: #{errors(changeset)}")}
     end
   end
 
@@ -69,7 +69,7 @@ defmodule VRWeb.Admin.LlmLive do
 
       p ->
         LlmProviders.delete(p)
-        {:noreply, socket |> put_flash(:info, "삭제했습니다") |> load()}
+        {:noreply, socket |> put_flash(:info, "Deleted.") |> load()}
     end
   end
 
@@ -78,21 +78,21 @@ defmodule VRWeb.Admin.LlmLive do
     ~H"""
     <.shell
       active={:llm}
-      title="LLM 제공자"
-      subtitle="AI 요약에 사용합니다. 우선순위가 낮은 값부터 시도하고, 실패하면 다음으로 넘어갑니다."
+      title="LLM providers"
+      subtitle="Used for AI summaries. Providers are tried from the lowest priority value; on failure the next one takes over."
     >
       <:actions>
-        <button class="vr-btn vr-btn--sm vr-btn--primary" phx-click="new">제공자 추가</button>
+        <button class="vr-btn vr-btn--sm vr-btn--primary" phx-click="new">Add provider</button>
       </:actions>
 
       <.notice :if={not @ready} kind={:warn} icon="warning" class="mb-4">
-        사용 가능한 LLM 제공자가 없어 <strong>AI 요약이 비활성 상태</strong>입니다.
-        API 키를 입력하고 켜주세요.
+        No LLM provider is available, so <strong>AI summaries are disabled</strong>.
+        Enter an API key and turn one on.
       </.notice>
 
       <.notice :if={@dev_mode} kind={:info} icon="science" class="mb-4">
-        <strong>개발 모드</strong>가 켜져 있어 LLM을 호출하지 않고 목 요약을 만듭니다.
-        실제 전사에서 인용을 뽑으므로 근거 점프까지 확인됩니다. 운영에서는 반드시 끄세요.
+        <strong>Dev mode</strong> is on, so mock summaries are generated without calling an LLM.
+        Quotes are pulled from the real transcription, so evidence jumps can still be verified. Be sure to turn this off in production.
       </.notice>
 
       <div class="vr-card mb-4">
@@ -100,14 +100,14 @@ defmodule VRWeb.Admin.LlmLive do
           <.switch_row
             key="llm.dev_mode"
             on={@dev_mode}
-            label="개발 모드"
-            help="LLM을 호출하지 않고 목 요약을 만듭니다. 키 없이 화면을 확인할 때."
+            label="Dev mode"
+            help="Generates mock summaries without calling an LLM. For checking screens without a key."
           />
           <.switch_row
             key="llm.auto_summarize"
             on={@auto_summarize}
-            label="전사 완료 시 자동 요약"
-            help="끄면 사용자가 [요약 만들기] 를 눌렀을 때만 생성합니다."
+            label="Auto-summarize when transcription completes"
+            help="When off, summaries are generated only when the user clicks [Create summary]."
           />
         </div>
       </div>
@@ -124,8 +124,8 @@ defmodule VRWeb.Admin.LlmLive do
                   {p.display_name || String.capitalize(p.provider)}
                 </span>
                 <span class="vr-key">{p.model}</span>
-                <span :if={p.usable} class="vr-chip vr-chip--ok">사용 가능</span>
-                <span :if={not p.usable} class="vr-chip vr-chip--neutral">사용 불가</span>
+                <span :if={p.usable} class="vr-chip vr-chip--ok">Usable</span>
+                <span :if={not p.usable} class="vr-chip vr-chip--neutral">Unusable</span>
               </div>
 
               <div class="flex items-center gap-2">
@@ -137,7 +137,7 @@ defmodule VRWeb.Admin.LlmLive do
                   phx-value-provider={p.provider}
                   phx-value-to={if p.enabled, do: "off", else: "on"}
                 >
-                  {if p.enabled, do: "끄기", else: "켜기"}
+                  {if p.enabled, do: "Turn off", else: "Turn on"}
                 </button>
                 <button
                   :if={p.key_source != :env}
@@ -145,7 +145,7 @@ defmodule VRWeb.Admin.LlmLive do
                   phx-click="edit"
                   phx-value-provider={p.provider}
                 >
-                  {if @editing == p.provider, do: "닫기", else: "편집"}
+                  {if @editing == p.provider, do: "Close", else: "Edit"}
                 </button>
                 <button
                   :if={p.id}
@@ -153,16 +153,16 @@ defmodule VRWeb.Admin.LlmLive do
                   style="color: var(--status-error);"
                   phx-click="delete"
                   phx-value-id={p.id}
-                  data-confirm="이 제공자 설정을 삭제합니다. 계속할까요?"
+                  data-confirm="This will delete this provider configuration. Continue?"
                 >
-                  삭제
+                  Delete
                 </button>
               </div>
             </div>
 
             <p :if={p.key_source == :env} class="vr-hint" style="font-size: 12px;">
-              환경변수(LLM_PROVIDER / LLM_API_KEY / LLM_MODEL)로 설정된 항목입니다.
-              DB에 같은 제공자를 등록하면 그쪽이 우선합니다.
+              This entry is configured via environment variables (LLM_PROVIDER / LLM_API_KEY / LLM_MODEL).
+              Registering the same provider in the DB takes precedence.
             </p>
 
             <.provider_form :if={@editing == p.provider} provider={p} is_new={false} />
@@ -185,7 +185,7 @@ defmodule VRWeb.Admin.LlmLive do
     >
       <div class="grid grid-cols-2 gap-3">
         <label class="block">
-          <span class="vr-label mb-1.5">제공자</span>
+          <span class="vr-label mb-1.5">Provider</span>
           <select name="provider" class="vr-input" disabled={not @is_new}>
             <option :for={p <- LlmProvider.providers()} value={p} selected={@provider.provider == p}>
               {p}
@@ -195,7 +195,7 @@ defmodule VRWeb.Admin.LlmLive do
         </label>
 
         <label class="block">
-          <span class="vr-label mb-1.5">모델 ID</span>
+          <span class="vr-label mb-1.5">Model ID</span>
           <input
             type="text"
             name="model"
@@ -208,7 +208,7 @@ defmodule VRWeb.Admin.LlmLive do
 
       <label class="block">
         <span class="vr-label mb-1.5">
-          API 키 <span :if={Map.get(@provider, :key_present)} class="opacity-60">— 비워두면 기존 값 유지</span>
+          API key <span :if={Map.get(@provider, :key_present)} class="opacity-60">— leave blank to keep the current value</span>
         </span>
         <input
           type="password"
@@ -222,7 +222,7 @@ defmodule VRWeb.Admin.LlmLive do
 
       <div class="grid grid-cols-4 gap-3">
         <label class="block">
-          <span class="vr-label mb-1.5">과금 tier</span>
+          <span class="vr-label mb-1.5">Billing tier</span>
           <select name="tier" class="vr-input">
             <option :for={t <- LlmProvider.tiers()} value={t} selected={@provider.tier == t}>
               {t}
@@ -248,7 +248,7 @@ defmodule VRWeb.Admin.LlmLive do
           />
         </label>
         <label class="block">
-          <span class="vr-label mb-1.5">우선순위</span>
+          <span class="vr-label mb-1.5">Priority</span>
           <input
             type="number"
             name="priority"
@@ -260,7 +260,7 @@ defmodule VRWeb.Admin.LlmLive do
 
       <div class="grid grid-cols-3 gap-3">
         <label class="block">
-          <span class="vr-label mb-1.5">입력 단가 (USD/1M)</span>
+          <span class="vr-label mb-1.5">Input price (USD/1M)</span>
           <input
             type="text"
             name="input_price_usd_per_1m"
@@ -270,7 +270,7 @@ defmodule VRWeb.Admin.LlmLive do
           />
         </label>
         <label class="block">
-          <span class="vr-label mb-1.5">출력 단가 (USD/1M)</span>
+          <span class="vr-label mb-1.5">Output price (USD/1M)</span>
           <input
             type="text"
             name="output_price_usd_per_1m"
@@ -280,7 +280,7 @@ defmodule VRWeb.Admin.LlmLive do
           />
         </label>
         <label class="block">
-          <span class="vr-label mb-1.5">마진율</span>
+          <span class="vr-label mb-1.5">Margin rate</span>
           <input
             type="text"
             name="margin_rate"
@@ -292,13 +292,13 @@ defmodule VRWeb.Admin.LlmLive do
       </div>
 
       <p class="vr-hint" style="font-size: 12px;">
-        단가를 비워두면 크레딧을 계량하지 않습니다. 계산식은 devkanban과 같습니다 —
-        (입력토큰 × 단가 ÷ 1M + 출력토큰 × 단가 ÷ 1M) × (1 + 마진율).
+        Leave the prices blank to skip credit metering. The formula matches devkanban —
+        (input tokens × price ÷ 1M + output tokens × price ÷ 1M) × (1 + margin rate).
       </p>
 
       <label class="block">
         <span class="vr-label mb-1.5">
-          Base URL <span class="opacity-60">— 호환 엔드포인트/프록시용 (선택)</span>
+          Base URL <span class="opacity-60">— for compatible endpoints/proxies (optional)</span>
         </span>
         <input
           type="text"
@@ -309,8 +309,8 @@ defmodule VRWeb.Admin.LlmLive do
       </label>
 
       <div class="flex gap-2 justify-end">
-        <button type="button" class="vr-btn vr-btn--sm vr-btn--ghost" phx-click="cancel">취소</button>
-        <button type="submit" class="vr-btn vr-btn--sm vr-btn--primary">저장</button>
+        <button type="button" class="vr-btn vr-btn--sm vr-btn--ghost" phx-click="cancel">Cancel</button>
+        <button type="submit" class="vr-btn vr-btn--sm vr-btn--primary">Save</button>
       </div>
     </form>
     """
@@ -334,7 +334,7 @@ defmodule VRWeb.Admin.LlmLive do
         phx-value-key={@key}
         phx-value-to={if @on, do: "false", else: "true"}
       >
-        {if @on, do: "켜짐", else: "꺼짐"}
+        {if @on, do: "On", else: "Off"}
       </button>
     </div>
     """

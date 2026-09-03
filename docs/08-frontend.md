@@ -1,64 +1,64 @@
-# 08. 프론트엔드
+# 08. Frontend
 
-## 원칙: 로직과 UI 분리
+## Principle: separate logic from UI
 
 ```
-packages/core/     ← React 의존 0. 순수 TypeScript
-  recorder/          MediaRecorder 엔진 · 파형 · 타이머 · 일시정지 정책
-  upload/            IndexedDB 큐 · presign · PUT · 재시도
-  api/               타입 있는 API 클라이언트 · SSE 구독
-  domain/            transcript · speaker · summary 변환, 권한 판정
-  store/             상태 관리
-apps/web/          ← UI 껍데기 (데스크톱 + 모바일 반응형)
+packages/core/     ← Zero React dependencies. Pure TypeScript
+  recorder/          MediaRecorder engine · waveform · timer · pause policy
+  upload/            IndexedDB queue · presign · PUT · retry
+  api/               Typed API client · SSE subscriptions
+  domain/            transcript · speaker · summary transforms, permission checks
+  store/             State management
+apps/web/          ← UI shell (desktop + mobile responsive)
 ```
 
-sisyphus는 데스크톱(`meeting-recorder.js` 6,575줄)과 모바일(`mobile.js` 안 1,700여 줄)에
-같은 로직을 **두 벌 복사**해 뒀고, 그 결과 일시정지 동작이 서로 갈렸다.
-로직을 한 곳에 두면 그 유형의 사고가 구조적으로 막힌다.
+sisyphus kept **two copies** of the same logic — one for desktop (`meeting-recorder.js`, 6,575 lines)
+and one for mobile (about 1,700 lines inside `mobile.js`) — and as a result the pause behavior
+diverged between them. Keeping the logic in one place structurally prevents that class of accident.
 
-이 분리의 또 다른 효과: **UI를 몇 벌 만들지가 나중에 바꿀 수 있는 값싼 결정이 된다.**
-반응형 한 벌로 시작하고, 정말 필요하면 `apps/mobile`을 추가해도 로직은 손대지 않는다.
+Another effect of this separation: **how many UIs to build becomes a cheap decision you can change later.**
+Start with a single responsive UI, and if you ever truly need it, add `apps/mobile` without touching the logic.
 
 ---
 
-## 라우팅
+## Routing
 
-### sisyphus 현황 (참고)
+### Current state in sisyphus (for reference)
 
-| | 진입 | URL |
+| | Entry | URL |
 |---|---|---|
-| 데스크톱 | `/projects/:id?view=meetings&meeting=<id>` | 쿼리 파라미터, 단일 페이지 |
-| 모바일 | 오버레이 열기 | **URL 없음.** 내부 상태로만 화면 전환 |
+| Desktop | `/projects/:id?view=meetings&meeting=<id>` | Query parameters, single page |
+| Mobile | Opens an overlay | **No URL.** Screen transitions via internal state only |
 
-모바일은 딥링크 · 뒤로가기 · 새로고침이 모두 동작하지 않았다.
-**이 앱은 공유 링크가 핵심 기능이므로 모바일에도 URL이 반드시 필요하다.**
+On mobile, deep links, the back button, and refresh all failed to work.
+**Share links are a core feature of this app, so mobile must have URLs too.**
 
-### 라우트 표 (데스크톱 · 모바일 공통)
+### Route table (shared by desktop and mobile)
 
-| 경로 | 데스크톱 | 모바일 |
+| Path | Desktop | Mobile |
 |---|---|---|
-| `/` | 랜딩 / 로그인 | 동일 |
-| `/app/meetings` | **바로 녹음** (빈 회의를 열고 녹음 화면으로) | 동일 |
-| `/meetings/:id` | **목록 + 상세 2단** | 상세만. 뒤로 → `/meetings` |
-| `/meetings/:id?tab=record` | 좌측 패널 [녹음] 탭 | 녹음 화면 |
-| `/meetings/:id?tab=info` | 좌측 패널 [정보] 탭 | 정보 화면 |
-| `/meetings/:id?tab=summary` | 우측 패널 [요약] 탭 | 요약 화면 |
-| `/meetings/:id?tab=sessions` | 우측 패널 [세션] 탭 | 세션 목록 |
-| `/meetings/:id/s/:session_id` | 우측 패널에 전사 | 전사 전체화면 |
-| `/app/archive` | **회의 목록 + 검색** | 동일 |
-| `/share/:token` | 공유 뷰 (인증 불필요) | 동일 |
-| `/friends` | 친구 목록 · 초대 | 동일 |
-| `/settings` | 계정 · 세션 · 언어 | 동일 |
-| `/billing` | 플랜 · 크레딧 잔액 · 사용 내역 | 동일 |
-| `/_admin/*` | LiveView (별도 앱) | — |
+| `/` | Landing / login | Same |
+| `/app/meetings` | **Record immediately** (open an empty meeting and go to the recording screen) | Same |
+| `/meetings/:id` | **Two-pane list + detail** | Detail only. Back → `/meetings` |
+| `/meetings/:id?tab=record` | Left panel [Record] tab | Recording screen |
+| `/meetings/:id?tab=info` | Left panel [Info] tab | Info screen |
+| `/meetings/:id?tab=summary` | Right panel [Summary] tab | Summary screen |
+| `/meetings/:id?tab=sessions` | Right panel [Sessions] tab | Session list |
+| `/meetings/:id/s/:session_id` | Transcription in the right panel | Full-screen transcription |
+| `/app/archive` | **Meeting list + search** | Same |
+| `/share/:token` | Shared view (no authentication required) | Same |
+| `/friends` | Friend list · invitations | Same |
+| `/settings` | Account · sessions · language | Same |
+| `/billing` | Plan · credit balance · usage history | Same |
+| `/_admin/*` | LiveView (separate app) | — |
 
-### 뎁스 차이를 흡수하는 방법
+### How the depth difference is absorbed
 
-리소스 계층은 하나뿐이다: `목록 → 미팅 → 세션`.
-데스크톱은 이걸 **나란히**, 모바일은 **하나씩** 보여준다. 전형적인 master-detail이다.
+There is only one resource hierarchy: `list → meeting → session`.
+Desktop shows these **side by side**; mobile shows them **one at a time**. A classic master-detail.
 
 ```tsx
-// 같은 라우트, 폭에 따라 다른 레이아웃
+// Same route, different layout depending on width
 function MeetingsLayout() {
   const wide = useMediaQuery('(min-width: 1024px)')
   const { id } = useParams()
@@ -68,277 +68,285 @@ function MeetingsLayout() {
 }
 ```
 
-탭은 쿼리 파라미터로 둔다. 데스크톱에서는 탭 하이라이트, 모바일에서는 화면 전환이 된다.
-**뎁스 차이는 라우트가 아니라 레이아웃 컴포넌트에서 흡수된다.**
+Tabs live in query parameters. On desktop they highlight a tab; on mobile they switch screens.
+**The depth difference is absorbed by the layout component, not by the routes.**
 
-### `/m/` 경로 분리를 하지 않는 이유 (2026-08-20 뒤집힘 — 위 절 참조)
+### Why we don't split off a `/m/` path (reversed 2026-08-20 — see the section above)
 
-공유 링크가 **2종류**가 된다. 모바일에서 복사한 `/m/share/abc`를 데스크톱에서 열면
-모바일 UI가 뜨고, 반대도 마찬가지다. UA 감지 리다이렉트로 막으려면 "URL이 상황에 따라
-바뀌는" 앱이 되는데, 공유가 핵심인 제품에서는 실제 버그로 이어진다.
+It would create **two kinds** of share links. A `/m/share/abc` copied on mobile opens the
+mobile UI on desktop, and vice versa. Blocking that with UA-sniffing redirects turns this into
+an app whose "URLs change depending on context," which leads to real bugs in a product
+where sharing is the core feature.
 
 ---
 
-## 화면 구조
+## Screen structure
 
-### 회의 상세 (데스크톱)
+### Meeting detail (desktop)
 
 ```
 ┌──────────┬─────────────────────────────────────────────┐
-│ 회의 목록 │ 제목 · 설명                                  │
-│ (사이드바)│ [내보내기][공유][아카이브][삭제]              │
-│          ├──────────────────┬──────────────────────────┤
-│ □ 회의 A │ [녹음 | 정보]     │ [요약 | 세션]             │
-│ ■ 회의 B │                  │                          │
-│ □ 회의 C │  타이머 00:00     │  한 줄 요약               │
-│          │  ▁▃▅▇▅▃▁ 파형     │  결정사항 (카드)          │
-│          │  ⏸  ●  ✕         │  할 일 (카드)             │
-│          │  마이크 / 언어    │  주요 사실 · 열린 질문     │
-│          │                  │  다음 단계 · 핵심 주제     │
+│ Meeting  │ Title · description                          │
+│ list     │ [Export][Share][Archive][Delete]              │
+│ (sidebar)├──────────────────┬──────────────────────────┤
+│ □ Mtg A  │ [Record | Info]   │ [Summary | Sessions]      │
+│ ■ Mtg B  │                  │                          │
+│ □ Mtg C  │  Timer 00:00      │  One-line summary         │
+│          │  ▁▃▅▇▅▃▁ waveform │  Decisions (cards)        │
+│          │  ⏸  ●  ✕         │  Action items (cards)     │
+│          │  Mic / language   │  Key facts · open questions│
+│          │                  │  Next steps · key topics   │
 │          ├──────────────────┴──────────────────────────┤
-│          │ ▶ ──────●───────── 00:12 / 45:30    [하단]  │
+│          │ ▶ ──────●───────── 00:12 / 45:30    [bottom] │
 └──────────┴─────────────────────────────────────────────┘
 ```
 
-### 회의 상세 (모바일)
+### Meeting detail (mobile)
 
 ```
-목록 → 상세 → (탭) 녹음 / 정보 / 요약 / 세션 → 세션 전사
-                                   ↑ 뒤로가기로 되돌아감
+List → Detail → (tabs) Record / Info / Summary / Sessions → Session transcription
+                                   ↑ back button returns here
 ```
-- 피커(친구 선택 · 토픽 · 라벨 · 공개범위)는 바텀시트
-- 오디오 플레이어는 하단 고정 (동일)
+- Pickers (friend selection · topic · label · visibility) are bottom sheets
+- The audio player is pinned to the bottom (same as desktop)
 
-### 공유 뷰 (`/share/:token`)
+### Shared view (`/share/:token`)
 
-게스트가 보는 화면. 권한(`granted_role`)에 따라 편집 UI가 나타나거나 숨는다.
+What a guest sees. Editing UI appears or hides depending on the permission (`granted_role`).
 
 ```
-회의 제목
-├ 요약 (읽기 전용 또는 편집 가능)
-├ 전사 (화자별 채팅 스타일)
-└ 오디오 플레이어
+Meeting title
+├ Summary (read-only or editable)
+├ Transcription (chat-style, per speaker)
+└ Audio player
 ```
-Viewer면 오디오 URL이 마스킹되고 다운로드 버튼이 없다.
+For a Viewer, the audio URL is masked and there is no download button.
 
 ---
 
-## 아카이브 검색
+## Archive search
 
-`status = archived` 회의를 찾는 화면. **토픽 · 라벨이 주 필터다.**
+The screen for finding `status = archived` meetings. **Topics and labels are the primary filters.**
 
-| 필터 | 방식 |
+| Filter | Behavior |
 |---|---|
-| 토픽 | 단일 선택 |
-| 라벨 | 다중 선택 (AND / OR 토글) |
-| 기간 | `started_at` 범위 |
-| 참여자 | Reviewer / Contributor 계정 |
-| 언어 | 세션 `metadata.language` |
-| 전문 검색 | 제목 · 설명 · 요약 · **전사 본문** |
+| Topic | Single select |
+| Label | Multi select (AND / OR toggle) |
+| Date range | `started_at` range |
+| Participant | Reviewer / Contributor accounts |
+| Language | Session `metadata.language` |
+| Full-text search | Title · description · summary · **transcription body** |
 
-전사 본문 검색은 PostgreSQL 전문검색(`tsvector` + GIN 인덱스)으로 처리한다.
-한국어는 `pg_bigm` 또는 trigram 기반을 검토한다. 별도 검색 엔진은 두지 않는다.
+Transcription body search uses PostgreSQL full-text search (`tsvector` + GIN index).
+For Korean we are evaluating `pg_bigm` or a trigram-based approach. No separate search engine.
 
-결과 항목에는 매칭된 발화 스니펫과 그 시각을 함께 보여주고,
-클릭하면 해당 회의의 그 지점으로 이동한다.
+Result items show the matching utterance snippet along with its timestamp,
+and clicking one jumps to that point in the meeting.
 
 ---
 
-## 오프라인 · PWA
+## Offline · PWA
 
-| 항목 | 동작 |
+| Item | Behavior |
 |---|---|
-| 녹음 | 완전히 클라이언트에서 동작. 오프라인이어도 녹음된다 |
-| 업로드 | IndexedDB 큐에 적재 → 온라인 복귀 시 순차 재시도 |
-| 조회 | 앱 셸은 캐시. 회의 데이터는 네트워크 필요 |
-| 알림 | 전사 완료 · 요약 완료 푸시 (VAPID) |
-| 설치 | `beforeinstallprompt` 캡처 후 설치 버튼 노출 |
+| Recording | Runs entirely on the client. Records even while offline |
+| Upload | Queued in IndexedDB → retried sequentially once back online |
+| Browsing | App shell is cached. Meeting data requires the network |
+| Notifications | Push on transcription complete · summary complete (VAPID) |
+| Install | Capture `beforeinstallprompt`, then show an install button |
 
-**검증이 필요한 리스크**: 모바일에서 화면이 잠기거나 앱이 백그라운드로 가면
-브라우저가 `MediaRecorder`를 중단시킬 수 있다. iOS Safari가 특히 제약이 크다.
-실기기 검증을 마일스톤에 포함한다. → [11-roadmap.md](11-roadmap.md)
+**Risk that needs verification**: on mobile, when the screen locks or the app goes to the
+background, the browser may suspend `MediaRecorder`. iOS Safari is especially restrictive.
+Real-device verification is included in the milestones. → [11-roadmap.md](11-roadmap.md)
 
 ---
 
-## 주 메뉴
+## Main menu
 
-주 메뉴는 **네 개뿐**이다 — 회의 · 아카이브 · 친구 · 설정.
+There are **only four** main menu items — Meetings · Archive · Friends · Settings.
 
-| 탭 | 무엇을 하는 화면인가 |
+| Tab | What the screen does |
 |---|---|
-| **회의** | **바로 녹음.** 목록이 아니다 — 들어오는 순간 회의를 열고 녹음 화면을 띄운다 |
-| **아카이브** | **회의 목록.** 상태(전체 · 진행 중 · 완료 · 보관)로 갈라 보고, 결과는 **토픽별 아코디언**으로 묶는다. 검색 조건은 우측 상단 아이콘 뒤 시트에 접어 둔다 |
-| **친구** | 친구 목록 · 초대 |
-| **설정** | 앱 설정. 계정 설정 · 크레딧은 이 안쪽 |
+| **Meetings** | **Record immediately.** Not a list — the moment you enter, it opens a meeting and shows the recording screen |
+| **Archive** | **Meeting list.** Split by status (all · in progress · completed · archived), with results grouped in a **per-topic accordion**. Search filters are tucked into a sheet behind an icon in the top right |
+| **Friends** | Friend list · invitations |
+| **Settings** | App settings. Account settings and credits live inside here |
 
-| 화면 | 위치 | 왜 |
+| Screen | Location | Why |
 |---|---|---|
-| 분류 관리 | 아카이브 **안쪽** (`/app/taxonomy`) | 분류는 아카이브를 검색하려고 붙이는 것이다. 주 메뉴에 둘 만큼 자주 열지 않는다 |
-| 크레딧 | 설정 **하위** (`/app/billing`) | 매일 보는 것이 아니다 |
-| 계정 설정 | 설정 **하위** (`/settings`, LiveView) | 프로필 · 비밀번호 · 테마. 앱 설정과 성격이 다르다 |
-| 어드민 | **어디에도 링크가 없다** | 주소(`/_admin`)를 직접 입력해서만 들어간다 |
+| Taxonomy management | **Inside** Archive (`/app/taxonomy`) | Taxonomy exists to make the archive searchable. Not opened often enough to earn a spot in the main menu |
+| Credits | **Under** Settings (`/app/billing`) | Not something you look at every day |
+| Account settings | **Under** Settings (`/settings`, LiveView) | Profile · password · theme. Different in nature from app settings |
+| Admin | **Not linked anywhere** | Reached only by typing the address (`/_admin`) directly |
 
-탭을 늘리면 좁은 화면에서 아이콘이 뭉개지고 "매일 쓰는 것" 과 "가끔 여는 것" 의
-구분이 사라진다.
+Adding more tabs squashes the icons on narrow screens and erases the distinction between
+"used every day" and "opened occasionally."
 
-### 회의 탭의 화면 구성
+### Layout of the Meetings tab
 
 ```
-새 회의                              [내보내기] [공유]   ← 큰 헤더 + 원형 액션
-2026년 8월 19일 회의  ✎                                ← 작은 줄. 누르면 모달
-[진행 중] [관계자만] [토픽] [라벨]
-[녹음][세션][전사][요약][정보]                          ← 글자 너비만큼만
+New meeting                          [Export] [Share]    ← large header + circular actions
+Meeting on Aug 19, 2026  ✎                              ← small line. Tap opens a modal
+[In progress] [Participants only] [Topic] [Label]
+[Record][Sessions][Transcription][Summary][Info]        ← only as wide as the text
               00:00
-              ▁▃▅▇▅▃▁                                 ← 녹음 중에만
-              ▬▬▬▬▬░░░                                ← 입력 레벨
-                ●                                     ← 녹음 버튼
-           🎙 기본 마이크 ›                             ← 녹음 전에만
+              ▁▃▅▇▅▃▁                                 ← only while recording
+              ▬▬▬▬▬░░░                                ← input level
+                ●                                     ← record button
+           🎙 Default microphone ›                      ← only before recording
 ```
 
-- 제목 입력칸을 화면에 두지 않는다. 이 화면의 주인공은 녹음 버튼이고, 폼이
-  끼면 "지금 뭘 해야 하는지"가 흐려진다. **제목과 분류는 모달에서** 고친다
-- **입력 레벨**은 녹음 중에만 그린다. 멈춰 있을 때는 스트림이 없어 0 이고,
-  0 을 계속 보여주면 "마이크가 죽었다"로 읽힌다.
-  이게 없으면 무음으로 한 시간을 녹음하고도 끝나야 안다
-- **마이크 선택은 녹음 전에만.** 도중에 바꾸면 스트림을 다시 열어야 해서
-  그 지점이 잘린다 — 회의 중에 조용히 데이터를 잃는 종류의 기능이다.
-  고른 장치는 기기에 남긴다(회의실 마이크를 매번 다시 고르게 하면 첫 회의는 늘 내장 마이크다)
+- No title input field on this screen. The star of this screen is the record button, and
+  a form in the way blurs "what am I supposed to do right now." **Title and taxonomy are
+  edited in a modal**
+- **The input level is drawn only while recording.** When stopped there is no stream, so
+  the level is 0, and continuously showing 0 reads as "the microphone is dead."
+  Without this indicator you can record an hour of silence and only find out at the end
+- **Microphone selection happens only before recording.** Switching mid-recording requires
+  reopening the stream, which cuts audio at that point — the kind of feature that quietly
+  loses data in the middle of a meeting.
+  The chosen device is remembered per device (if you have to re-pick the conference-room
+  mic every time, the first meeting always ends up on the built-in mic)
 
-### 회의 탭이 목록이 아닌 이유
+### Why the Meetings tab is not a list
 
-사용자 결정(2026-08-20): **"회의는 즉시 녹음(새 세션을 여는)거고, 아카이브는 회의의 목록임."**
+User decision (2026-08-20): **"Meetings means record immediately (opening a new session); Archive is the list of meetings."**
 
-이 앱에서 제일 잦은 일은 "지금 회의가 시작됐다, 녹음을 켜야 한다" 다. 목록을
-먼저 보여주고 [새 회의] 를 누르게 하면 그 한 번의 탭이 매번 낀다.
+The most frequent event in this app is "the meeting just started, I need to hit record."
+Showing a list first and making people tap [New meeting] inserts that extra tap every time.
 
-다만 탭을 누를 때마다 새로 만들면 **한 번도 녹음하지 않은 빈 회의**가 쌓인다
-(잘못 눌렀다 나오기만 해도 하나 생긴다). 그래서 방금 만든 빈 회의가 있으면
-그것을 다시 연다 — 사용자가 보는 동작은 어느 쪽이든 "바로 녹음 화면"이다.
+However, creating a new meeting on every tab visit piles up **empty meetings that were
+never recorded** (just tapping in and backing out creates one). So if a freshly created
+empty meeting exists, it is reopened instead — either way, what the user sees is
+"straight to the recording screen."
 
-### 분류 고르기 — 드롭다운
+### Picking a taxonomy — dropdowns
 
-칩을 전부 펼쳐 두면 토픽이 서른 개가 되는 순간 화면이 칩으로 뒤덮인다.
-트리거에는 **고른 것만** 보이고, 고를 때만 목록을 연다. 목록에는 늘 검색이 있다.
+If all chips are laid out flat, the screen drowns in chips the moment you have thirty topics.
+The trigger shows **only what's selected**, and the list opens only while choosing. The list
+always includes search.
 
-| | 개수 | 만들기 |
+| | Count | Creation |
 |---|---|---|
-| **토픽** | 하나만 (도메인 규칙, `docs/03-domain-model.md`) | **회의 화면에서 바로 만든다** — "이건 무슨 회의인가"를 정하는 흐름이라 분류 화면까지 다녀오게 하면 끊긴다 |
-| **라벨** | 여러 개 | 만들어진 것 중에 **고르기만** 한다. 여러 회의에 걸치는 꼬리표라 즉석에서 늘리면 금세 중복된다 |
+| **Topic** | Exactly one (domain rule, `docs/03-domain-model.md`) | **Created right on the meeting screen** — deciding "what kind of meeting is this" is part of the flow, and a round-trip to the taxonomy screen breaks it |
+| **Label** | Multiple | **Pick only** from existing labels. Labels are tags that span multiple meetings, so ad-hoc creation quickly produces duplicates |
 
-토픽은 고르는 즉시 닫고, 라벨은 여러 개를 고르는 동안 열어 둔다.
+The topic picker closes on selection; the label picker stays open while picking several.
 
-### 아카이브의 토픽 아코디언
+### Topic accordion in the Archive
 
-결과를 토픽으로 묶고 머리를 누르면 접힌다. 토픽이 여럿이면 다 펼쳐진 목록은 훑을 수 없다.
+Results are grouped by topic, and tapping a header collapses the group. With several topics,
+a fully expanded list is unskimmable.
 
-- 순서는 토픽의 `sort_order` — 분류 화면에서 정한 순서가 여기서도 같아야
-  "위에 둔 것"이 의미를 갖는다
-- 토픽이 없는 회의는 **맨 아래** 한 덩어리로
-- 상태는 **접힌 쪽을 기억한다** (펼친 쪽이 아니라). 새 토픽이 생기면 기본이
-  "펼침"이어야 목록에서 사라지지 않는다
-- 그룹 머리가 토픽을 들고 있으므로 카드에는 라벨만 남긴다
+- Ordering follows the topic's `sort_order` — the order set on the taxonomy screen must
+  match here, or "putting something on top" loses its meaning
+- Meetings without a topic go in **one group at the bottom**
+- State **remembers which groups are collapsed** (not which are expanded). New topics must
+  default to "expanded" so they don't vanish from the list
+- The group header carries the topic, so cards keep only the labels
 
-## 표면 분리 — `/app` 데스크톱 · `/m` 모바일
+## Surface split — `/app` desktop · `/m` mobile
 
-| 접두어 | 무엇 |
+| Prefix | What |
 |---|---|
-| `/app/*` | **데스크톱** 표면 (3단) |
-| `/m/*` | **모바일** 표면 (한 화면씩) |
-| `/go/*` | **표면 중립 딥링크.** 서버(푸시 · 메일 · 워커)가 만드는 링크. 여는 쪽이 표면을 고른다 |
-| `/share/:token` · `/invite/:token` | **두 표면 바깥.** 그래서 남에게 보내는 링크는 한 종류다 |
+| `/app/*` | **Desktop** surface (three panes) |
+| `/m/*` | **Mobile** surface (one screen at a time) |
+| `/go/*` | **Surface-neutral deep links.** Links generated by the server (push · mail · workers). The opener picks the surface |
+| `/share/:token` · `/invite/:token` | **Outside both surfaces.** So links sent to other people come in exactly one form |
 
-### 왜 반응형이 아니라 경로로 나누나
+### Why split by path instead of responsive design
 
-문서는 원래 `/m/` 분리를 반대했다 (아래 절). 2026-08-20 에 뒤집었다:
+This document originally argued against the `/m/` split (see the section below). Reversed on 2026-08-20:
 
-1. **정보 구조가 다르다.** 모바일의 회의 탭은 "즉시 녹음"이고, 데스크톱은
-   "목록 + 상세 나란히"다. 같은 화면의 다른 폭이 아니다
-2. **가져온 디자인 시스템에 데스크톱이 없다.** devkanban 모바일 CSS 의
-   미디어쿼리는 `max-width: 360px` 와 `prefers-reduced-motion` 뿐이다.
-   반응형으로 흡수하려 해도 어차피 두 번째 디자인 층을 새로 써야 한다
-3. **반대 근거가 지금 구조에 안 걸린다.** 아래 절이 걱정한 것은 공유 링크가
-   두 종류가 되는 것인데, `/share/:token` 은 **두 표면 바깥**에 있다
+1. **The information architecture differs.** The mobile Meetings tab is "record immediately,"
+   while desktop is "list + detail side by side." These are not the same screen at different widths
+2. **The imported design system has no desktop layer.** The only media queries in the
+   devkanban mobile CSS are `max-width: 360px` and `prefers-reduced-motion`. Even if we
+   absorbed it responsively, we would have to write a second design layer from scratch anyway
+3. **The original objection no longer applies to this structure.** The section below worried
+   about share links coming in two kinds, but `/share/:token` lives **outside both surfaces**
 
-### 링크 이식성
+### Link portability
 
-접두어만 다르고 **뒤는 같다.** `/m/meetings/123` ↔ `/app/meetings/123` 은 1:1 이다.
+Only the prefix differs; **everything after it is identical.** `/m/meetings/123` ↔ `/app/meetings/123` map 1:1.
 
-- 자동 전환은 **첫 진입에서만** 한다 (`/`, `/app`, `/m`, `/go/*`)
-- 이미 표면이 붙은 딥링크는 **받은 그대로** 연다 — 폭으로 뒤집으면 남에게 받은
-  링크가 다른 화면을 연다
-- 사용자가 표면을 직접 고르면 기억한다. 좁은 창에서 데스크톱을 보겠다는 선택을
-  매번 되돌리면 그 화면에 갈 방법이 없다
+- Automatic switching happens **only on first entry** (`/`, `/app`, `/m`, `/go/*`)
+- A deep link that already carries a surface opens **exactly as received** — flipping it
+  based on width would make a link received from someone else open a different screen
+- If the user picks a surface explicitly, remember it. If the choice to view desktop in a
+  narrow window is reverted every time, there is no way to reach that screen at all
 
-규칙은 전부 [`apps/web/src/lib/surface.ts`](../apps/web/src/lib/surface.ts) 한 곳에 있다.
-화면 코드는 자기가 어느 표면에서 도는지 모른다 — 주소는 `useRoutes()` 가 만든다.
+All the rules live in one place: [`apps/web/src/lib/surface.ts`](../apps/web/src/lib/surface.ts).
+Screen code does not know which surface it runs on — addresses are produced by `useRoutes()`.
 
-## 내비게이션 문법
+## Navigation grammar
 
-**출처: devkanban** 모바일. 마크업(클래스 이름)을 그대로 쓴다.
+**Source: devkanban** mobile. The markup (class names) is used as-is.
 
-| 화면 종류 | 상단 좌측 | 제목 | 상단 우측 |
+| Screen type | Top left | Title | Top right |
 |---|---|---|---|
-| **최상위 네 탭** | 없음 | 본문 맨 위 큰 제목 (`mobile-page-header`) | **제목과 같은 줄**에 원형 아이콘 버튼 |
-| **뎁스** (`/app/meetings/:id` · 분류 관리 · 크레딧 · 계정 설정) | **원형 뒤로가기** | 상단바의 캡슐 | 원형 아이콘 버튼 |
+| **Top-level four tabs** | None | Large title at the top of the body (`mobile-page-header`) | Circular icon buttons **on the same line** as the title |
+| **Depth** (`/app/meetings/:id` · taxonomy management · credits · account settings) | **Circular back button** | Capsule in the top bar | Circular icon buttons |
 
-- 상단 액션은 **아이콘만** 둔다. 아이콘+글자 버튼을 얹으면 제목 캡슐과 무게가
-  같아져 상단이 두 덩어리로 읽힌다
-- 최상위 탭은 뒤로가기가 없으니 **상단바가 자리를 차지하지 않는다.** 제목이 화면
-  맨 위에 붙는다
-- 제목은 **한 곳에만** 그린다. 뎁스는 상단바가, 최상위는 본문이 든다
-- 햄버거(Drawer)를 쓰지 않는다 — 화면이 넷뿐이라 하단 탭바로 충분하다
+- Top actions are **icons only.** An icon+text button weighs the same as the title capsule,
+  making the top bar read as two competing blocks
+- Top-level tabs have no back button, so **the top bar takes up no space.** The title sits
+  flush at the top of the screen
+- The title is drawn **in exactly one place.** Depth screens put it in the top bar; top-level
+  screens put it in the body
+- No hamburger (Drawer) — with only four screens, the bottom tab bar is enough
 
-하단 탭바는 웹앱(React)과 LiveView가 **같은 마크업**을 쓴다. 같은 앱 안에
-내비게이션이 두 벌이면 어느 쪽이 진짜인지 알 수 없다.
+The bottom tab bar uses **the same markup** in the web app (React) and LiveView. If one app
+carries two navigation implementations, no one can tell which is the real one.
 
-### 어드민을 메뉴에서 뺀 이유
+### Why admin is excluded from the menu
 
-시스템 어드민은 전체 시스템의 운영자다. 매일 쓰는 메뉴 옆에 두면
-(a) 일반 사용자에게 그런 화면이 있다는 사실이 드러나고
-(b) 운영자 본인도 평소 화면에서 실수로 누르기 쉽다.
+The system admin operates the entire system. Placing it next to everyday menu items
+(a) reveals to ordinary users that such a screen exists, and
+(b) makes it easy for the operator to tap by mistake during normal use.
 
-권한 없는 요청에는 서버가 403 이 아니라 **404** 로 답한다.
-어드민은 **2단계 인증을 켜야** 들어갈 수 있다 ([05-auth-sharing.md](05-auth-sharing.md)).
+Unauthorized requests get a **404** from the server, not a 403.
+Admin access requires **two-factor authentication enabled** ([05-auth-sharing.md](05-auth-sharing.md)).
 
-## 디자인 시스템
+## Design system
 
-스타일은 `packages/ui-styles/` 한 곳에 있다. **웹앱(React)과 LiveView 가 같은
-파일을 읽는다** — 두 벌로 복사하면 반드시 갈라진다.
+Styles live in one place: `packages/ui-styles/`. **The web app (React) and LiveView read
+the same files** — two copies would inevitably diverge.
 
 ```
 packages/ui-styles/
-  index.css          ← 진입점. 임포트 순서가 곧 규칙이다
-  devkanban/         ← 원본 그대로. 손대지 않는다
-  overrides.css      ← 이 앱의 조정은 전부 여기
+  index.css          ← Entry point. Import order is the rule
+  devkanban/         ← Pristine originals. Never modified
+  overrides.css      ← All adjustments for this app go here
 ```
 
-- 웹앱: `apps/web/src/styles/app.css` 가 `index.css` 를 임포트
-- LiveView: `backend/assets/css/app.css` 가 같은 파일을 임포트하고,
-  옛 토큰 이름은 `legacy-tokens.css` 가 devkanban 토큰에 연결한다
+- Web app: `apps/web/src/styles/app.css` imports `index.css`
+- LiveView: `backend/assets/css/app.css` imports the same file, and legacy token names
+  are mapped to devkanban tokens by `legacy-tokens.css`
 
-무엇을 왜 덮었는지는 [14-provenance.md](14-provenance.md) 에 적는다.
+What was overridden and why is recorded in [14-provenance.md](14-provenance.md).
 
-### 테마는 네 개, 전부 번들 안에 있다
+### Four themes, all shipped in the bundle
 
-| 테마 | 어디서 오나 |
+| Theme | Where it comes from |
 |---|---|
-| 라이트 · 다크 | `devkanban/tokens.css` 의 `[data-theme]` 블록 |
-| 연필 (`pencil-warm`) | 토큰 + `devkanban/media-skin.css` (손그림 테두리 SVG) |
-| 게임 | 토큰 + `devkanban/game-skin.css` (도트 글꼴 · CRT 주사선) |
+| Light · Dark | The `[data-theme]` blocks in `devkanban/tokens.css` |
+| Pencil (`pencil-warm`) | Tokens + `devkanban/media-skin.css` (hand-drawn border SVGs) |
+| Game | Tokens + `devkanban/game-skin.css` (pixel font · CRT scanlines) |
 
-예전에는 연필(247KB)·게임(35KB) CSS 를 고를 때 따로 받았다. 그 파일들은
-**옛 토큰 이름**(`--surface-*` · `--accent`)을 덮도록 쓰인 것이라, 디자인
-시스템을 devkanban(`--mobile-*`)으로 옮긴 뒤에는 **아무것도 바꾸지 못하면서
-280KB 만 내려받게** 만들었다. 지금은 넷 다 번들에 있다.
+Previously the Pencil (247KB) and Game (35KB) CSS were fetched separately when selected.
+Those files were written to override the **legacy token names** (`--surface-*` · `--accent`),
+so after the design system moved to devkanban (`--mobile-*`), they **changed nothing while
+still costing a 280KB download.** All four themes are now in the bundle.
 
-**기본 테마는 라이트다.** 브라우저 캐시와 계정 값이 없는 첫 이용자 및 신규 계정에
-적용한다. 이미 다른 테마를 고른 계정의 값은 건드리지 않는다 — 사용자가 고른 것과
-기본값을 구분할 수 없어지면 되돌릴 방법이 없다.
+**The default theme is Light.** It applies to first-time visitors and new accounts with no
+browser cache or account value. Accounts that already chose another theme are left untouched —
+once you can no longer distinguish a user's choice from the default, there is no way back.
 
-## 접근성 · i18n
+## Accessibility · i18n
 
-- 지원 언어: ko / en / ja / es / zh_CN / zh_TW (sisyphus와 동일)
-- 문자열은 전부 키로 관리. **컴포넌트에 한국어를 하드코딩하지 않는다**
-  (sisyphus는 하드코딩과 i18n 키가 섞여 있었다. 이식 시 정리한다)
-- 녹음 상태 변화는 `aria-live`로 알린다
-- 화자 색상만으로 구분하지 않는다. 이름을 항상 함께 표기한다
+- Supported languages: ko / en / ja / es / zh_CN / zh_TW (same as sisyphus)
+- All strings are managed by key. **No Korean hardcoded in components**
+  (sisyphus mixed hardcoded strings with i18n keys; this is cleaned up during the port)
+- Recording state changes are announced via `aria-live`
+- Speakers are never distinguished by color alone. Names are always shown alongside

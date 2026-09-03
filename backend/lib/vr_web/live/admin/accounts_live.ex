@@ -1,17 +1,17 @@
 defmodule VRWeb.Admin.AccountsLive do
   @moduledoc """
-  계정 관리 — 승격 · 강등 · 삭제.
+  Account management — promote, demote, delete.
 
-  ## 잠금 방지
+  ## Lockout prevention
 
-  어드민이 0명이 되면 아무도 이 화면에 들어올 수 없다. 그래서 버튼 자체를
-  막는다 (`Admin.capabilities/2`). 서버도 같은 판정을 다시 하므로
-  버튼을 우회해도 통하지 않는다.
+  If the admin count drops to zero, nobody can enter this screen anymore. So we
+  disable the buttons themselves (`Admin.capabilities/2`). The server repeats the
+  same check, so bypassing the buttons does not work either.
 
-  ## 부트스트랩 계정
+  ## Bootstrap account
 
-  아직 남아 있으면 상단에 배너를 띄워 삭제를 권한다.
-  임시 열쇠를 남겨두면 영구 백도어가 된다.
+  If it still exists, a banner at the top urges its deletion.
+  A temporary key left in place becomes a permanent backdoor.
   """
 
   use VRWeb, :live_view
@@ -52,15 +52,15 @@ defmodule VRWeb.Admin.AccountsLive do
   end
 
   def handle_event("promote", %{"id" => id}, socket) do
-    apply_action(socket, id, &Admin.promote/3, "어드민 권한을 부여했습니다")
+    apply_action(socket, id, &Admin.promote/3, "Admin privileges granted.")
   end
 
   def handle_event("demote", %{"id" => id}, socket) do
-    apply_action(socket, id, &Admin.demote/3, "어드민 권한을 회수했습니다")
+    apply_action(socket, id, &Admin.demote/3, "Admin privileges revoked.")
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
-    apply_action(socket, id, &Admin.delete_account/3, "계정을 삭제했습니다")
+    apply_action(socket, id, &Admin.delete_account/3, "Account deleted.")
   end
 
   defp apply_action(socket, id, fun, success_message) do
@@ -69,7 +69,7 @@ defmodule VRWeb.Admin.AccountsLive do
 
     cond do
       is_nil(target) ->
-        {:noreply, put_flash(socket, :error, "계정을 찾지 못했습니다")}
+        {:noreply, put_flash(socket, :error, "Account not found.")}
 
       true ->
         case fun.(target, actor, socket.assigns.current_session) do
@@ -94,31 +94,31 @@ defmodule VRWeb.Admin.AccountsLive do
   end
 
   defp message_for(:last_admin),
-    do: "마지막 어드민입니다. 다른 계정을 먼저 어드민으로 만드세요."
+    do: "This is the last admin. Make another account an admin first."
 
-  defp message_for(:cannot_demote_self), do: "자기 자신의 권한은 회수할 수 없습니다"
-  defp message_for(:cannot_delete_self), do: "자기 계정은 설정 화면에서 삭제 예약을 쓰세요"
-  defp message_for(:account_deleted), do: "이미 삭제된 계정입니다"
-  defp message_for(:already_deleted), do: "이미 삭제된 계정입니다"
-  defp message_for(:recent_mfa_required), do: "계속하려면 MFA를 다시 확인해 주세요."
-  defp message_for(_), do: "처리하지 못했습니다"
+  defp message_for(:cannot_demote_self), do: "You cannot revoke your own privileges."
+  defp message_for(:cannot_delete_self), do: "Use scheduled deletion in Settings for your own account."
+  defp message_for(:account_deleted), do: "This account has already been deleted."
+  defp message_for(:already_deleted), do: "This account has already been deleted."
+  defp message_for(:recent_mfa_required), do: "Please verify MFA again to continue."
+  defp message_for(_), do: "The action could not be completed."
 
   @impl true
   def render(assigns) do
     ~H"""
-    <.shell active={:accounts} title="계정" subtitle={"어드민 #{@admin_count}명"}>
+    <.shell active={:accounts} title="Accounts" subtitle={"#{@admin_count} admins"}>
       <.notice
         :if={@bootstrap}
         kind={:warn}
         icon="key"
-        title="임시 어드민 계정이 남아 있습니다"
+        title="A temporary admin account still exists"
         class="mb-4"
       >
         <p class="mt-1">
-          <span class="vr-key">{@bootstrap.email}</span> — 설치할 때 입구를 열려고 만든 계정입니다.
+          <span class="vr-key">{@bootstrap.email}</span> — this account was created at install time to open the front door.
         </p>
         <p class="mt-1.5">
-          본인 계정을 어드민으로 승격한 뒤 <strong>이 계정을 삭제해 입구를 닫으세요.</strong> 남겨두면 영구 백도어가 됩니다.
+          Promote your own account to admin, then <strong>delete this account to close the door.</strong> Leaving it in place creates a permanent backdoor.
         </p>
       </.notice>
 
@@ -132,15 +132,15 @@ defmodule VRWeb.Admin.AccountsLive do
               data-surface="sunken"
               class="vr-input"
               style="font-family: var(--font-sans);"
-              placeholder="이메일 또는 이름으로 찾기"
+              placeholder="Search by email or name"
               phx-debounce="300"
             />
           </form>
 
           <div class="flex gap-1.5 mt-3">
-            <.filter_chip active={@filter} id={:all} label="전체" />
-            <.filter_chip active={@filter} id={:admins} label="어드민" />
-            <.filter_chip active={@filter} id={:deleted} label="삭제됨" />
+            <.filter_chip active={@filter} id={:all} label="All" />
+            <.filter_chip active={@filter} id={:admins} label="Admins" />
+            <.filter_chip active={@filter} id={:deleted} label="Deleted" />
           </div>
         </div>
       </div>
@@ -148,7 +148,7 @@ defmodule VRWeb.Admin.AccountsLive do
       <div class="vr-card" data-surface="raised">
         <div class="vr-card__body">
           <p :if={@accounts == []} class="vr-hint" style="text-align:center; padding: 32px 0;">
-            해당하는 계정이 없습니다.
+            No matching accounts.
           </p>
 
           <ul class="flex flex-col">
@@ -160,13 +160,13 @@ defmodule VRWeb.Admin.AccountsLive do
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-1.5 flex-wrap">
                   <span style="font-size:14px; font-weight:600; color: var(--text-primary);">
-                    {account.name || "이름 없음"}
+                    {account.name || "No name"}
                   </span>
-                  <span :if={account.is_admin} class="vr-chip vr-chip--ok">어드민</span>
-                  <span :if={account.is_bootstrap} class="vr-chip vr-chip--warn">임시</span>
-                  <span :if={caps.is_self} class="vr-chip vr-chip--info">나</span>
+                  <span :if={account.is_admin} class="vr-chip vr-chip--ok">Admin</span>
+                  <span :if={account.is_bootstrap} class="vr-chip vr-chip--warn">Temporary</span>
+                  <span :if={caps.is_self} class="vr-chip vr-chip--info">You</span>
                   <span :if={account.mfa_enabled} class="vr-chip vr-chip--neutral">MFA</span>
-                  <span :if={account.deleted_at} class="vr-chip vr-chip--neutral">삭제됨</span>
+                  <span :if={account.deleted_at} class="vr-chip vr-chip--neutral">Deleted</span>
                 </div>
                 <div class="vr-key mt-0.5">{account.email}</div>
               </div>
@@ -177,9 +177,9 @@ defmodule VRWeb.Admin.AccountsLive do
                   class="vr-btn vr-btn--sm vr-btn--outline"
                   phx-click="promote"
                   phx-value-id={account.id}
-                  data-confirm={"#{account.email} 을(를) 어드민으로 만듭니다. 이 계정은 모든 계정과 API 키에 접근할 수 있게 됩니다. 계속할까요?"}
+                  data-confirm={"This will make #{account.email} an admin. The account will gain access to all accounts and API keys. Continue?"}
                 >
-                  어드민으로
+                  Make admin
                 </button>
 
                 <button
@@ -187,9 +187,9 @@ defmodule VRWeb.Admin.AccountsLive do
                   class="vr-btn vr-btn--sm vr-btn--outline"
                   phx-click="demote"
                   phx-value-id={account.id}
-                  data-confirm={"#{account.email} 의 어드민 권한을 회수합니다. 계속할까요?"}
+                  data-confirm={"This will revoke admin privileges from #{account.email}. Continue?"}
                 >
-                  권한 회수
+                  Revoke admin
                 </button>
 
                 <button
@@ -198,9 +198,9 @@ defmodule VRWeb.Admin.AccountsLive do
                   style="color: var(--status-error);"
                   phx-click="delete"
                   phx-value-id={account.id}
-                  data-confirm={"#{account.email} 을(를) 삭제합니다. 세션·친구 관계가 정리되고 이메일이 익명화됩니다. 되돌릴 수 없습니다. 계속할까요?"}
+                  data-confirm={"This will delete #{account.email}. Sessions and friend connections will be removed and the email will be anonymized. This cannot be undone. Continue?"}
                 >
-                  삭제
+                  Delete
                 </button>
 
                 <span
@@ -208,7 +208,7 @@ defmodule VRWeb.Admin.AccountsLive do
                   class="vr-hint"
                   style="font-size:12px; align-self:center;"
                 >
-                  마지막 어드민
+                  Last admin
                 </span>
               </div>
             </li>

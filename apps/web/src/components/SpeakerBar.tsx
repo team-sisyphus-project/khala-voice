@@ -5,10 +5,10 @@ import { timeLabel } from "@core/domain";
 import { Icon } from "@/ui";
 
 /**
- * 화자 칩 줄.
+ * The speaker chip row.
  *
- * 칩을 고치면 **그 화자의 모든 발언**에 반영된다.
- * 한 줄만 고치려면 말풍선의 이름을 누른다.
+ * Editing a chip applies to **all of that speaker's utterances**.
+ * To change a single line, press the name on its bubble.
  */
 export function SpeakerBar({
   speakers,
@@ -105,7 +105,7 @@ function SpeakerMenu({
 
   return (
     <>
-      {/* 바깥을 눌러 닫는다 */}
+      {/* Press outside to close */}
       <div className="vr-menu__backdrop" onClick={onClose} />
 
       <div className="vr-menu" data-surface="raised">

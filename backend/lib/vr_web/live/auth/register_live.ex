@@ -1,5 +1,5 @@
 defmodule VRWeb.AuthLive.RegisterLive do
-  @moduledoc "가입 화면. 입력하는 동안 실시간으로 검증한다."
+  @moduledoc "Sign-up screen. Validates in real time as you type."
 
   use VRWeb, :live_view
 
@@ -34,7 +34,7 @@ defmodule VRWeb.AuthLive.RegisterLive do
         {:ok, token} = Accounts.create_email_token(account, "confirm")
         Accounts.Notifier.deliver_confirmation(account, token)
 
-        # 폼을 그대로 컨트롤러로 다시 제출해 쿠키를 심는다
+        # Re-submit the form as-is to the controller to set the cookie
         {:noreply,
          socket
          |> assign(trigger_submit: true)

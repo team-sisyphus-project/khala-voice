@@ -1,19 +1,20 @@
 defmodule VR.Accounts.Account do
   @moduledoc """
-  사용자 계정.
+  User account.
 
-  ## 로그인 수단
+  ## Login methods
 
-  - 이메일 + 비밀번호 (항상 사용 가능)
-  - 소셜 로그인 (어드민에서 제공자를 켰을 때만)
+  - Email + password (always available)
+  - Social login (only when the provider is enabled in the admin)
 
-  소셜로 가입한 계정은 `hashed_password`가 없을 수 있다. 이 경우 그 제공자를
-  끄면 로그인할 수 없게 되므로, 어드민이 끄기 전에 확인 절차를 거친다.
+  Accounts registered via social login may have no `hashed_password`. Disabling that
+  provider would then lock them out, so the admin goes through a confirmation step
+  before turning it off.
 
-  ## 삭제
+  ## Deletion
 
-  즉시 지우지 않고 `scheduled_deletion_at`을 세워 유예를 준다.
-  유예 기간 안에 로그인하면 취소되고, 지나면 `DeletionWorker`가 처리한다.
+  Not deleted immediately; `scheduled_deletion_at` is set to grant a grace period.
+  Logging in within the grace period cancels it; once it passes, the `DeletionWorker` handles it.
   """
 
   use Ecto.Schema
@@ -24,17 +25,17 @@ defmodule VR.Accounts.Account do
   @locales ~w(ko en ja es zh_CN zh_TW)
 
   @doc """
-  고를 수 있는 전사 언어.
+  Selectable transcription languages.
 
-  **프런트(`apps/web/src/lib/prefs.ts`)의 목록과 같아야 한다.** 한쪽에만 있는 값이
-  저장되면 전사가 통째로 실패하고 크레딧만 나간다.
+  **Must match the list on the frontend (`apps/web/src/lib/prefs.ts`).** If a value that
+  exists on only one side gets saved, transcription fails entirely and credits are still spent.
 
-  중국어는 `zh-*` 가 아니라 `cmn-*` 다 — Google STT v2 의 코드가 그렇다.
+  Chinese is `cmn-*`, not `zh-*` — that is how Google STT v2 codes it.
   """
   @transcribe_languages ~w(
     ko-KR en-US en-GB ja-JP cmn-Hans-CN cmn-Hant-TW es-ES fr-FR de-DE vi-VN
   )
-  # 사용자가 고르는 테마. 시스템 어드민 설정이 아니다.
+  # Themes the user picks. Not a system admin setting.
   @themes ~w(light dark pencil-warm game)
   @deletion_grace_days 14
 
@@ -62,39 +63,39 @@ defmodule VR.Accounts.Account do
     field :name, :string
     field :confirmed_at, :utc_datetime
 
-    # 앱 UI 표시 언어. **전사 언어(`transcribe_language`)와 다른 값이다.**
-    # 신규 계정 기본값은 영어다 — 앱은 영어를 우선 언어로 낸다.
+    # UI display language of the app. **Distinct from the transcription language (`transcribe_language`).**
+    # The default for new accounts is English — the app ships English-first.
     field :locale, :string, default: "en"
     field :country, :string
     field :time_zone, :string
 
-    # 소셜 로그인
+    # Social login
     field :is_social, :boolean, default: false
     field :social_provider, :string
     field :social_id, :string
 
     field :is_admin, :boolean, default: false
 
-    # 설치 시 자동 생성된 임시 어드민. 실사용자 승격 후 삭제하는 것이 정상 절차다.
+    # Temporary admin auto-created at install time. The normal procedure is to delete it after promoting a real user.
     field :is_bootstrap, :boolean, default: false
 
-    # 사용자별 화면 테마. 시스템 어드민 설정이 아니다.
+    # Per-user screen theme. Not a system admin setting.
     field :theme, :string, default: "light"
-    # 기본 전사 언어. **nil = 자동**(브라우저 언어를 따라간다).
-    # UI 언어(`locale`)와 다른 값이다 — 전사는 STT 코드(`cmn-Hans-CN` 등)를 쓴다.
+    # Default transcription language. **nil = automatic** (follows the browser language).
+    # Distinct from the UI language (`locale`) — transcription uses STT codes (`cmn-Hans-CN`, etc.).
     field :transcribe_language, :string
 
-    # 2단계 인증 — 시스템 어드민 전용. 일반 사용자에게는 노출하지 않는다.
+    # Two-factor authentication — system admins only. Not exposed to regular users.
     field :mfa_secret, VR.Encrypted.Binary, source: :mfa_secret_encrypted, redact: true
     field :mfa_enabled, :boolean, default: false
     field :mfa_enabled_at, :utc_datetime
     field :mfa_backup_hashes, {:array, :string}, default: [], redact: true
 
-    # 삭제 예약
+    # Scheduled deletion
     field :deleted_at, :utc_datetime
     field :scheduled_deletion_at, :utc_datetime
 
-    # 가상 필드
+    # Virtual fields
     field :password, :string, virtual: true, redact: true
     field :invite_code, :string, virtual: true
 
@@ -108,10 +109,10 @@ defmodule VR.Accounts.Account do
   def deletion_grace_days, do: @deletion_grace_days
 
   @doc """
-  이메일 + 비밀번호 가입.
+  Email + password registration.
 
-  ## 옵션
-  - `:hash_password` — false면 해싱을 건너뛴다 (검증만 할 때)
+  ## Options
+  - `:hash_password` — if false, skips hashing (when only validating)
   """
   def registration_changeset(account, attrs, opts \\ []) do
     account
@@ -123,7 +124,7 @@ defmodule VR.Accounts.Account do
     |> validate_locale()
   end
 
-  @doc "소셜 로그인 가입. 비밀번호가 없다."
+  @doc "Social login registration. No password."
   def social_registration_changeset(account, attrs) do
     account
     |> cast(attrs, [:email, :name, :social_provider, :social_id, :locale, :country, :time_zone])
@@ -133,86 +134,86 @@ defmodule VR.Accounts.Account do
     |> validate_email()
     |> validate_name()
     |> validate_locale()
-    # 소셜 제공자가 이미 이메일을 검증했다
+    # The social provider has already verified the email
     |> put_change(:confirmed_at, DateTime.utc_now(:second))
   end
 
-  @doc "프로필 수정."
+  @doc "Profile update."
   def profile_changeset(account, attrs) do
     account
     |> cast(attrs, [:name, :locale, :country, :time_zone, :theme, :transcribe_language])
-    |> validate_inclusion(:transcribe_language, @transcribe_languages, message: "지원하지 않는 언어입니다")
+    |> validate_inclusion(:transcribe_language, @transcribe_languages, message: "is not a supported language")
     |> validate_name()
     |> validate_locale()
-    |> validate_inclusion(:theme, @themes, message: "알 수 없는 테마입니다")
+    |> validate_inclusion(:theme, @themes, message: "is not a known theme")
   end
 
   @doc """
-  기본 전사 언어를 바꾼다.
+  Changes the default transcription language.
 
-  `nil` 은 **자동** 이다 — 브라우저 언어를 따라간다. 빈 문자열도 자동으로 본다
-  (폼이 빈 값을 보내는 경우).
+  `nil` means **automatic** — it follows the browser language. An empty string is also
+  treated as automatic (when the form sends an empty value).
   """
   def transcribe_language_changeset(account, language) do
     normalized = if language in [nil, ""], do: nil, else: language
 
     account
     |> cast(%{transcribe_language: normalized}, [:transcribe_language])
-    |> validate_inclusion(:transcribe_language, @transcribe_languages, message: "지원하지 않는 언어입니다")
+    |> validate_inclusion(:transcribe_language, @transcribe_languages, message: "is not a supported language")
   end
 
-  @doc "테마만 바꾼다. 프로필 폼을 거치지 않고 즉시 저장할 때 쓴다."
+  @doc "Changes only the theme. Used to save immediately without going through the profile form."
   def theme_changeset(account, theme) do
     account
     |> cast(%{theme: theme}, [:theme])
-    |> validate_inclusion(:theme, @themes, message: "알 수 없는 테마입니다")
+    |> validate_inclusion(:theme, @themes, message: "is not a known theme")
   end
 
   @doc """
-  UI 표시 언어만 바꾼다. 프로필 폼을 거치지 않고 즉시 저장할 때 쓴다.
+  Changes only the UI display language. Used to save immediately without going through the profile form.
 
-  **전사 언어(`transcribe_language`)와 다른 값이다** — UI 언어는 `locale`
-  코드(`ko` · `en` 등)를 쓴다.
+  **Distinct from the transcription language (`transcribe_language`)** — the UI language
+  uses `locale` codes (`ko`, `en`, etc.).
   """
   def locale_changeset(account, locale) do
     account
-    # empty_values: [] 로 빈 문자열도 그대로 받는다 — API 경계에서 빈 값은
-    # 무시(no-op)가 아니라 명시적으로 거부한다.
+    # empty_values: [] accepts empty strings as-is — at the API boundary an empty
+    # value is explicitly rejected, not ignored as a no-op.
     |> cast(%{locale: locale}, [:locale], empty_values: [])
     |> validate_required([:locale])
     |> validate_locale()
   end
 
-  @doc "MFA 설정. 시스템 어드민에게만 쓴다."
+  @doc "MFA settings. Used only for system admins."
   def mfa_changeset(account, attrs) do
     cast(account, attrs, [:mfa_secret, :mfa_enabled, :mfa_enabled_at, :mfa_backup_hashes])
   end
 
-  @doc "비밀번호 변경 또는 최초 설정 (소셜 전용 계정이 비밀번호를 추가하는 경우 포함)."
+  @doc "Password change or initial setup (including a social-only account adding a password)."
   def password_changeset(account, attrs, opts \\ []) do
     account
     |> cast(attrs, [:password])
-    |> validate_confirmation(:password, message: "비밀번호가 일치하지 않습니다")
+    |> validate_confirmation(:password, message: "does not match password")
     |> validate_password(opts)
   end
 
-  @doc "이메일 변경."
+  @doc "Email change."
   def email_changeset(account, attrs) do
     account
     |> cast(attrs, [:email])
     |> validate_email()
     |> case do
       %{changes: %{email: _}} = changeset -> changeset
-      changeset -> add_error(changeset, :email, "이전과 동일합니다")
+      changeset -> add_error(changeset, :email, "is the same as before")
     end
   end
 
-  @doc "이메일 확인 완료 표시."
+  @doc "Marks email confirmation as complete."
   def confirm_changeset(account) do
     change(account, confirmed_at: DateTime.utc_now(:second))
   end
 
-  # ── 검증 ─────────────────────────────────────────────────
+  # ── Validation ───────────────────────────────────────────
 
   defp put_id(changeset) do
     case get_field(changeset, :id) do
@@ -226,7 +227,7 @@ defmodule VR.Accounts.Account do
     changeset
     |> validate_required([:email])
     |> update_change(:email, &(&1 |> String.trim() |> String.downcase()))
-    |> validate_format(:email, ~r/^[^@,;\s]+@[^@,;\s]+\.[^@,;\s]+$/, message: "이메일 형식이 올바르지 않습니다")
+    |> validate_format(:email, ~r/^[^@,;\s]+@[^@,;\s]+\.[^@,;\s]+$/, message: "is not a valid email address")
     |> validate_length(:email, max: 160)
     |> unsafe_validate_unique(:email, VR.Repo)
     |> unique_constraint(:email)
@@ -245,7 +246,7 @@ defmodule VR.Accounts.Account do
   defp validate_password(changeset, opts) do
     changeset
     |> validate_required([:password])
-    |> validate_length(:password, min: 10, max: 72, message: "10자 이상이어야 합니다")
+    |> validate_length(:password, min: 10, max: 72, message: "must be at least 10 characters")
     |> maybe_hash_password(opts)
   end
 
@@ -255,7 +256,7 @@ defmodule VR.Accounts.Account do
 
     if hash? && password && changeset.valid? do
       changeset
-      # bcrypt는 72바이트를 넘으면 잘라버린다. 미리 막는다.
+      # bcrypt truncates anything beyond 72 bytes. Block it up front.
       |> validate_length(:password, max: 72, count: :bytes)
       |> put_change(:hashed_password, Bcrypt.hash_pwd_salt(password))
       |> delete_change(:password)
@@ -265,8 +266,8 @@ defmodule VR.Accounts.Account do
   end
 
   @doc """
-  비밀번호 검증. 계정이 없거나 비밀번호가 없어도 **같은 시간이 걸리도록** 한다.
-  응답 시간 차이로 계정 존재 여부가 새는 것을 막는다.
+  Password verification. Takes **the same amount of time** even when the account or
+  password is missing. Prevents leaking account existence through response-time differences.
   """
   def valid_password?(%__MODULE__{hashed_password: hashed}, password)
       when is_binary(hashed) and byte_size(password) > 0 do
@@ -278,6 +279,6 @@ defmodule VR.Accounts.Account do
     false
   end
 
-  @doc "이 계정이 비밀번호로 로그인할 수 있는가. 소셜 전용 계정이면 false."
+  @doc "Can this account log in with a password? False for social-only accounts."
   def password_login?(%__MODULE__{hashed_password: hashed}), do: is_binary(hashed)
 end

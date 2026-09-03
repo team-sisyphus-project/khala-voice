@@ -1,16 +1,18 @@
 defmodule VRWeb.Admin.BillingLive do
   @moduledoc """
-  요금 정책 — 플랜 · 리비전 · 크레딧 환산율.
+  Billing policy — plans, revisions, and the credit conversion rate.
 
-  **출처: devkanban** `lib/manualsquad_web/live/admin/commerce_*_live.ex` 의 축소판.
+  **Source: devkanban** — a slimmed-down version of
+  `lib/manualsquad_web/live/admin/commerce_*_live.ex`.
 
-  ## 메타와 상업 조건을 구분해 보여준다
+  ## Metadata and commercial terms are shown separately
 
-  이름·설명 같은 **메타는 즉시 전원에게** 반영된다.
-  가격·포함 크레딧 같은 **상업 조건은 새 리비전을 만든다** — 기존 구독은 그대로다.
+  **Metadata** such as name and description **applies to everyone immediately**.
+  **Commercial terms** such as price and included credits **create a new
+  revision** — existing subscriptions are untouched.
 
-  이 구분이 화면에서 드러나지 않으면 운영자가 "가격을 고쳤는데 왜 기존 고객은
-  그대로인가"를 이해하지 못한다.
+  If this distinction is not visible on the screen, operators cannot understand
+  why existing customers are unaffected after they change a price.
   """
 
   use VRWeb, :live_view
@@ -47,10 +49,10 @@ defmodule VRWeb.Admin.BillingLive do
            actor.id
          ) do
       {:ok, _} ->
-        {:noreply, socket |> put_flash(:info, "환산율을 저장했습니다") |> load()}
+        {:noreply, socket |> put_flash(:info, "Conversion rate saved.") |> load()}
 
       {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "0보다 큰 숫자를 입력하세요")}
+        {:noreply, put_flash(socket, :error, "Enter a number greater than zero.")}
     end
   end
 
@@ -78,13 +80,13 @@ defmodule VRWeb.Admin.BillingLive do
          socket
          |> put_flash(
            :info,
-           "리비전 #{revision.revision} 을 발행했습니다. 기존 구독은 이전 리비전을 유지합니다."
+           "Revision #{revision.revision} published. Existing subscriptions keep their previous revision."
          )
          |> assign(editing: nil)
          |> load()}
 
       {:error, _} ->
-        {:noreply, put_flash(socket, :error, "리비전을 발행하지 못했습니다")}
+        {:noreply, put_flash(socket, :error, "Could not publish the revision.")}
     end
   end
 
@@ -100,27 +102,27 @@ defmodule VRWeb.Admin.BillingLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <.shell active={:billing} title="요금" subtitle="플랜과 크레딧 환산율">
+    <.shell active={:billing} title="Billing" subtitle="Plans and credit conversion rate">
       <.notice
         :if={is_nil(@setting)}
         kind={:warn}
         icon="error"
-        title="크레딧 환산율이 없습니다"
+        title="No credit conversion rate"
         class="mb-4"
       >
-        환산율이 없으면 전사·요약 사용량을 크레딧으로 바꿀 수 없어 <strong>집계가 멈춥니다.</strong>
+        Without a conversion rate, transcription and summary usage cannot be converted into credits, so <strong>metering stops.</strong>
       </.notice>
 
       <div class="vr-card mb-4" data-surface="raised">
         <div class="vr-card__body">
-          <h2 class="font-bold mb-1" style="color: var(--text-primary);">크레딧 환산율</h2>
+          <h2 class="font-bold mb-1" style="color: var(--text-primary);">Credit conversion rate</h2>
           <p class="vr-hint mb-3">
-            사용 원가(USD)를 크레딧으로 바꾸는 기준입니다. 올림으로 계산합니다.
+            The rate used to convert usage cost (USD) into credits. Results are rounded up.
           </p>
 
           <.form for={@conversion_form} phx-submit="save_conversion" class="flex gap-2 items-end">
             <div style="flex:1">
-              <label class="vr-label mb-1.5" for="credit_value_usd">1 크레딧당 USD</label>
+              <label class="vr-label mb-1.5" for="credit_value_usd">USD per credit</label>
               <input
                 type="text"
                 id="credit_value_usd"
@@ -133,20 +135,20 @@ defmodule VRWeb.Admin.BillingLive do
               />
             </div>
             <button type="submit" data-surface="control" class="vr-btn vr-btn--sm vr-btn--primary">
-              저장
+              Save
             </button>
           </.form>
 
           <p :if={@setting} class="vr-hint mt-3" style="font-size:12px;">
-            예: 사용 원가 $0.016 → {Decimal.div(Decimal.new("0.016"), @setting.credit_value_usd)
-            |> Decimal.round(2)} → 올림
+            Example: usage cost $0.016 → {Decimal.div(Decimal.new("0.016"), @setting.credit_value_usd)
+            |> Decimal.round(2)} → rounded up to
             <strong>
               {Credits.apply_rounding(
                 Decimal.div(Decimal.new("0.016"), @setting.credit_value_usd),
                 "ceil"
               )}
             </strong>
-            크레딧
+            credits
           </p>
         </div>
       </div>
@@ -169,7 +171,7 @@ defmodule VRWeb.Admin.BillingLive do
               phx-click="new_revision"
               phx-value-plan_id={plan.id}
             >
-              {if @editing == plan.id, do: "닫기", else: "새 리비전"}
+              {if @editing == plan.id, do: "Close", else: "New revision"}
             </button>
           </div>
 
@@ -182,11 +184,11 @@ defmodule VRWeb.Admin.BillingLive do
           <table class="w-full" style="font-size:13px; margin-top:8px;">
             <thead>
               <tr style="color: var(--text-faint); text-align:left;">
-                <th style="padding:6px 0;">리비전</th>
-                <th>포함 크레딧</th>
-                <th>가격</th>
-                <th>주기</th>
-                <th>상태</th>
+                <th style="padding:6px 0;">Revision</th>
+                <th>Included credits</th>
+                <th>Price</th>
+                <th>Interval</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -199,8 +201,8 @@ defmodule VRWeb.Admin.BillingLive do
                 <td>{format_price(revision)}</td>
                 <td>{revision.interval}</td>
                 <td>
-                  <span :if={revision.purchasable} class="vr-chip vr-chip--ok">현재</span>
-                  <span :if={not revision.purchasable} class="vr-chip vr-chip--neutral">이전</span>
+                  <span :if={revision.purchasable} class="vr-chip vr-chip--ok">Current</span>
+                  <span :if={not revision.purchasable} class="vr-chip vr-chip--neutral">Previous</span>
                 </td>
               </tr>
             </tbody>
@@ -224,13 +226,13 @@ defmodule VRWeb.Admin.BillingLive do
       <input type="hidden" name="plan_id" value={@plan.id} />
 
       <p class="vr-hint">
-        새 리비전을 발행하면 <strong>신규 가입만</strong> 이 조건을 받습니다.
-        기존 구독은 지금 리비전을 그대로 유지합니다.
+        When you publish a new revision, <strong>only new signups</strong> get these terms.
+        Existing subscriptions keep their current revision.
       </p>
 
       <div class="grid grid-cols-2 gap-3">
         <label class="block">
-          <span class="vr-label mb-1.5">포함 크레딧 (매 기간 지급)</span>
+          <span class="vr-label mb-1.5">Included credits (granted each period)</span>
           <input
             type="number"
             name="included_credits"
@@ -242,15 +244,15 @@ defmodule VRWeb.Admin.BillingLive do
         </label>
 
         <label class="block">
-          <span class="vr-label mb-1.5">주기</span>
+          <span class="vr-label mb-1.5">Interval</span>
           <select name="interval" data-surface="sunken" class="vr-input">
-            <option value="month" selected={@current && @current.interval == "month"}>월</option>
-            <option value="year" selected={@current && @current.interval == "year"}>년</option>
+            <option value="month" selected={@current && @current.interval == "month"}>Monthly</option>
+            <option value="year" selected={@current && @current.interval == "year"}>Yearly</option>
           </select>
         </label>
 
         <label class="block">
-          <span class="vr-label mb-1.5">가격 (KRW · 원)</span>
+          <span class="vr-label mb-1.5">Price (KRW, won)</span>
           <input
             type="number"
             name="price_krw"
@@ -262,7 +264,7 @@ defmodule VRWeb.Admin.BillingLive do
         </label>
 
         <label class="block">
-          <span class="vr-label mb-1.5">가격 (USD · 센트)</span>
+          <span class="vr-label mb-1.5">Price (USD, cents)</span>
           <input
             type="number"
             name="price_usd"
@@ -281,10 +283,10 @@ defmodule VRWeb.Admin.BillingLive do
           class="vr-btn vr-btn--sm vr-btn--ghost"
           phx-click="cancel"
         >
-          취소
+          Cancel
         </button>
         <button type="submit" data-surface="control" class="vr-btn vr-btn--sm vr-btn--primary">
-          발행
+          Publish
         </button>
       </div>
     </form>
@@ -298,12 +300,12 @@ defmodule VRWeb.Admin.BillingLive do
   defp format_price(revision) do
     case PlanRevision.price(revision, "KRW") do
       nil -> "-"
-      0 -> "무료"
-      amount -> "#{delimit(amount)}원"
+      0 -> "Free"
+      amount -> "₩#{delimit(amount)}"
     end
   end
 
-  # 천 단위 구분. 이것만 쓰자고 라이브러리를 더하지 않는다.
+  # Thousands separator. Not worth adding a library for just this.
   defp delimit(number) do
     number
     |> Integer.to_string()

@@ -24,7 +24,7 @@ defmodule VR.DataCase do
       import Ecto.Changeset
       import Ecto.Query
       import VR.DataCase
-      # 워커를 직접 실행해 검증한다 — 큐를 돌리지 않고 로직만 본다
+      # Run workers directly for verification — exercise the logic without spinning the queue
       use Oban.Testing, repo: VR.Repo
     end
   end
@@ -35,10 +35,10 @@ defmodule VR.DataCase do
   end
 
   @doc """
-  presign 을 거친 세션처럼 저장 키를 박는다.
+  Stamps a storage key onto the session as if it had gone through presign.
 
-  `register_upload/2` 는 `audio_url` 을 클라이언트에서 받지 않고
-  `storage_key` 에서 서버가 만든다. 실제 흐름에서는 presign 이 키를 정한다.
+  `register_upload/2` does not accept `audio_url` from the client; the server
+  derives it from `storage_key`. In the real flow, presign decides the key.
   """
   def with_storage_key(session, ext \\ "webm") do
     key =

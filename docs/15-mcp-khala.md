@@ -1,60 +1,61 @@
-# 15. MCP · 칼라 연동
+# 15. MCP · Khala Integration
 
-두 방향이다. **헷갈리면 안 된다** — 하나는 남이 우리를 읽는 것이고,
-하나는 우리가 남에게 보내는 것이다.
+There are two directions. **Do not confuse them** — one is others reading us,
+the other is us sending to others.
 
 ```
- (A) 우리가 MCP 서버        외부 AI ──읽기──▶ KHALA VOICE 아카이브
- (B) 우리가 MCP 클라이언트   KHALA VOICE ──보내기──▶ 칼라 인박스
+ (A) We are the MCP server     External AI ──reads──▶ KHALA VOICE archive
+ (B) We are the MCP client     KHALA VOICE ──sends──▶ Khala inbox
 ```
 
 ---
 
-## A. 우리 MCP 서버 — 아카이브를 읽게 한다
+## A. Our MCP server — letting others read the archive
 
-외부 서비스(다른 AI·에이전트)가 우리 아카이브를 볼 수 있게 한다.
+Lets external services (other AIs · agents) see our archive.
 
-### 권한은 서버가 다시 판정한다
+### The server re-checks permissions
 
-MCP 라고 예외가 아니다. `docs/05-auth-sharing.md` 의 규칙이 **그대로** 걸린다.
+MCP is no exception. The rules in `docs/05-auth-sharing.md` apply **unchanged.**
 
-| 규칙 | MCP 에서 |
+| Rule | In MCP |
 |---|---|
-| 접근 불가는 404 | 없는 회의든 권한 없는 회의든 같은 응답 |
-| Viewer 는 오디오를 못 받는다 | 오디오 URL 을 응답에 넣지 않는다 |
-| Reviewer 만 보는 필드 | `permissions` · `owner_id` · `reviewer_id` 는 빼고 준다 |
+| No access means 404 | A nonexistent meeting and an unauthorized meeting get the same response |
+| Viewers get no audio | Audio URLs are never included in responses |
+| Reviewer-only fields | `permissions` · `owner_id` · `reviewer_id` are stripped |
 
-기존 공유 뷰(`API.Public.ShareController.strip_internal/1`)가 이미 하는 일이다.
-**같은 함수를 쓴다** — 두 벌로 두면 한쪽만 고쳐져 정보가 샌다.
+This is what the existing shared view (`API.Public.ShareController.strip_internal/1`)
+already does. **We use the same function** — with two copies, only one gets fixed and
+information leaks.
 
-### 토큰
+### Tokens
 
-MCP 클라이언트는 사람이 아니다. 그래서 **계정에 매인 읽기 전용 토큰**을 발급한다.
+An MCP client is not a person. So we issue **account-bound read-only tokens.**
 
-- 발급: 설정 → 연동 → "읽기 토큰 만들기"
-- 저장: 해시만 (`sha256`). 원문은 발급 순간에만 보여준다 — 공유 링크와 같은 방식
-- 범위: **아카이브 읽기 전용.** 쓰기·삭제·오디오 다운로드는 주지 않는다
-- 취소: 언제든. 취소하면 즉시 404
+- Issuance: Settings → Integrations → "Create read token"
+- Storage: hash only (`sha256`). The original is shown only at issuance — same approach as share links
+- Scope: **archive read-only.** No write, delete, or audio download
+- Revocation: anytime. Revoked tokens get an immediate 404
 
-### 도구
+### Tools
 
-| 도구 | 하는 일 |
+| Tool | What it does |
 |---|---|
-| `list_meetings` | 아카이브 검색. 토픽·라벨·기간·검색어 — 화면의 필터와 같은 조건 |
-| `get_meeting` | 회의 하나. 요약 · 분류 · 참여자(이름만) |
-| `get_transcript` | 전사 원문. 화자 이름은 `speaker_map` 을 적용한 상태로 |
+| `list_meetings` | Archive search. Topic · label · date range · query — same conditions as the on-screen filters |
+| `get_meeting` | One meeting. Summary · taxonomy · participants (names only) |
+| `get_transcript` | The raw transcription. Speaker names with `speaker_map` applied |
 
-오디오는 주지 않는다. 회의록의 내용은 텍스트로 충분하고, 음성은
-**목소리 자체가 개인정보**라 토큰 하나로 흘려보낼 것이 아니다.
-(칼라로 보낼 때도 같은 이유로 오디오를 빼고 요약과 전사만 보낸다.)
+Audio is not provided. Text is enough for the substance of meeting notes, and
+**a voice is itself personal data** — not something to pour out over a single token.
+(For the same reason, sends to Khala include only the summary and transcription, no audio.)
 
 ---
 
-## B. 칼라로 보내기
+## B. Sending to Khala
 
-### 인증 — OAuth 2.0 (PKCE)
+### Auth — OAuth 2.0 (PKCE)
 
-라이브 메타데이터에서 확인한 것 (2026-08-20):
+Confirmed from the live metadata (2026-08-20):
 
 ```
 authorization_endpoint   https://mcp.khala.to/oauth/authorize
@@ -62,102 +63,106 @@ token_endpoint           https://mcp.khala.to/oauth/token
 registration_endpoint    https://mcp.khala.to/oauth/register
 grant_types_supported    ["authorization_code"]
 code_challenge_methods   ["S256", "plain"]
-token_endpoint_auth      ["none"]          ← 공개 클라이언트, client_secret 없음
+token_endpoint_auth      ["none"]          ← public client, no client_secret
 scopes_supported         ["khala"]
 resource                 https://mcp.khala.to/mcp
 ```
 
-**플러그인 토큰(`/api/plugin/*`)을 쓰지 않는 이유**: 그건 CI·봇처럼 사람이 없는
-주체용이다. 그걸 쓰면 서비스 계정 하나로 모두가 보내게 되어 **"누가 보냈는지"가
-사라진다.** 우리는 각 사용자가 자기 칼라 계정으로 자기 인박스에 보내야 한다.
+**Why we don't use plugin tokens (`/api/plugin/*`)**: those are for humanless principals
+like CI and bots. Using one would make everyone send through a single service account,
+and **"who sent this" disappears.** We need each user sending to their own inbox with
+their own Khala account.
 
-**client_secret 이 없다는 점이 우리 규칙과 맞는다** — 이 리포는 오픈소스로
-공개되고, 시크릿을 코드에 두지 않는다(`CLAUDE.md`). PKCE(S256)가 대신한다.
-`registration_endpoint` 가 있어 **동적 클라이언트 등록**이 되므로 client_id 를
-미리 발급받아 박아 둘 필요도 없다.
+**The absence of a client_secret fits our rules** — this repo is going open-source and
+keeps no secrets in code (`CLAUDE.md`). PKCE (S256) takes its place.
+The `registration_endpoint` enables **dynamic client registration**, so there is no need
+to pre-provision and hardcode a client_id either.
 
-### 왜 서버에서 부르나
+### Why we call from the server
 
-자동 발송이 **요약이 끝난 뒤** 일어난다. 그때 사용자의 브라우저는 닫혀 있다.
-Oban 워커가 돌려야 하므로 토큰이 서버에 있어야 한다.
+Automatic delivery happens **after the summary finishes.** By then the user's browser is
+closed. An Oban worker must run it, so the token must live on the server.
 
-토큰은 `Cloak` 으로 암호화해 저장한다 (`VR.Vault` — 이미 쓰고 있다).
-`refresh_token` 도 같이 보관하고, 만료 전에 갱신한다.
+Tokens are stored encrypted with `Cloak` (`VR.Vault` — already in use).
+The `refresh_token` is kept alongside and refreshed before expiry.
 
-> 브라우저에서 부르는 안을 검토했다 — 서버가 남의 토큰을 안 갖는다는 장점이
-> 있지만, **자동 발송이 앱을 열어둔 동안에만 동작한다.** 이 제품의 자동 발송은
-> "회의 끝나고 신경 안 써도 가 있는 것"이라 서버가 맞다.
+> A browser-side approach was considered — it has the advantage that the server never
+> holds anyone's token, but **automatic delivery would only work while the app is open.**
+> This product's automatic delivery means "it's already there after the meeting without
+> you thinking about it," so the server is the right place.
 
-### 무엇을 보내나
+### What we send
 
-**요약을 보낸다. 오디오는 보내지 않는다.**
+**We send the summary. We do not send audio.**
 
-| | 내용 | 크기 |
+| | Content | Size |
 |---|---|---|
-| 본문 | **요약** — 한 줄 요약 · 결정사항 · 할 일 · 열린 질문 · 회의 링크 | 작다 |
-| 첨부 | 전사 **원문 전체** (마크다운, `Meetings.Export` 가 이미 만든다) | 보통 수십 KB |
+| Body | **Summary** — one-liner · decisions · action items · open questions · meeting link | Small |
+| Attachment | The **full raw transcription** (Markdown, already produced by `Meetings.Export`) | Usually tens of KB |
 
-받는 쪽은 사람이거나 다른 AI 다. 요약이 본문이라 **열자마자 무슨 회의였는지**
-알 수 있고, 근거가 필요하면 첨부된 원문을 본다.
+The recipient is a person or another AI. With the summary as the body, **they know what
+the meeting was the moment they open it**, and consult the attached transcript when they
+need the evidence.
 
-**오디오를 넣지 않는 이유**: 목소리 자체가 개인정보다. 회의에 참여한 사람 전원의
-음성이 담긴 파일을 자동으로 남의 인박스에 보내는 것은 회의록을 공유하는 것과
-다른 일이다. 필요하면 공유 링크(`/share/:token`)로 보낸다 — 그쪽은 만료·PIN·
-역할이 걸려 있고 언제든 끊을 수 있다.
+**Why no audio**: a voice is itself personal data. Automatically dropping a file containing
+every participant's voice into someone else's inbox is a different act from sharing meeting
+notes. When needed, send a share link (`/share/:token`) instead — that path carries expiry,
+PIN, and roles, and can be cut off at any time.
 
-첨부는 `khala_send_attachment` 로 base64 인라인으로 보낸다 (5MB 이하, 최대 10개).
-전사 마크다운은 3시간 회의도 수백 KB 라 이 안에 든다 — 넘으면 첨부를 빼고
-본문만 보내고, 그 사실을 회의에 남긴다.
+Attachments go via `khala_send_attachment` as inline base64 (up to 5MB, max 10).
+The transcription Markdown fits — even a 3-hour meeting is a few hundred KB. If it exceeds
+the limit, send the body without the attachment and note that fact on the meeting.
 
-### 자동 발송
+### Automatic delivery
 
-**언제**: 요약까지 끝난 뒤. 전사만 끝났을 때 보내면 요약이 빠진 채로 가고,
-요약이 나온 뒤 또 보내야 한다.
+**When**: after the summary is done. Sending when only the transcription is done ships it
+without a summary, and then it has to be sent again once the summary lands.
 
-**어디로**: **토픽별로 정한 인박스.**
+**Where to**: **the inbox assigned per topic.**
 
 ```
-회의 → 토픽 → 그 토픽에 지정된 칼라 인박스
+Meeting → topic → the Khala inbox assigned to that topic
 ```
 
-- 토픽에 인박스를 지정하지 않았으면 **보내지 않는다.** 기본 인박스로 흘려보내면
-  주간회의 요약이 엉뚱한 곳에 쌓인다
-- 토픽이 없는 회의도 보내지 않는다. 자동 발송은 "이 종류의 회의는 늘 저기로"
-  라는 규칙이고, 분류되지 않은 회의에는 그 규칙이 없다
-- 수동 발송(아래)은 언제나 가능하다
+- If the topic has no assigned inbox, **nothing is sent.** Spilling into a default inbox
+  piles weekly-meeting summaries in the wrong place
+- Meetings without a topic are not sent either. Automatic delivery is the rule
+  "this kind of meeting always goes there," and an unclassified meeting has no such rule
+- Manual delivery (below) is always available
 
-### 수동 발송
+### Manual delivery
 
-회의 하나를 골라 **내 인박스 목록에서** 받는 곳을 고른다.
+Pick one meeting and choose the destination **from my inbox list.**
 
-- 목록은 `khala_list_inboxes` 로 받는다 (`target: "mine"`)
-- 자동 발송과 **별개 기능**이다. 자동이 안 걸린 회의도 보낼 수 있고,
-  같은 회의를 다른 곳에 한 번 더 보낼 수도 있다
-- 전사 원문을 첨부할지 고른다. 요약만 보낼 수도 있다
+- The list comes from `khala_list_inboxes` (`target: "mine"`)
+- It is a **separate feature** from automatic delivery. Meetings with no automatic rule
+  can be sent, and the same meeting can be sent again elsewhere
+- Choose whether to attach the raw transcription. Summary-only is also possible
 
-### 우리 인박스
+### Our inbox
 
-칼라를 연결하면 KHALA VOICE 용 인박스를 하나 만든다 (`khala_register_inbox`).
-보내는 쪽(`sender_inbox_code`)이 이것이다 — 받는 사람이 "이건 칼라보이스가
-보낸 것"임을 알 수 있어야 한다.
+When Khala is connected, we register one inbox for KHALA VOICE (`khala_register_inbox`).
+This is the sender (`sender_inbox_code`) — recipients must be able to tell
+"this was sent by Khala Voice."
 
 ---
 
-## 실패했을 때
+## On failure
 
-발송 실패로 **회의를 잃지 않는다.** 전사·요약과 같은 순서다:
-회의는 이미 저장돼 있고, 발송은 그 뒤에 붙는 부가 작업이다.
+A delivery failure **never loses the meeting.** Same ordering as transcription and summary:
+the meeting is already saved, and delivery is an add-on that follows.
 
-- 워커가 재시도한다 (Oban)
-- 계속 실패하면 회의에 남긴다 — 화면이 "칼라로 못 보냈습니다"를 말할 수 있어야 한다
-- 토큰이 만료·취소됐으면 재시도하지 않는다. 사용자가 다시 연결해야 한다
+- The worker retries (Oban)
+- If it keeps failing, it is recorded on the meeting — the screen must be able to say
+  "could not send to Khala"
+- If the token is expired or revoked, no retries. The user must reconnect
 
-## 설정값
+## Config values
 
-| 키 | 무엇 |
+| Key | What |
 |---|---|
-| `khala.mcp_url` | 기본 `https://mcp.khala.to/mcp` |
-| `khala.enabled` | 끄면 화면에서 연동 자체가 사라진다 |
+| `khala.mcp_url` | Default `https://mcp.khala.to/mcp` |
+| `khala.enabled` | Turning it off removes the integration from the UI entirely |
 
-`VR.Config.fetch/2` 로만 읽는다. **리터럴 기본값을 코드에 두지 않는다**
-(`.env.example` 과 `docs/07-config-admin.md` 를 함께 갱신한다).
+Read only via `VR.Config.fetch/2`. **No literal defaults in code**
+(update `.env.example` and `docs/07-config-admin.md` together).

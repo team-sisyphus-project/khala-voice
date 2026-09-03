@@ -1,29 +1,31 @@
 /**
- * 마이크 권한 진단 — 왜 막혔는지, 이 기기에서 무엇을 눌러야 풀리는지.
+ * Microphone permission diagnosis — why it was blocked, and what to press on
+ * this device to unblock it.
  *
- * ## 왜 따로 있나
+ * ## Why this exists
  *
- * `getUserMedia` 가 던지는 것은 대부분 `NotAllowedError` 하나다. 그런데
- * 사용자가 실제로 해야 할 일은 상황마다 전혀 다르다.
+ * What `getUserMedia` throws is mostly just `NotAllowedError`. Yet what the
+ * user actually needs to do differs completely by situation.
  *
- * - 프롬프트를 그냥 닫았다      → 다시 누르면 또 물어본다
- * - "차단" 을 눌렀다            → 주소창 설정을 열어야 한다. 다시 눌러도 안 뜬다
- * - OS 개인정보 설정에서 껐다   → 브라우저 설정이 아니라 시스템 설정이다
- * - 카카오톡 인앱 브라우저다    → 무엇을 눌러도 안 된다. 다른 브라우저로 열어야 한다
+ * - Dismissed the prompt          → pressing again asks again
+ * - Pressed "Block"               → must open the address-bar settings; pressing again shows nothing
+ * - Turned it off in OS privacy   → system settings, not browser settings
+ * - KakaoTalk in-app browser      → nothing they press will work; must open in another browser
  *
- * 이걸 전부 "마이크 사용이 거부되었습니다" 로 뭉뚱그리면 사용자는 같은 버튼을
- * 반복해서 누르다 포기한다. 녹음이 제품의 전부인 앱에서 이건 이탈이다.
+ * Lumping all of this into "microphone access was denied" leaves the user
+ * pressing the same button until they give up. In an app where recording is
+ * the whole product, that is churn.
  *
- * ## 브라우저별 사정
+ * ## Per-browser realities
  *
- * | | Permissions API `microphone` | 프롬프트 재노출 |
+ * | | Permissions API `microphone` | Prompt re-display |
  * |---|---|---|
- * | Chrome / Edge / Samsung | 지원 | 차단하면 안 뜸 |
- * | Safari (macOS · iOS)    | **미지원** — `query` 가 던지거나 거부 | 매번 물어보기도 함 |
- * | Firefox                 | 이름을 몰라 던진다 | 세션 단위 기억 |
+ * | Chrome / Edge / Samsung | supported | never shown once blocked |
+ * | Safari (macOS · iOS)    | **unsupported** — `query` throws or rejects | may ask every time |
+ * | Firefox                 | throws, name unknown | remembered per session |
  *
- * 그래서 상태를 **모른다(`unknown`)** 는 것을 1급 값으로 둔다. Safari 에서
- * "차단됨" 이라고 단정하면 실제로는 물어볼 수 있는 상황에서 길을 막아 버린다.
+ * So **not knowing (`unknown`)** is a first-class value. Declaring "blocked"
+ * on Safari would wall off users who could actually still be asked.
  */
 
 export type MicPermissionState = "granted" | "prompt" | "denied" | "unknown";
@@ -34,58 +36,61 @@ export type OsKind = "ios" | "android" | "macos" | "windows" | "other";
 
 export interface Platform {
   browser: BrowserKind;
-  /** iOS 는 어떤 브라우저를 깔아도 WebKit 이다. 권한 안내는 엔진을 따라간다. */
+  /** On iOS every browser is WebKit. Permission guidance follows the engine. */
   engine: EngineKind;
   os: OsKind;
   mobile: boolean;
-  /** 홈 화면에서 띄운 PWA */
+  /** PWA launched from the home screen */
   standalone: boolean;
-  /** 카카오톡·인스타 같은 인앱 브라우저 */
+  /** In-app browser like KakaoTalk or Instagram */
   webview: boolean;
 }
 
 /**
- * 화면에 그대로 박히지 않는, **로케일-프리 문안 지시자**.
+ * A **locale-free wording designator** — never rendered to the screen as-is.
  *
- * `packages/core` 는 프레임워크·i18n 비의존이어야 한다(프로젝트 규칙 4). 그래서
- * 여기서는 번역된 문자열이 아니라 **안정적인 키**(어떤 안내인지)와 **보간 파라미터**
- * (기기·상황에 따라 달라지는 값)만 낸다. 실제 번역은 UI 셸이 `t()` 로 한다 —
- * `@core/domain` 의 `VIEW_SCOPES` 를 web 이 `visibility.scopes.{mode}` 키로 렌더하는
- * 것과 같은 경계다.
+ * `packages/core` must stay framework- and i18n-agnostic (project rule 4).
+ * So instead of translated strings, this emits only a **stable key** (which
+ * guidance it is) and **interpolation params** (values that vary by device
+ * or situation). The UI shell does the actual translation with `t()` — the
+ * same boundary as web rendering `@core/domain`'s `VIEW_SCOPES` through
+ * `visibility.scopes.{mode}` keys.
  *
- * `key` 는 네임스페이스 없는 순수 키다(예: `cause.permission_blocked`). 카탈로그
- * 접두사(`recorder.guide.`)는 셸이 붙인다 — core 가 카탈로그 레이아웃을 알 필요가 없다.
+ * `key` is a pure, namespace-free key (e.g. `cause.permission_blocked`).
+ * The catalog prefix (`recorder.guide.`) is added by the shell — core need
+ * not know the catalog layout.
  */
 export interface GuideMessage {
-  /** 안정적인 로케일-프리 카탈로그 키. */
+  /** Stable, locale-free catalog key. */
   key: string;
-  /** 보간 파라미터. 로케일과 무관한 값만(브라우저 메뉴명·개수 등). */
+  /** Interpolation params. Locale-independent values only (browser menu names, counts, etc.). */
   params?: Record<string, string | number>;
 }
 
 export interface RecoveryGuide {
-  /** 무엇이 막았는지 한 줄로. */
+  /** One line saying what blocked it. */
   cause: GuideMessage;
-  /** 이 기기에서 순서대로 할 일. 비어 있으면 안내할 조작이 없다는 뜻. */
+  /** Steps to take, in order, on this device. Empty means there is nothing to instruct. */
   steps: GuideMessage[];
   /**
-   * 페이지 안에서 "다시 시도" 가 의미 있는가.
+   * Does "try again" mean anything within the page?
    *
-   * 굳어버린 차단에서 이걸 켜 두면 사용자는 같은 버튼을 계속 누른다.
+   * Leaving this on for a hardened block keeps the user pressing the same
+   * button.
    */
   retryable: boolean;
-  /** 브라우저·OS 설정을 직접 열어야 하는가. */
+  /** Must browser/OS settings be opened directly? */
   needsSettings: boolean;
 }
 
-/** `GuideMessage` 를 짧게 만든다. 파라미터가 없으면 키만 담는다. */
+/** Shorthand for `GuideMessage`. Carries only the key when there are no params. */
 function m(key: string, params?: Record<string, string | number>): GuideMessage {
   return params ? { key, params } : { key };
 }
 
-// ── 플랫폼 판별 ────────────────────────────────────────────
+// ── Platform detection ───────────────────────────────────
 
-/** 인앱 브라우저 표식. 국내 트래픽 비중이 큰 것부터. */
+/** In-app browser markers. Highest local traffic share first. */
 const IN_APP_MARKERS = [
   "kakaotalk",
   "naver(inapp",
@@ -103,11 +108,12 @@ const IN_APP_MARKERS = [
 ];
 
 /**
- * UA 로 플랫폼을 읽는다.
+ * Reads the platform from the UA.
  *
- * UA 스니핑은 원래 나쁜 습관이지만, **권한 설정 UI 의 위치**는 UA 말고 알 길이 없다.
- * 기능 판별(`navigator.permissions` 유무)과 섞지 않고 여기서만 쓴다 —
- * 여기서 틀려도 나빠지는 것은 안내 문구뿐이고 동작은 그대로다.
+ * UA sniffing is a bad habit in general, but **where the permission settings
+ * UI lives** cannot be learned any other way. It is used only here, never
+ * mixed with feature detection (`navigator.permissions` presence) — a wrong
+ * guess here only degrades the guidance wording; behavior stays the same.
  */
 export function detectPlatform(
   ua: string = typeof navigator !== "undefined" ? navigator.userAgent : "",
@@ -119,7 +125,7 @@ export function detectPlatform(
     hints.maxTouchPoints ??
     (typeof navigator !== "undefined" ? (navigator.maxTouchPoints ?? 0) : 0);
 
-  // iPadOS 13+ 는 데스크톱 Safari 인 척한다. 터치 포인트로만 갈린다.
+  // iPadOS 13+ pretends to be desktop Safari. Only touch points tell them apart.
   const iPadDesktopUa = s.includes("macintosh") && touch > 1;
   const ios = /iphone|ipad|ipod/.test(s) || iPadDesktopUa;
   const android = s.includes("android");
@@ -134,7 +140,7 @@ export function detectPlatform(
           ? "macos"
           : "other";
 
-  // 순서가 중요하다 — Edge 도 Samsung 도 UA 에 "chrome" 을 달고 다닌다.
+  // Order matters — both Edge and Samsung carry "chrome" in their UA.
   const browser: BrowserKind = /edg[ea]?\//.test(s)
     ? "edge"
     : s.includes("samsungbrowser")
@@ -147,7 +153,7 @@ export function detectPlatform(
             ? "safari"
             : "other";
 
-  // iOS 에서는 Chrome(CriOS)·Firefox(FxiOS)도 전부 WebKit 이다.
+  // On iOS, Chrome (CriOS) and Firefox (FxiOS) are all WebKit too.
   const engine: EngineKind = ios
     ? "webkit"
     : browser === "firefox"
@@ -165,9 +171,9 @@ export function detectPlatform(
         (navigator as unknown as { standalone?: boolean })?.standalone === true));
 
   const inAppMarker = IN_APP_MARKERS.some((marker) => s.includes(marker));
-  // 안드로이드 WebView 는 UA 에 "; wv" 를 붙인다.
+  // Android WebView appends "; wv" to the UA.
   const androidWebView = android && /;\s*wv\b/.test(s);
-  // iOS 인앱 브라우저는 Safari 토큰을 떼고 다닌다 (홈 화면 PWA 도 마찬가지라 제외).
+  // iOS in-app browsers drop the Safari token (so do home-screen PWAs, hence the exclusion).
   const iosWebView = ios && !s.includes("safari") && !standalone;
 
   return {
@@ -180,7 +186,7 @@ export function detectPlatform(
   };
 }
 
-// ── 권한 상태 조회 ─────────────────────────────────────────
+// ── Permission state queries ─────────────────────────────
 
 type MicPermissionStatus = PermissionStatus & { name?: string };
 
@@ -191,11 +197,12 @@ function permissionsApi(): Permissions | null {
 }
 
 /**
- * 지금 마이크 권한이 어떤 상태인가.
+ * What state is the microphone permission in right now?
  *
- * **모르면 `unknown` 이다.** Safari 는 `microphone` 이름을 모르고
- * (`TypeError`), 어떤 브라우저는 Promise 를 거부한다. 둘 다 "차단됨" 이 아니다 —
- * 거기서 차단으로 단정하면 물어볼 수 있는 사용자의 길까지 막는다.
+ * **When we cannot tell, it is `unknown`.** Safari does not know the
+ * `microphone` name (`TypeError`), and some browsers reject the Promise.
+ * Neither means "blocked" — declaring blocked there walls off users who
+ * could still be asked.
  */
 export async function queryMicPermission(): Promise<MicPermissionState> {
   const status = await queryMicPermissionStatus();
@@ -207,10 +214,10 @@ async function queryMicPermissionStatus(): Promise<MicPermissionStatus | null> {
   if (!api) return null;
 
   try {
-    // 표준 이름은 "microphone". 타입 정의가 좁아 캐스팅한다.
+    // The standard name is "microphone". The type definition is narrow, so we cast.
     return (await api.query({ name: "microphone" as PermissionName })) as MicPermissionStatus;
   } catch {
-    // Safari: TypeError, 일부 구형: 거부. 어느 쪽도 판단 근거가 못 된다.
+    // Safari: TypeError; some older browsers: rejection. Neither is evidence either way.
     return null;
   }
 }
@@ -229,13 +236,15 @@ function readPermissionState(status: MicPermissionStatus | null): MicPermissionS
 }
 
 /**
- * 권한 상태가 바뀌면 알려준다. 구독을 끊는 함수를 돌려준다.
+ * Notifies when the permission state changes. Returns an unsubscribe
+ * function.
  *
- * 사용자가 **다른 탭의 브라우저 설정에서** 차단을 풀었을 때 이 화면이 그대로
- * "차단됨" 을 붙들고 있으면, 고쳐 놓고도 새로고침해야 한다는 걸 알 수 없다.
+ * When the user lifts the block **from browser settings in another tab** and
+ * this screen keeps clinging to "blocked", they have no way to know a
+ * refresh is needed even though they fixed it.
  *
- * Safari 는 이벤트를 주지 않는다. 그쪽은 `unknown` 으로 시작해 조용히 아무 일도
- * 하지 않는다 — 구독자는 콜백이 안 올 수 있다는 전제로 써야 한다.
+ * Safari emits no events. There it starts as `unknown` and quietly does
+ * nothing — subscribers must assume the callback may never come.
  */
 export function watchMicPermission(
   onChange: (state: MicPermissionState) => void,
@@ -264,9 +273,9 @@ export function watchMicPermission(
   };
 }
 
-// ── 오류 분류 ──────────────────────────────────────────────
+// ── Error classification ─────────────────────────────────
 
-/** 권한 계열 코드인가 — 세션 정리·버튼 잠금 판단에 쓴다. */
+/** Is this a permission-family code? Used for session cleanup and button locking. */
 export const PERMISSION_CODES = [
   "permission_denied",
   "permission_blocked",
@@ -288,18 +297,19 @@ interface DomLikeError {
 }
 
 /**
- * `getUserMedia` 의 예외를 우리 코드로 옮긴다.
+ * Maps `getUserMedia` exceptions to our codes.
  *
- * 이름만으로는 부족하다. Chrome 은 다섯 가지 상황을 전부 `NotAllowedError` 로
- * 주고 **메시지로만** 구분한다:
+ * The name alone is not enough. Chrome reports five situations all as
+ * `NotAllowedError` and distinguishes them **only by message**:
  *
- * - `Permission denied`              — 사용자가 차단을 눌렀다
- * - `Permission dismissed`           — 프롬프트를 그냥 닫았다 (다시 물어본다)
- * - `Permission denied by system`    — OS 개인정보 설정에서 브라우저가 막혔다
- * - `... disallowed by permissions policy` — iframe `allow` 속성이 없다
+ * - `Permission denied`              — the user pressed Block
+ * - `Permission dismissed`           — the prompt was dismissed (asking again works)
+ * - `Permission denied by system`    — the browser is blocked in OS privacy settings
+ * - `... disallowed by permissions policy` — the iframe lacks the `allow` attribute
  *
- * 메시지 문구는 브라우저 버전에 따라 바뀔 수 있다. 그래서 **못 알아보면
- * 일반 `permission_denied` 로 떨어진다** — 안내가 덜 구체적일 뿐 틀리지는 않는다.
+ * Message wording can change across browser versions. So **anything
+ * unrecognized falls back to plain `permission_denied`** — the guidance is
+ * less specific, but never wrong.
  */
 export function classifyMediaError(error: unknown): RecorderErrorCodeLike {
   const err = (error ?? {}) as DomLikeError;
@@ -308,7 +318,7 @@ export function classifyMediaError(error: unknown): RecorderErrorCodeLike {
 
   switch (name) {
     case "NotAllowedError":
-    case "PermissionDeniedError": // 구형 Chrome/WebKit
+    case "PermissionDeniedError": // legacy Chrome/WebKit
     case "SecurityError": {
       if (/permissions?\s+policy|feature\s*policy|disallowed by/.test(message)) {
         return "embed_blocked";
@@ -326,14 +336,14 @@ export function classifyMediaError(error: unknown): RecorderErrorCodeLike {
     case "ConstraintNotSatisfiedError":
       return "device_unavailable";
 
-    // 장치는 있는데 열 수 없다 — 다른 앱 점유, 드라이버 오류, iOS 통화 중.
+    // The device exists but cannot be opened — held by another app, driver error, iOS mid-call.
     case "NotReadableError":
     case "TrackStartError":
     case "AbortError":
       return "device_busy";
 
     case "TypeError":
-      // 제약 객체가 비었을 때만 나온다. 우리 버그지 사용자 잘못이 아니다.
+      // Only occurs when the constraints object is empty. Our bug, not the user's fault.
       return "unknown";
 
     default:
@@ -341,7 +351,7 @@ export function classifyMediaError(error: unknown): RecorderErrorCodeLike {
   }
 }
 
-/** `types.ts` 의 `RecorderErrorCode` 와 같은 집합. 순환 import 를 피하려고 여기서 좁게 다시 쓴다. */
+/** Same set as `RecorderErrorCode` in `types.ts`. Redeclared narrowly here to avoid a circular import. */
 type RecorderErrorCodeLike =
   | "unsupported"
   | "insecure_context"
@@ -357,20 +367,21 @@ type RecorderErrorCodeLike =
   | "unknown";
 
 /**
- * 브라우저가 보고한 권한 상태로 분류를 다듬는다.
+ * Refines the classification using the browser-reported permission state.
  *
- * 프롬프트를 닫은 것과 차단을 누른 것은 Chrome 밖에서는 구별되지 않는다.
- * 그런데 Permissions API 는 그 뒤의 **결과 상태**를 안다.
+ * Outside Chrome, dismissing the prompt and pressing Block are
+ * indistinguishable. But the Permissions API knows the **resulting state**
+ * afterward.
  *
- * - `denied`  → 굳었다. 다시 눌러도 프롬프트가 안 뜬다 → `permission_blocked`
- * - `prompt`  → 아직 물어볼 수 있다 → `permission_dismissed`
- * - `unknown` → Safari. 원래 분류를 그대로 둔다
+ * - `denied`  → hardened; pressing again shows no prompt → `permission_blocked`
+ * - `prompt`  → can still be asked → `permission_dismissed`
+ * - `unknown` → Safari; keep the original classification
  */
 export function refinePermissionCode(
   code: RecorderErrorCodeLike,
   state: MicPermissionState,
 ): RecorderErrorCodeLike {
-  // OS·iframe 차단은 사이트 권한 상태와 무관하다. 덮어쓰면 안내가 틀어진다.
+  // OS and iframe blocks are unrelated to the site permission state. Overwriting skews the guidance.
   if (code === "system_denied" || code === "embed_blocked") return code;
   if (!isPermissionCode(code)) return code;
 
@@ -379,9 +390,9 @@ export function refinePermissionCode(
   return code;
 }
 
-// ── 안내문 ────────────────────────────────────────────────
+// ── Guidance ─────────────────────────────────────────────
 
-/** 브라우저 사이트 권한을 여는 길. 안내의 절반은 "어디를 누르는가" 다. */
+/** The path to the browser's site permissions. Half of the guidance is "where to press". */
 function siteSettingsSteps(platform: Platform): GuideMessage[] {
   const { engine, os, browser } = platform;
 
@@ -405,7 +416,7 @@ function siteSettingsSteps(platform: Platform): GuideMessage[] {
     ];
   }
 
-  // Edge 도 Samsung 도 Chromium 이지만, 설정 메뉴 이름은 브라우저마다 다르다.
+  // Edge and Samsung are both Chromium, but the settings menu name differs per browser.
   const menu = browser === "edge" ? "Edge" : "Chrome";
   return [
     m("step.siteChromiumIcon"),
@@ -414,7 +425,7 @@ function siteSettingsSteps(platform: Platform): GuideMessage[] {
   ];
 }
 
-/** OS 개인정보 설정을 여는 길. 브라우저 설정을 아무리 만져도 여기서 막히면 안 열린다. */
+/** The path to OS privacy settings. No amount of browser fiddling helps if it is blocked here. */
 function systemSettingsSteps(platform: Platform): GuideMessage[] {
   switch (platform.os) {
     case "macos":
@@ -453,16 +464,17 @@ function openInBrowserSteps(platform: Platform): GuideMessage[] {
 }
 
 /**
- * 오류 코드 + 이 기기 = 사용자가 할 일.
+ * Error code + this device = what the user should do.
  *
- * 문구를 컴포넌트에 흩어 두지 않는다. 데스크톱 화면과 모바일 화면이 각자
- * 다른 안내를 하기 시작하면 어느 쪽이 맞는지 아무도 모르게 된다.
+ * The wording is not scattered across components. Once the desktop screen
+ * and the mobile screen start giving different guidance, nobody knows which
+ * one is right.
  */
 export function micRecoveryGuide(
   code: RecorderErrorCodeLike,
   platform: Platform = detectPlatform(),
 ): RecoveryGuide {
-  // 인앱 브라우저는 코드가 무엇이든 결론이 같다 — 여기서는 못 고친다.
+  // In an in-app browser the conclusion is the same whatever the code — it cannot be fixed here.
   if (platform.webview && isPermissionCode(code)) {
     return {
       cause: m("cause.webview"),
@@ -497,7 +509,7 @@ export function micRecoveryGuide(
           ...(platform.engine === "webkit" ? [m("step.deniedWebkitHint")] : []),
           ...siteSettingsSteps(platform),
         ],
-        // Safari 는 차단 여부를 알려주지 않는다. 한 번 더 눌러 보는 것이 실제로 통한다.
+        // Safari never says whether it is blocked. Pressing once more actually works.
         retryable: platform.engine === "webkit",
         needsSettings: true,
       };
@@ -591,10 +603,12 @@ export function micRecoveryGuide(
 }
 
 /**
- * 오류 코드의 한 줄 요약 키. 알림 띠 제목으로 쓴다.
+ * One-line summary key for an error code. Used as the notification banner
+ * title.
  *
- * 제목은 오직 코드에만 달렸다(플랫폼 무관). 그래서 키를 `title.{code}` 로 바로
- * 낸다 — 셸 카탈로그의 `recorder.guide.title.{code}` 에 모든 코드의 제목이 있다.
+ * The title depends only on the code (platform-independent), so the key is
+ * emitted directly as `title.{code}` — the shell catalog holds every code's
+ * title under `recorder.guide.title.{code}`.
  */
 export function micErrorTitle(code: RecorderErrorCodeLike): GuideMessage {
   return m(`title.${code}`);

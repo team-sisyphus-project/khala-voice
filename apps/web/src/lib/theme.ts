@@ -1,8 +1,8 @@
 import { api } from "./api";
 
-// 표시 이름은 i18n 카탈로그(`theme.*`)에서 온다 — id 를 키로 쓴다. `game` 의
-// 표시 이름만 "픽셀/Pixel" 이고 id 는 `game` 그대로다: CSS(`game-skin.css`)와
-// 계정 스키마(`@themes`)가 이 값에 걸려 있다.
+// Display names come from the i18n catalog (`theme.*`) — keyed by id. Only
+// `game` has a different display name ("Pixel") while its id stays `game`: the
+// CSS (`game-skin.css`) and the account schema (`@themes`) are keyed to this value.
 export const THEMES = [
   { id: "light", icon: "light_mode" },
   { id: "dark", icon: "dark_mode" },
@@ -13,16 +13,16 @@ export const THEMES = [
 export type Theme = (typeof THEMES)[number]["id"];
 
 /*
- * 지연 로드 테마가 있었다. 없앴다.
+ * There used to be lazily loaded themes. Removed.
  *
- * 옛 `/themes/pencil.css`(247KB) · `/themes/game.css`(35KB) 는 **옛 토큰 이름**
- * (`--surface-*` · `--accent`) 을 덮어쓰도록 쓰인 파일이라, 디자인 시스템을
- * devkanban(`--mobile-*`)으로 옮긴 뒤에는 아무것도 바꾸지 못하면서 280KB 만
- * 내려받게 만들었다.
+ * The old `/themes/pencil.css` (247KB) and `/themes/game.css` (35KB) were
+ * written to override the **old token names** (`--surface-*` · `--accent`);
+ * after the design system moved to devkanban (`--mobile-*`) they changed
+ * nothing while still costing a 280KB download.
  *
- * 지금은 네 테마가 전부 `packages/ui-styles` 안에 있다 —
- * 라이트·다크는 `devkanban/tokens.css`, 연필은 `media-skin.css`,
- * 게임은 `game-skin.css`.
+ * Now all four themes live inside `packages/ui-styles` —
+ * light/dark in `devkanban/tokens.css`, pencil in `media-skin.css`,
+ * game in `game-skin.css`.
  */
 
 const STORAGE_KEY = "vr:theme";
@@ -36,7 +36,7 @@ export function cachedTheme(): Theme {
   return isTheme(stored) ? stored : "light";
 }
 
-/** 테마를 적용한다. 네 테마 모두 번들 안에 있어 따로 받지 않는다. */
+/** Apply the theme. All four themes are in the bundle — nothing fetched separately. */
 export async function applyTheme(theme: Theme, options: { save?: boolean } = {}): Promise<void> {
   const root = document.documentElement;
 
@@ -45,7 +45,7 @@ export async function applyTheme(theme: Theme, options: { save?: boolean } = {})
 
   if (options.save !== false) {
     await api.updateTheme(theme).catch(() => {
-      // 저장에 실패해도 화면은 바뀐 채로 둔다. 다음 로드에서 서버 값으로 돌아간다.
+      // Even if saving fails, leave the screen changed. The next load reverts to the server value.
     });
   }
 }

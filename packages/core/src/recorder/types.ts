@@ -1,118 +1,121 @@
-/** 녹음 엔진의 공개 타입. */
+/** Public types of the recording engine. */
 
 import type { GuideMessage, MicPermissionState, RecoveryGuide } from "./permission";
 
 export type RecorderState =
   | "idle"
-  | "requesting" // 마이크 권한 요청 중
+  | "requesting" // requesting microphone permission
   | "recording"
   | "paused"
-  | "stopping" // stop() 호출 후 최종 데이터 대기
+  | "stopping" // waiting for the final data after stop()
   | "error";
 
 export interface RecorderOptions {
-  /** 마이크 장치 ID. 비우면 기본 장치 */
+  /** Microphone device ID. Default device if empty */
   deviceId?: string;
-  /** 최대 녹음 시간(초). 기본 3시간 */
+  /** Maximum recording time (seconds). Default 3 hours */
   maxDurationSeconds?: number;
-  /** 청크 수집 주기(ms). 기본 1000 */
+  /** Chunk collection interval (ms). Default 1000 */
   timesliceMs?: number;
-  /** 파형 분석 해상도. 기본 256 */
+  /** Waveform analysis resolution. Default 256 */
   fftSize?: number;
 }
 
 export interface RecorderResult {
   blob: Blob;
   mimeType: string;
-  /** 일시정지 시간을 뺀 실제 녹음 길이(초) */
+  /** Actual recorded length minus paused time (seconds) */
   durationSeconds: number;
   startedAtUnix: number;
 }
 
 /**
- * 녹음 실패 한 건.
+ * One recording failure.
  *
- * `message` 하나로는 부족하다. 화면은 **원인**과 **할 일**과 **다시 눌러도
- * 되는가**를 각각 다르게 그려야 한다 — 굳어버린 차단에서 [다시 시도] 를
- * 띄우면 사용자는 같은 버튼만 반복해서 누른다.
+ * A single `message` is not enough. The UI must render the **cause**, the
+ * **steps to take**, and **whether pressing again helps** differently —
+ * showing [Retry] on a hardened block leaves the user hammering the same
+ * button.
  */
 export interface RecorderError {
   code: RecorderErrorCode;
-  /** 한 줄 원인. 알림 띠 본문. 로케일-프리 키 — UI 셸이 `t()` 로 번역한다 */
+  /** One-line cause. Notification banner body. Locale-free key — the UI shell translates it with `t()` */
   message: GuideMessage;
-  /** 권한 계열일 때 브라우저가 보고한 상태. Safari 는 `unknown` */
+  /** For permission-family errors, the state the browser reported. Safari gives `unknown` */
   permission?: MicPermissionState;
-  /** 이 기기에서 할 일 */
+  /** What to do on this device */
   recovery?: RecoveryGuide;
   cause?: unknown;
 }
 
 export interface RecorderEvents {
   statechange: { state: RecorderState; previous: RecorderState };
-  /** 매 초 갱신. UI 타이머용 */
+  /** Updated every second. For the UI timer */
   tick: { elapsedSeconds: number; remainingSeconds: number };
-  /** 파형 프레임. requestAnimationFrame 주기 */
+  /** Waveform frame. At requestAnimationFrame cadence */
   waveform: { levels: Float32Array<ArrayBuffer>; peak: number };
-  /** 녹음 완료. 업로드 큐로 넘길 데이터 */
+  /** Recording finished. Data to hand to the upload queue */
   complete: RecorderResult;
-  /** 최대 시간 도달으로 자동 종료됨 */
+  /** Auto-stopped after hitting the maximum duration */
   maxduration: { durationSeconds: number };
-  /** 마이크 권한 상태가 바뀜. 버튼·상태 표시기를 다시 그리라는 신호 */
+  /** Microphone permission state changed. Signal to redraw buttons/indicators */
   permissionchange: { state: MicPermissionState };
   error: RecorderError;
 }
 
 /**
- * 녹음이 막힌 이유.
+ * Why recording was blocked.
  *
- * 권한 계열이 넷으로 갈라져 있는 것은 **사용자가 할 일이 넷 다 다르기 때문**이다.
- * 자세한 사정은 `permission.ts` 의 `classifyMediaError` 참고.
+ * The permission family splits four ways because **the user's next step is
+ * different in all four**. See `classifyMediaError` in `permission.ts` for
+ * the details.
  */
 export type RecorderErrorCode =
-  | "unsupported" // 브라우저가 MediaRecorder / getUserMedia 를 지원하지 않음
-  | "insecure_context" // HTTPS 가 아님 — getUserMedia 가 막힌다
-  | "permission_denied" // 거부됨. 다시 물어볼 수 있는지는 알 수 없음 (주로 Safari)
-  | "permission_blocked" // 사이트 차단으로 굳음 — 브라우저 설정을 열어야 한다
-  | "permission_dismissed" // 권한 창을 그냥 닫음 — 다시 누르면 또 뜬다
-  | "system_denied" // OS 개인정보 설정에서 브라우저 자체가 차단됨
-  | "embed_blocked" // iframe / 인앱 브라우저 정책으로 막힘
-  | "no_device" // 마이크가 없음
-  | "device_unavailable" // 지정한 마이크가 사라짐 (OverconstrainedError)
-  | "device_busy" // 장치는 있으나 다른 앱이 점유 중 (NotReadableError)
-  | "interrupted" // OS/브라우저가 스트림을 끊음 (통화, 백그라운드 등)
+  | "unsupported" // browser lacks MediaRecorder / getUserMedia
+  | "insecure_context" // not HTTPS — getUserMedia is blocked
+  | "permission_denied" // denied; unknown whether asking again works (mostly Safari)
+  | "permission_blocked" // hardened by a site-level block — browser settings must be opened
+  | "permission_dismissed" // prompt dismissed — pressing again shows it again
+  | "system_denied" // the browser itself is blocked in OS privacy settings
+  | "embed_blocked" // blocked by iframe / in-app browser policy
+  | "no_device" // no microphone
+  | "device_unavailable" // the chosen microphone disappeared (OverconstrainedError)
+  | "device_busy" // device exists but another app holds it (NotReadableError)
+  | "interrupted" // OS/browser cut the stream (call, backgrounding, etc.)
   | "unknown";
 
 export interface MicDevice {
   deviceId: string;
   /**
-   * 브라우저가 준 장치 이름. **권한을 받기 전에는 비어 있다**(지문 방지 정책).
-   * 비었을 때의 대체 표기("마이크 N")는 UI 셸이 `index` 로 만든다 — core 는
-   * 로케일 문안을 만들지 않는다.
+   * Device name from the browser. **Empty until permission is granted**
+   * (anti-fingerprinting). The fallback label ("Microphone N") is built by
+   * the UI shell from `index` — core produces no locale wording.
    */
   label: string;
-  /** 1부터 시작하는 순번. 라벨이 비었을 때 셸이 "마이크 N" 을 만들 근거. */
+  /** 1-based ordinal. The shell's basis for "Microphone N" when the label is empty. */
   index: number;
 }
 
-/** 마이크 목록 조회 결과. */
+/** Result of listing microphones. */
 export interface MicListResult {
   devices: MicDevice[];
   /**
-   * 라벨을 보려면 권한이 필요한 상태인가.
+   * Does seeing the labels require asking for permission?
    *
-   * **차단된 상태에서는 `false` 다.** 권한을 달라고 버튼을 띄워봐야 창이 뜨지
-   * 않는다 — 그 경우는 `permission === "denied"` 로 갈라 안내를 바꾼다.
+   * **`false` when blocked.** Showing a request button is pointless when the
+   * prompt cannot appear — that case is split off via
+   * `permission === "denied"` with different guidance.
    */
   needsPermission: boolean;
   permission: MicPermissionState;
-  /** 목록조차 못 읽은 이유. HTTPS 아님 · 미지원 등. `message` 는 로케일-프리 키 */
+  /** Why even the list could not be read. Not HTTPS, unsupported, etc. `message` is a locale-free key */
   blocked?: { code: RecorderErrorCode; message: GuideMessage; recovery: RecoveryGuide };
 }
 
-/** 권한만 받아 보는 요청의 결과. */
+/** Result of a permission-only request. */
 export interface MicPermissionRequestResult {
   granted: boolean;
   permission: MicPermissionState;
-  /** 실패했을 때만 */
+  /** Only on failure */
   error?: RecorderError;
 }

@@ -1,23 +1,25 @@
 defmodule VR.Workers.AudioSplitWorker do
   @moduledoc """
-  20분을 넘는 녹음을 19분 단위로 자르고, 청크마다 새 세션을 만든다.
+  Cuts recordings over 20 minutes into 19-minute chunks and creates a new
+  session per chunk.
 
-  **출처: sisyphus** `lib/sisyphus/workers/audio_split_worker.ex`
-  — 업로드 경로만 이 앱의 `VR.Storage` 로 바꿨다.
+  **Source: sisyphus** `lib/sisyphus/workers/audio_split_worker.ex`
+  — only the upload path was switched to this app's `VR.Storage`.
 
-  ## 흐름
+  ## Flow
 
-      1. 원본 다운로드
-      2. FFmpeg 로 19분 단위 분할
-      3. 청크를 스토리지에 업로드
-      4. 청크별 새 세션 생성 (metadata.part 에 구간 표시)
-      5. 원본 세션 삭제
-      6. 청크마다 전사 큐잉
+      1. Download the original
+      2. Split into 19-minute chunks with FFmpeg
+      3. Upload the chunks to storage
+      4. Create a new session per chunk (range marked in metadata.part)
+      5. Delete the original session
+      6. Enqueue transcription per chunk
 
-  ## 화자 번호는 청크마다 독립적이다
+  ## Speaker numbers are independent per chunk
 
-  청크 1의 `speaker_1` 과 청크 2의 `speaker_1` 이 같은 사람이라는 보장이 없다.
-  STT 가 파일 단위로 화자를 나누기 때문이다. 화면에서 이걸 알려줘야 한다.
+  There is no guarantee that `speaker_1` in chunk 1 and `speaker_1` in chunk 2
+  are the same person. STT diarizes speakers per file. The UI has to make this
+  clear.
   """
 
   use Oban.Worker, queue: :transcription, max_attempts: 2, priority: 1
@@ -34,7 +36,7 @@ defmodule VR.Workers.AudioSplitWorker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"session_id" => session_id}}) do
-    Logger.info("[AudioSplit] 시작: #{session_id}")
+    Logger.info("[AudioSplit] started: #{session_id}")
 
     case Meetings.get_session(session_id) do
       nil -> {:cancel, :session_not_found}
@@ -46,7 +48,7 @@ defmodule VR.Workers.AudioSplitWorker do
   defp run(session) do
     cond do
       not Audio.available?() ->
-        fail(session, "서버에 FFmpeg 이 없어 긴 녹음을 분할하지 못했습니다")
+        fail(session, "FFmpeg is not installed on the server, so the long recording could not be split")
 
       true ->
         split(session)
@@ -66,26 +68,26 @@ defmodule VR.Workers.AudioSplitWorker do
            {:ok, total} <- resolve_duration(source, session),
            {:ok, chunks} <- Audio.split(source, dir, total),
            {:ok, created} <- materialize(meeting, session, chunks) do
-        # 원본은 지운다 — 청크들로 대체됐다
+        # The original is deleted — it has been replaced by the chunks
         {:ok, _} = Meetings.delete_session(session)
 
         Enum.each(created, &Transcription.enqueue/1)
         Meetings.recalculate_totals(meeting)
 
-        Logger.info("[AudioSplit] 완료: #{session.id} → 청크 #{length(created)}개")
+        Logger.info("[AudioSplit] done: #{session.id} → #{length(created)} chunks")
         :ok
       else
         {:error, reason} ->
-          Logger.error("[AudioSplit] 실패: #{session.id} — #{inspect(reason)}")
-          fail(session, "긴 녹음을 분할하지 못했습니다")
+          Logger.error("[AudioSplit] failed: #{session.id} — #{inspect(reason)}")
+          fail(session, "The long recording could not be split")
       end
     after
       File.rm_rf(dir)
     end
   end
 
-  # duration_seconds 를 못 믿을 때가 있다 (webm 헤더가 Infinity 를 주는 등).
-  # 파일에서 직접 잰다.
+  # duration_seconds cannot always be trusted (e.g. webm headers reporting
+  # Infinity). Measure directly from the file.
   defp resolve_duration(path, session) do
     case Audio.duration(path) do
       {:ok, seconds} when seconds > 0 ->
@@ -166,11 +168,12 @@ defmodule VR.Workers.AudioSplitWorker do
     end
   end
 
-  # **URL 을 검사하고 리다이렉트를 따라가지 않는다.**
+  # **The URL is checked and redirects are not followed.**
   #
-  # 이 주소는 예전에 클라이언트가 보내주던 값이었다 (지금은 서버가 만든다).
-  # 검사 없이 GET 하면 사설망·클라우드 메타데이터로 서버를 대신 보낼 수 있다 (SSRF).
-  # 리다이렉트를 따라가면 허용 호스트 검사가 그대로 무력해지므로 0 으로 둔다.
+  # This address used to come from the client (the server builds it now).
+  # GETting it unchecked can send the server to private networks or cloud
+  # metadata on the client's behalf (SSRF). Following redirects would neutralize
+  # the allowed-host check outright, so it stays at 0.
   defp download(url) do
     if VR.Storage.own_object_url?(url) do
       case Req.get(url, receive_timeout: 300_000, max_redirects: 0) do
@@ -179,7 +182,7 @@ defmodule VR.Workers.AudioSplitWorker do
         {:error, reason} -> {:error, {:download_error, reason}}
       end
     else
-      Logger.error("[Storage] 우리 오브젝트가 아닌 주소는 내려받지 않습니다")
+      Logger.error("[Storage] refusing to download an address that is not our own object")
       {:error, :untrusted_audio_url}
     end
   end

@@ -1,153 +1,154 @@
-# 13. 실기기 테스트
+# 13. Real-Device Testing
 
-## 왜 먼저 하는가
+## Why this comes first
 
-이 제품의 가장 큰 미검증 리스크는 **모바일 브라우저가 백그라운드에서 녹음을 유지하는가**다.
+This product's biggest unverified risk is **whether mobile browsers keep recording in the background.**
 
-화면이 잠기거나 앱이 뒤로 가면 OS 가 마이크를 회수할 수 있다. iOS Safari 가 특히 제약이 크다.
-"1시간 회의를 폰으로 녹음한다"가 성립하지 않으면 제품 전제가 흔들린다.
+When the screen locks or the app goes to the background, the OS may reclaim the microphone.
+iOS Safari is especially restrictive. If "record a one-hour meeting on your phone" doesn't
+hold, the product's premise is shaken.
 
-기능을 다 만들고 나서 발견하면 늦으므로 **M2 초반에** 확인한다.
+Discovering this after building everything is too late, so it is verified **early in M2.**
 
-## 스파이크 페이지
+## Spike page
 
 ```
 /spike/recorder
 ```
 
-개발 환경에서만 열린다. 로그인도 요구하지 않는다 —
-폰에서 로그인 흐름까지 태우면 검증하려는 것(녹음 자체)이 흐려진다.
+Opens only in the development environment. Doesn't require login either —
+forcing a login flow on the phone would blur what we're trying to verify (the recording itself).
 
-보여주는 것:
+What it shows:
 
-| 항목 | 왜 보는가 |
+| Item | Why we look at it |
 |---|---|
-| 보안 컨텍스트 · MediaRecorder · IndexedDB · WakeLock | 이 기기에서 뭐가 되는지 |
-| UA 전문 | 어느 브라우저·OS 인지 기록용 |
-| 상태 · 경과 시간 · 파형 | 녹음이 살아있는지 |
-| **화면 전환 로그** | 백그라운드에 갔다 온 흔적. **이번 검증의 핵심** |
-| 플랫폼 판별 · 권한 상태 | 권한 안내가 이 기기를 제대로 알아보는지 |
-| 결과 (길이 · 크기 · 비트레이트 · 포맷) | 실제로 데이터가 남았는지 |
+| Secure context · MediaRecorder · IndexedDB · WakeLock | What works on this device |
+| Full UA string | For recording which browser/OS |
+| State · elapsed time · waveform | Whether the recording is alive |
+| **Visibility change log** | Traces of going to the background and back. **The heart of this verification** |
+| Platform detection · permission state | Whether the permission guidance correctly recognizes this device |
+| Results (duration · size · bitrate · format) | Whether data actually survived |
 
-## ⚠️ HTTPS 가 필수다
+## ⚠️ HTTPS is required
 
-`getUserMedia` 는 **보안 컨텍스트에서만** 동작한다. `localhost` 는 예외지만
-폰에서 `http://192.168.x.x:4000` 으로 붙으면 **마이크가 열리지 않는다.**
+`getUserMedia` works **only in a secure context.** `localhost` is an exception, but
+connecting from a phone to `http://192.168.x.x:4000` means **the microphone will not open.**
 
-스파이크 페이지가 이걸 감지해서 안내하지만, 애초에 https 로 붙어야 한다.
+The spike page detects and explains this, but you should connect over https in the first place.
 
-### 방법 1 — 자체 서명 인증서 (외부 서비스 불필요)
+### Method 1 — self-signed certificate (no external service)
 
 ```bash
 cd backend
-mix phx.gen.cert                    # 한 번만. priv/cert/ 에 생성 (git 제외됨)
+mix phx.gen.cert                    # Once only. Generated under priv/cert/ (git-ignored)
 DEV_BIND_ALL=true mix phx.server
 ```
 
-폰에서:
+On the phone:
 
 ```
-https://<맥의 LAN IP>:4001/spike/recorder
+https://<your Mac's LAN IP>:4001/spike/recorder
 ```
 
-LAN IP 확인: `ipconfig getifaddr en0`
+Find the LAN IP with: `ipconfig getifaddr en0`
 
-인증서 경고가 뜬다. 브라우저별로:
+A certificate warning appears. Per browser:
 
-| 브라우저 | 처리 |
+| Browser | Handling |
 |---|---|
-| Android Chrome | "고급" → "안전하지 않음(계속)" — 이걸로 보안 컨텍스트가 된다 |
-| **iOS Safari** | 경고를 넘겨도 **마이크는 여전히 막힌다.** 인증서를 신뢰 목록에 넣어야 한다 |
+| Android Chrome | "Advanced" → "Proceed (unsafe)" — this is enough for a secure context |
+| **iOS Safari** | Even past the warning, **the microphone stays blocked.** The certificate must be added to the trust list |
 
-**iOS 인증서 신뢰 절차**
+**iOS certificate trust procedure**
 
-1. `backend/priv/cert/selfsigned.pem` 을 아이폰으로 전송 (AirDrop / 메일)
-2. 설정 → 일반 → VPN 및 기기 관리 → 프로파일 설치
-3. 설정 → 일반 → 정보 → **인증서 신뢰 설정** → 해당 인증서 켜기
+1. Send `backend/priv/cert/selfsigned.pem` to the iPhone (AirDrop / email)
+2. Settings → General → VPN & Device Management → install the profile
+3. Settings → General → About → **Certificate Trust Settings** → enable the certificate
 
-3번을 빼먹으면 여전히 막힌다. iOS 는 설치와 신뢰가 별개다.
+Skip step 3 and it stays blocked. On iOS, installing and trusting are separate steps.
 
-> `DEV_BIND_ALL` 을 켜면 개발 서버가 LAN 에 노출된다. 테스트가 끝나면 끈다.
-> 기본값은 `127.0.0.1` 바인딩이다.
+> Enabling `DEV_BIND_ALL` exposes the dev server on the LAN. Turn it off when testing is done.
+> The default is binding to `127.0.0.1`.
 
-### 방법 2 — 터널 (더 쉬움)
+### Method 2 — tunnel (easier)
 
-인증서 설정이 번거로우면 터널이 낫다. 진짜 인증서라 경고도 없다.
+If the certificate setup is a hassle, a tunnel is better. It's a real certificate, so no warnings.
 
 ```bash
 cloudflared tunnel --url http://localhost:4000
-# 또는  ngrok http 4000
+# or  ngrok http 4000
 ```
 
-출력된 https 주소 + `/spike/recorder` 로 접속한다.
+Open the printed https address + `/spike/recorder`.
 
-## 검증 시나리오
+## Verification scenarios
 
-각 케이스마다 **녹음 길이 · 파일 크기 · 로그**를 기록한다.
-파일 크기가 0 이거나 경과 시간보다 훨씬 작으면 그 구간이 유실된 것이다.
+For each case, record **recording duration · file size · logs.**
+If the file size is 0 or far smaller than the elapsed time, that span was lost.
 
-| # | 시나리오 | 확인할 것 |
+| # | Scenario | What to check |
 |---|---|---|
-| 1 | 화면 켜둔 채 5분 | 기준값. 크기·비트레이트가 정상인지 |
-| 2 | 녹음 중 **화면 잠금** 3분 → 복귀 | 타이머가 계속 갔는가. 오디오가 이어지는가 |
-| 3 | 녹음 중 **다른 앱 전환** 3분 → 복귀 | 위와 동일 |
-| 4 | 녹음 중 **전화 수신** | `interrupted` 이벤트가 뜨는가. 그때까지가 저장되는가 |
-| 5 | WakeLock **끈 상태**로 화면 잠금 | 켠 것과 차이가 있는가 |
-| 6 | 일시정지 → 3분 대기 → 재개 | 경과 시간에서 정지 구간이 빠지는가 |
-| 7 | 30분 이상 연속 | 장시간에서 메모리·안정성 |
-| 8 | 저장 공간 부족 상태 | 어떻게 실패하는가 |
+| 1 | 5 minutes with the screen on | Baseline. Are size and bitrate normal |
+| 2 | **Lock the screen** for 3 minutes mid-recording → return | Did the timer keep going. Is the audio continuous |
+| 3 | **Switch to another app** for 3 minutes mid-recording → return | Same as above |
+| 4 | **Receive a phone call** mid-recording | Does the `interrupted` event fire. Is everything up to that point saved |
+| 5 | Lock the screen with WakeLock **off** | Any difference vs. having it on |
+| 6 | Pause → wait 3 minutes → resume | Is the paused span excluded from the elapsed time |
+| 7 | 30+ minutes continuous | Memory and stability over long runs |
+| 8 | Low storage | How does it fail |
 
-### 권한 시나리오
+### Permission scenarios
 
-녹음 자체와 별개로 **막혔을 때 화면이 사실대로 말하는가**를 본다.
-같은 "거부" 라도 브라우저마다 사용자가 할 일이 달라서, 한 기기에서 맞았다고
-다른 기기에서 맞지 않는다.
+Separate from recording itself, check **whether the screen tells the truth when blocked.**
+Even the same "denied" state requires different user actions per browser, so getting it
+right on one device doesn't mean it's right on another.
 
-| # | 시나리오 | 기대 |
+| # | Scenario | Expected |
 |---|---|---|
-| P1 | 권한 창을 **닫는다** (허용도 차단도 아님) | `permission_dismissed` · [다시 시도] 가 보이고 실제로 창이 다시 뜬다 |
-| P2 | 권한 창에서 **차단**을 누른다 | Chrome: `permission_blocked` · [다시 시도]가 **없다** · 주소창 절차가 뜬다 |
-| P3 | P2 상태로 페이지를 새로고침한다 | 누르기 **전에** 이미 "마이크 차단됨" 이 뜨고 버튼이 잠겨 있다 |
-| P4 | P3 상태에서 다른 탭의 브라우저 설정으로 차단을 푼다 | 새로고침 없이 버튼이 살아난다 (`permissionchange`) |
-| P5 | iOS Safari 에서 거부한다 | `permission_denied` · **버튼이 잠기지 않는다** · iOS 설정 경로가 뜬다 |
-| P6 | macOS/Windows 시스템 설정에서 브라우저의 마이크를 끈다 | `system_denied` · 브라우저 설정이 아니라 **시스템 설정** 절차가 뜬다 |
-| P7 | 줌·팀즈로 마이크를 점유한 채 녹음한다 | `device_busy` · "다른 앱이 쓰고 있다" · [다시 시도] 가 있다 |
-| P8 | 블루투스 마이크를 고른 뒤 전원을 끄고 녹음한다 | `device_unavailable` · [기본 마이크로 바꾸기] 가 뜬다 |
-| P9 | **카카오톡 인앱 브라우저**로 링크를 연다 | 설정 절차가 아니라 "Safari로 열기 / 다른 브라우저로 열기" 가 뜬다 |
-| P10 | 홈 화면 PWA 로 실행한다 | 인앱 브라우저로 오인해 "다른 브라우저로 여세요" 가 뜨지 **않는다** |
+| P1 | **Dismiss** the permission prompt (neither allow nor block) | `permission_dismissed` · [Try again] is shown and actually reopens the prompt |
+| P2 | Press **Block** in the permission prompt | Chrome: `permission_blocked` · [Try again] is **absent** · the address-bar procedure is shown |
+| P3 | Reload the page in the P2 state | "Microphone blocked" already shows **before** pressing anything, and the button is locked |
+| P4 | From the P3 state, unblock via browser settings in another tab | The button comes back to life without a reload (`permissionchange`) |
+| P5 | Deny on iOS Safari | `permission_denied` · **the button is not locked** · the iOS settings path is shown |
+| P6 | Disable the browser's microphone in macOS/Windows system settings | `system_denied` · the **system settings** procedure is shown, not the browser's |
+| P7 | Record while Zoom/Teams holds the microphone | `device_busy` · "another app is using it" · [Try again] is present |
+| P8 | Pick a Bluetooth mic, power it off, then record | `device_unavailable` · [Switch to default microphone] appears |
+| P9 | Open the link in the **KakaoTalk in-app browser** | Shows "Open in Safari / open in another browser," not a settings procedure |
+| P10 | Launch as a home-screen PWA | Is **not** mistaken for an in-app browser — no "open in another browser" message |
 
-P9 · P10 이 같은 판별을 공유한다. iOS 에서 인앱 브라우저와 PWA 는 둘 다 UA 에서
-`Safari` 토큰이 빠지기 때문에, 한쪽을 맞추다 다른 쪽을 깨기 쉽다.
+P9 and P10 share the same detection. On iOS, both in-app browsers and PWAs drop the
+`Safari` token from the UA, so fixing one easily breaks the other.
 
-스파이크 페이지 상단의 `판별:` 줄이 이 기기를 어떻게 읽었는지 그대로 보여준다.
-안내가 엉뚱한 메뉴를 가리키면 먼저 이 줄을 본다.
+The `Detection:` line at the top of the spike page shows exactly how the device was read.
+If the guidance points at the wrong menu, look at this line first.
 
-### 기록 양식
+### Recording template
 
 ```
-기기:        iPhone 15 / iOS 18.2 / Safari
-시나리오:    2 (화면 잠금 3분)
-결과:        ✅ 유지 / ⚠️ 부분 유실 / ❌ 중단
-녹음 길이:   05:12
-파일 크기:   2.4 MB (78 kbps)
-로그 요약:   visibilitychange 2회, freeze 없음
+Device:      iPhone 15 / iOS 18.2 / Safari
+Scenario:    2 (screen lock, 3 minutes)
+Result:      ✅ kept / ⚠️ partial loss / ❌ stopped
+Duration:    05:12
+File size:   2.4 MB (78 kbps)
+Log summary: visibilitychange ×2, no freeze
 ```
 
-## 알려진 제약
+## Known constraints
 
-| 항목 | 내용 |
+| Item | Details |
 |---|---|
-| iOS Safari 백그라운드 | 오디오 세션을 놓칠 수 있다. WakeLock 으로 화면을 켜두는 게 가장 확실하다 |
-| iOS 포맷 | `audio/mp4` (AAC). webm 을 지원하지 않는다 — `pickMimeType()` 이 알아서 고른다 |
-| Android Chrome | 대체로 안정적이지만 배터리 최적화가 탭을 얼릴 수 있다 (`freeze` 이벤트로 감지) |
-| Safari 권한 상태 | `permissions.query({name:"microphone"})` 를 지원하지 않는다. 차단 여부를 알 수 없어 `unknown` 으로 두고 버튼을 잠그지 않는다 |
-| 인앱 브라우저 | 카카오톡·인스타 등에서는 권한 설정으로도 풀리지 않는다. 외부 브라우저로 여는 것 말고 길이 없다 |
-| WakeLock | HTTPS 필수. 백그라운드 복귀 시 자동 재획득되지 않아 스파이크가 다시 요청한다 |
+| iOS Safari background | Can drop the audio session. Keeping the screen on via WakeLock is the most reliable approach |
+| iOS format | `audio/mp4` (AAC). webm is unsupported — `pickMimeType()` picks accordingly |
+| Android Chrome | Mostly stable, but battery optimization can freeze the tab (detected via the `freeze` event) |
+| Safari permission state | Doesn't support `permissions.query({name:"microphone"})`. Blocked state is unknowable, so it stays `unknown` and the button is not locked |
+| In-app browsers | In KakaoTalk, Instagram, etc., no permission setting helps. The only way out is opening an external browser |
+| WakeLock | Requires HTTPS. Not automatically re-acquired on return from background, so the spike requests it again |
 
-## 결과에 따른 대응
+## Responses depending on results
 
-| 결과 | 대응 |
+| Result | Response |
 |---|---|
-| 대부분 유지됨 | 그대로 진행. WakeLock 을 기본 켜기로 |
-| 백그라운드에서 끊김 | 녹음 중 화면 유지를 강제하고 UI 로 안내. 중단 시 부분 저장 |
-| iOS 에서 전혀 안 됨 | PWA 설치 상태에서 재검증. 그래도 안 되면 iOS 는 "화면 켠 상태 전용"으로 명시 |
+| Mostly kept | Proceed as-is. Turn WakeLock on by default |
+| Cuts out in the background | Force keep-screen-on during recording and explain in the UI. Partial save on interruption |
+| Doesn't work at all on iOS | Re-verify as an installed PWA. If it still fails, explicitly mark iOS as "screen-on only" |

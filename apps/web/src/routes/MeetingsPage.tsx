@@ -6,24 +6,26 @@ import { MeetingDetailPage } from "@/routes/MeetingDetailPage";
 import { Button, EmptyState, Notice } from "@/ui";
 
 /**
- * 회의 탭 = **바로 녹음**.
+ * The meetings tab = **record right away**.
  *
- * 사용자 요구(2026-08-20): "회의는 즉시 녹음(새 세션을 여는)거고,
- * 아카이브는 회의의 목록임." 그래서 이 화면은 목록을 그리지 않는다 —
- * 들어오는 순간 회의를 열고 녹음 화면을 그 자리에 그린다.
+ * User requirement (2026-08-20): "Meetings means record now (opening a new
+ * session); Archive is the list of meetings." So this screen draws no list —
+ * the moment you enter, it opens a meeting and draws the recording screen in
+ * place.
  *
- * **주소를 바꾸지 않는다.** 예전에는 `/app/meetings/:id` 로 넘겼는데, 그러면
- * 회의 탭이 뎁스 화면(뒤로가기 있는)으로 바뀌어 최상위 탭 문법이 깨졌다.
- * 지금은 id 를 상태로만 들고 같은 주소에 머문다.
+ * **The address doesn't change.** It used to forward to
+ * `/app/meetings/:id`, which turned the meetings tab into a depth screen
+ * (with a back button) and broke the top-level tab grammar. Now the id is
+ * held only in state and the address stays put.
  *
- * 목록은 [`ArchivePage`](./ArchivePage.tsx) 가 맡는다.
+ * The list is [`ArchivePage`](./ArchivePage.tsx)'s job.
  */
 export function MeetingsPage() {
   const { t } = useTranslation();
   const [meetingId, setMeetingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // StrictMode 의 이중 실행으로 빈 회의가 두 개 생기면 안 된다
+  // StrictMode's double invocation must not create two empty meetings
   const started = useRef(false);
 
   useEffect(() => {
@@ -75,12 +77,13 @@ export function MeetingsPage() {
 }
 
 /**
- * 녹음할 회의를 연다.
+ * Opens the meeting to record into.
  *
- * 탭을 누를 때마다 새로 만들면 **한 번도 녹음하지 않은 빈 회의**가 목록에 쌓인다
- * (탭을 잘못 눌렀다 나오기만 해도 하나 생긴다). 그래서 방금 만든 빈 회의가
- * 있으면 그것을 다시 연다. "즉시 녹음"이라는 동작은 그대로다 — 사용자는
- * 어느 쪽이든 바로 녹음 화면을 본다.
+ * Creating a new one on every tab press piles **never-recorded empty
+ * meetings** into the list (even mis-tapping and backing out creates one). So
+ * if a just-created empty meeting exists, reopen it. The "record right away"
+ * behavior is unchanged — either way the user lands straight on the recording
+ * screen.
  */
 async function openMeeting(): Promise<string> {
   try {
@@ -92,7 +95,7 @@ async function openMeeting(): Promise<string> {
 
     if (empty) return empty.id;
   } catch {
-    // 목록을 못 봐도 녹음은 시작할 수 있어야 한다. 새로 만든다.
+    // Even if the list can't be read, recording must still start. Create a new one.
   }
 
   return (await api.createMeeting()).id;

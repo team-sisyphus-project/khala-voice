@@ -1,70 +1,74 @@
 defmodule VR.Summarize.Prompt do
   @moduledoc """
-  요약 프롬프트.
+  Summary prompt.
 
-  **출처: sisyphus** n8n `autosquad-meeting-summary.json` 의 시스템 프롬프트를
-  그대로 옮겼다. n8n 을 걷어내면서 프롬프트만 코드로 내려왔다.
+  **Origin: sisyphus** — carried over verbatim from the system prompt in the
+  n8n `autosquad-meeting-summary.json` workflow. When n8n was removed, only
+  the prompt moved down into code.
 
-  ## 왜 이렇게 빡빡한가
+  ## Why it is this strict
 
-  이 제품의 핵심은 **요약 항목을 누르면 그 말이 나온 지점으로 점프**하는 것이다.
-  그러려면 LLM 이 `source` 를 **날조하지 않고** 라벨에서 그대로 읽어야 한다.
-  "축약 금지 · 번역 금지 · 못 읽으면 빈 문자열" 규칙을 느슨하게 만들면
-  인용이 원문과 어긋나 점프가 엉뚱한 곳으로 간다.
+  The core of this product is **clicking a summary item jumps to the point
+  in the recording where it was said**. For that to work, the LLM must read
+  `source` straight from the label and **never fabricate it**.
+  Loosening the "no abbreviating, no translating, empty string if unreadable"
+  rules makes quotes drift from the original text, and the jump lands in the
+  wrong place.
   """
 
   @system """
-  당신은 회의 전사를 구조화된 요약으로 바꾸는 도구다. 창작하지 않는다.
+  You are a tool that converts a meeting transcript into a structured summary. You do not invent content.
 
-  ## 입력 형식
+  ## Input format
 
-  각 줄은 다음과 같다.
+  Each line looks like this:
 
-      [<session_id>|<speaker>|<HH:MM:SS>] 발화 내용
+      [<session_id>|<speaker>|<HH:MM:SS>] utterance text
 
-  ## source 추출 규칙 (반드시 지킬 것)
+  ## source extraction rules (must be followed)
 
-  - `session_id` = `[` 와 첫 번째 `|` 사이의 토큰
-  - `speaker` = 두 번째 토큰
-  - `time_label` = 세 번째 토큰. `HH:MM:SS` 형식 그대로 옮긴다
-  - `quote` = `]` 뒤의 발화 **전문**. 라벨은 포함하지 않는다
+  - `session_id` = the token between `[` and the first `|`
+  - `speaker` = the second token
+  - `time_label` = the third token. Copy the `HH:MM:SS` format as-is
+  - `quote` = the **full** utterance after `]`. Do not include the label
 
-  `quote` 는 전사에 있는 문자열을 **그대로** 복사한다.
-  축약하지 않는다. 번역하지 않는다. 의역하지 않는다. 다듬지 않는다.
-  라벨에서 읽어낼 수 없으면 해당 필드를 빈 문자열로 둔다.
-  **없는 내용을 지어내지 않는다.**
+  Copy `quote` **exactly** as the string appears in the transcript.
+  Do not abbreviate. Do not translate. Do not paraphrase. Do not clean it up.
+  If a field cannot be read from the label, leave it as an empty string.
+  **Never make up content that is not there.**
 
-  ## 각 항목의 기준
+  ## Criteria for each item
 
-  - `one_liner`: 결론 중심 1~2문장. 안건 나열이 아니라 **무엇이 정해졌는지**
-  - `decisions`: 확정된 결정만. 논의 중이면 `open_questions` 로
-  - `action_items`: 실행 동사가 있는 작업. 담당자·기한이 없으면 빈 문자열
-  - `facts`: 전사에 명시된 객관적 사실 (수치·날짜·이름·지표)
-  - `open_questions`: 제기됐지만 이 회의에서 결론나지 않은 것
-  - `next_steps`: `action_items` 에 없는 향후 일정·마일스톤
-  - `key_topics`: 1~3단어 명사구. 최대 5개
+  - `one_liner`: 1-2 conclusion-focused sentences. Not a list of agenda items but **what was decided**
+  - `decisions`: confirmed decisions only. If still under discussion, put it in `open_questions`
+  - `action_items`: tasks with an action verb. If there is no owner or due date, use an empty string
+  - `facts`: objective facts stated in the transcript (numbers, dates, names, metrics)
+  - `open_questions`: things raised but not resolved in this meeting
+  - `next_steps`: upcoming schedules and milestones not covered by `action_items`
+  - `key_topics`: 1-3 word noun phrases. At most 5
 
-  ## 출력
+  ## Output
 
-  JSON 만 출력한다. 설명·머리말·코드펜스를 붙이지 않는다.
-  해당 항목이 없으면 빈 배열을 쓴다. 억지로 채우지 않는다.
-  전사와 같은 언어로 쓴다.
+  Output JSON only. No explanations, preamble, or code fences.
+  Use an empty array when a section has nothing. Do not pad sections to fill them.
+  Write the summary in English.
   """
 
-  @doc "시스템 프롬프트."
+  @doc "System prompt."
   def system, do: @system
 
   @doc """
-  사용자 프롬프트. 직렬화된 전사를 감싼다.
+  User prompt. Wraps the serialized transcript.
 
-  회의 제목은 맥락으로만 준다 — 제목을 근거로 삼아 요약을 지어내지 않도록
-  "전사에 없으면 쓰지 않는다"를 다시 못박는다.
+  The meeting title is provided as context only — to keep the model from
+  inventing summary content based on the title, we restate "do not write
+  anything that is not in the transcript".
   """
   def user(title, transcript_text) do
     """
-    회의 제목: #{present(title) || "(없음)"}
+    Meeting title: #{present(title) || "(none)"}
 
-    아래 전사를 요약하라. 제목은 맥락일 뿐이다. 전사에 없는 내용은 쓰지 않는다.
+    Summarize the transcript below. The title is context only. Do not write anything that is not in the transcript.
 
     ---
     #{transcript_text}
@@ -73,10 +77,11 @@ defmodule VR.Summarize.Prompt do
   end
 
   @doc """
-  출력 JSON 스키마. 제공자마다 형식이 달라 어댑터가 변환한다.
+  Output JSON schema. Providers differ in format, so adapters convert it.
 
-  `additionalProperties: false` 로 잠근다 — 모델이 임의 필드를 만들면
-  검증에서 걸러야 하는데, 애초에 못 만들게 하는 편이 싸다.
+  Locked down with `additionalProperties: false` — if the model invents
+  arbitrary fields we would have to filter them in validation; it is cheaper
+  to prevent them from existing in the first place.
   """
   def schema do
     %{

@@ -6,12 +6,13 @@ import { Button, Icon, Row } from "@/ui";
 import type { KhalaStatus, MCPToken } from "@core/api";
 
 /**
- * 연동 — 칼라로 보내기, 외부에서 읽기.
+ * Integrations — sending to Khala, reading from outside.
  *
- * **방향이 반대인 두 가지다.** 한 카드에 몰면 "내 토큰"과 "남의 토큰"이 섞여
- * 무엇을 취소하면 무엇이 끊기는지 알 수 없다. 그래서 카드를 나눈다.
+ * **Two things pointing in opposite directions.** Crammed into one card, "my
+ * token" and "their token" mix and it's unclear what revoking cuts off. So the
+ * cards are split.
  *
- * 설계는 `docs/15-mcp-khala.md`.
+ * Design: `docs/15-mcp-khala.md`.
  */
 export function IntegrationsSection() {
   return (
@@ -22,7 +23,7 @@ export function IntegrationsSection() {
   );
 }
 
-/** 우리 → 칼라. OAuth 로 연결하고, 회의를 인박스로 보낸다. */
+/** Us → Khala. Connect via OAuth and send meetings to the inbox. */
 function KhalaCard() {
   const { t } = useTranslation();
   const [status, setStatus] = useState<KhalaStatus | null>(null);
@@ -37,7 +38,7 @@ function KhalaCard() {
 
   useEffect(load, [load]);
 
-  // 서버가 껐으면 화면에서 아예 지운다 — 눌러도 안 되는 것을 두지 않는다
+  // If the server turned it off, remove it from the screen entirely — never show something that fails when pressed
   if (!status?.enabled) return null;
 
   async function disconnect() {
@@ -72,7 +73,7 @@ function KhalaCard() {
           <p className="vr-note vr-note--small">
             {t("integrations.connectNote")}
           </p>
-          {/* OAuth 왕복이라 SPA 라우터가 아니라 실제 이동이다 */}
+          {/* An OAuth round trip — a real navigation, not the SPA router */}
           <a className="mobile-button mobile-button--primary mobile-button--full" href="/khala/connect">
             {t("integrations.connect")}
           </a>
@@ -82,7 +83,7 @@ function KhalaCard() {
   );
 }
 
-/** 남 → 우리. 외부 AI 가 아카이브를 읽는 토큰. */
+/** Them → us. Tokens external AIs use to read the archive. */
 function MCPCard() {
   const { t } = useTranslation();
   const [tokens, setTokens] = useState<MCPToken[] | null>(null);
@@ -105,7 +106,7 @@ function MCPCard() {
 
     try {
       const token = await api.createMCPToken({ name: t("integrations.tokenName") });
-      // 평문은 **지금만** 볼 수 있다. 화면을 벗어나면 다시 못 준다.
+      // The plaintext is visible **only now**. Once off this screen it can't be given again.
       setIssued(token.token);
       load();
     } catch (e) {

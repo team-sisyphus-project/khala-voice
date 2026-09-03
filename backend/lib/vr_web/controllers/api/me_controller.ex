@@ -1,12 +1,12 @@
 defmodule VRWeb.API.MeController do
   @moduledoc """
-  현재 계정 정보.
+  Current account information.
 
-  React 앱이 부팅할 때 한 번 받아 테마와 네비게이션을 그린다.
+  Fetched once when the React app boots, to render the theme and navigation.
 
-  **`is_admin` 을 내려주지만 그것으로 접근이 열리는 것은 아니다.**
-  어드민 경로는 서버가 다시 판정하고, 권한이 없으면 404 를 준다.
-  이 값은 링크를 보여줄지 말지에만 쓴다.
+  **`is_admin` is included, but it does not grant access by itself.**
+  Admin routes are re-checked by the server, which returns 404 when permission
+  is missing. This value is used only to decide whether to show the link.
   """
 
   use VRWeb, :controller
@@ -21,7 +21,7 @@ defmodule VRWeb.API.MeController do
     json(conn, JSONView.account(account))
   end
 
-  @doc "테마 변경. 설정 화면을 거치지 않고 즉시 저장한다."
+  @doc "Change the theme. Saved immediately, without going through the settings screen."
   def update_theme(conn, %{"theme" => theme}) do
     account = conn.assigns.current_account
 
@@ -31,9 +31,9 @@ defmodule VRWeb.API.MeController do
   end
 
   @doc """
-  UI 표시 언어 변경. 설정 화면을 거치지 않고 즉시 저장한다.
+  Change the UI display language. Saved immediately, without going through the settings screen.
 
-  전사 언어(`transcribe_language`)와 별개다 — UI 언어만 바꾼다.
+  Separate from the transcription language (`transcribe_language`) — this only changes the UI language.
   """
   def update_locale(conn, %{"locale" => locale}) do
     account = conn.assigns.current_account
@@ -44,13 +44,14 @@ defmodule VRWeb.API.MeController do
   end
 
   @doc """
-  지금 이 기기에서 로그아웃한다.
+  Sign out of this device only.
 
-  다른 기기는 그대로 둔다 — 세션 목록에서 따로 끊는다. 비밀번호를 바꿀 때만
-  **전부** 끊는다 (`Accounts.update_password/3`).
+  Other devices are left alone — they are disconnected individually from the
+  session list. Only a password change disconnects **everything**
+  (`Accounts.update_password/3`).
 
-  SPA 는 폼 POST 를 쓸 수 없어(`DELETE /logout` 은 CSRF 토큰이 필요하다)
-  API 로 둔다. 인증 방식은 다른 변경 API 와 같다.
+  The SPA cannot use a form POST (`DELETE /logout` requires a CSRF token),
+  so this lives in the API. Authentication works the same as the other mutation APIs.
   """
   def logout(conn, _params) do
     if token = get_session(conn, :account_token), do: Accounts.revoke_session(token)
@@ -62,10 +63,10 @@ defmodule VRWeb.API.MeController do
   end
 
   @doc """
-  기본 전사 언어 변경. 빈 값이면 자동(브라우저 언어)으로 되돌린다.
+  Change the default transcription language. An empty value reverts to automatic (browser language).
 
-  녹음할 때마다 고르게 하지 않는다 — 대부분 늘 같은 언어로 회의하고,
-  매번 묻는 화면은 녹음을 시작하는 데 한 단계를 더 얹을 뿐이다.
+  We do not ask on every recording — most people always meet in the same language,
+  and a prompt each time only adds one more step before recording can start.
   """
   def update_transcribe_language(conn, params) do
     account = conn.assigns.current_account

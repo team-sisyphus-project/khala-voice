@@ -1,12 +1,13 @@
 /**
- * 상단바의 **동그란 글래스 버튼**.
+ * The top bar's **round glass button**.
  *
- * **출처: devkanban** — `mobile-top-app-bar__icon-button` 클래스와 그 CSS 를 그대로 쓴다.
- * devkanban 은 TopAppBar 안에서만 이 마크업을 인라인으로 썼는데, 이 앱은 화면마다
- * 상단 액션이 달라 컴포넌트로 뽑았다. **모양은 원본과 같다.**
+ * **Source: devkanban** — uses the `mobile-top-app-bar__icon-button` class and
+ * its CSS as-is. devkanban only wrote this markup inline inside TopAppBar, but
+ * this app's top actions differ per screen, so it's extracted into a
+ * component. **The look matches the original.**
  *
- * 상단 액션은 아이콘만 둔다. 아이콘+글자 버튼을 얹으면 캡슐 제목과 무게가 같아져
- * 상단이 두 덩어리로 읽힌다.
+ * Top actions are icon-only. An icon+text button would weigh the same as the
+ * title capsule, making the top read as two blobs.
  */
 
 import { Icon } from "./Icon"
@@ -16,7 +17,7 @@ type IconButtonProps = {
   label: string
   onClick?: () => void
   disabled?: boolean
-  /** 켜짐 상태 (필터가 걸려 있다 등) */
+  /** On state (filters applied, etc.) */
   active?: boolean
   type?: "button" | "submit"
 }

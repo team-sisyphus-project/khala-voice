@@ -1,18 +1,19 @@
 # @vr/web
 
-회의 · 녹음 · 전사 · 요약 화면. React + TypeScript + Vite.
+Meeting · recording · transcription · summary screens. React + TypeScript + Vite.
 
-## 개발
+## Development
 
 ```bash
 npm install
 npm run dev      # vite build --watch → backend/priv/static/app
 ```
 
-Vite 개발 서버를 따로 띄우지 않는다. Phoenix 가 전부 서빙하고
-Vite 는 파일만 갱신한다. 서버가 하나라 쿠키·CSRF·실기기 접속 주소가 어긋나지 않는다.
+No separate Vite dev server. Phoenix serves everything and Vite only refreshes
+the files. With a single server, cookies, CSRF, and the address real devices
+connect to never drift apart.
 
-Phoenix 를 함께 띄운다.
+Run Phoenix alongside it.
 
 ```bash
 cd ../../backend && mix phx.server
@@ -20,21 +21,23 @@ cd ../../backend && mix phx.server
 
 `http://localhost:4000/app/meetings`
 
-## 규칙
+## Rules
 
-1. **비즈니스 로직은 `@core` 에 둔다.** 이 패키지에는 화면과 얇은 어댑터만 있다.
-   `src/hooks/useRecorder.ts` 처럼 코어를 React 에 연결하는 정도가 상한이다.
-2. **스타일은 `.vr-*` 클래스를 쓴다.** `backend/assets/css/app.css` 에 있고
-   어드민(LiveView)과 같은 파일을 공유한다. 색 리터럴을 쓰지 않는다.
-3. **권한 판정은 서버가 한다.** 응답의 `role` 은 UI 를 그릴 때만 쓴다.
-   버튼을 숨기는 것은 편의일 뿐, 서버가 다시 검증한다.
+1. **Business logic lives in `@core`.** This package holds only screens and
+   thin adapters. Connecting core to React, as in `src/hooks/useRecorder.ts`,
+   is the upper bound.
+2. **Styles use `.vr-*` classes.** They live in `backend/assets/css/app.css`,
+   shared with the admin (LiveView) from the same file. No color literals.
+3. **The server decides permissions.** The `role` in responses is used only to
+   draw the UI. Hiding a button is a convenience; the server verifies again.
 
-## 라우트
+## Routes
 
-| 경로 | 화면 |
+| Path | Screen |
 |---|---|
-| `/app/meetings` | 회의 목록 |
-| `/app/meetings/:id` | 회의 상세 — 녹음 · 세션 · 요약 탭 |
-| `/app/archive` | 아카이브 검색 |
+| `/app/meetings` | Meeting list |
+| `/app/meetings/:id` | Meeting detail — record · sessions · summary tabs |
+| `/app/archive` | Archive search |
 
-로그인·친구·설정은 Phoenix LiveView 가 담당한다 (`/login`, `/friends`, `/settings`).
+Login, friends, and settings are handled by Phoenix LiveView (`/login`,
+`/friends`, `/settings`).

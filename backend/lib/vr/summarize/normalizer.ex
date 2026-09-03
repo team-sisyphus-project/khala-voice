@@ -1,25 +1,27 @@
 defmodule VR.Summarize.Normalizer do
   @moduledoc """
-  LLM 응답을 `summary_data` 로 정규화한다.
+  Normalizes the LLM response into `summary_data`.
 
-  **출처: sisyphus** — 스키마 자체는 n8n `autosquad-meeting-summary.json` 의
-  출력 규약을 그대로 따른다. 검증 로직은 이 앱에서 새로 쓴다
-  (n8n 은 모델 출력을 그대로 흘려보냈다).
+  **Origin: sisyphus** — the schema itself follows the output contract of the
+  n8n `autosquad-meeting-summary.json` workflow verbatim. The validation logic
+  is new in this app (n8n passed model output straight through).
 
-  ## 왜 검증하나
+  ## Why validate
 
-  구조화 출력을 걸어도 모델은 **`source` 를 지어낸다.** 있지도 않은 시각,
-  원문과 다른 인용, 다른 세션의 id. 그대로 저장하면 요약 항목을 눌렀을 때
-  엉뚱한 지점으로 점프한다 — 사용자는 요약 전체를 못 믿게 된다.
+  Even with structured output enabled, the model **fabricates `source`.**
+  Timestamps that do not exist, quotes that differ from the original, ids from
+  other sessions. Store that as-is and clicking a summary item jumps to the
+  wrong spot — and the user stops trusting the whole summary.
 
-  그래서 실제 전사와 대조한다.
+  So we check it against the actual transcript.
 
-  - `session_id` 가 이번 요약에 들어간 세션이 아니면 → `source` 를 버린다
-  - `time_label` 위치에 발화가 없으면 → `source` 를 버린다
-  - `quote` 가 그 지점 발화와 많이 다르면 → **인용만** 실제 발화로 교정한다
+  - `session_id` is not one of the sessions in this summary → drop the `source`
+  - no utterance at the `time_label` position → drop the `source`
+  - `quote` differs substantially from the utterance there → correct **only the quote** to the actual utterance
 
-  **항목 자체는 남긴다.** 근거를 못 찾았다고 결정사항을 지우면
-  요약이 조용히 비어버린다. 점프만 포기하는 편이 낫다.
+  **The item itself is kept.** Deleting a decision just because we could not
+  find its evidence would silently empty the summary. Better to give up only
+  the jump.
   """
 
   alias VR.Summarize.Serializer
@@ -28,9 +30,9 @@ defmodule VR.Summarize.Normalizer do
   @max_topics 5
 
   @doc """
-  모델 출력(map)을 `summary_data` 로 만든다.
+  Builds `summary_data` from the model output (a map).
 
-  `sessions` 는 이번 요약에 들어간 세션들. `source` 대조에 쓴다.
+  `sessions` are the sessions included in this summary, used for `source` verification.
   """
   def normalize(raw, sessions) when is_map(raw) do
     index = build_index(sessions)
@@ -49,9 +51,9 @@ defmodule VR.Summarize.Normalizer do
   def normalize(_, _), do: nil
 
   @doc """
-  코드펜스에 감싸여 오거나 앞뒤에 말이 붙어 와도 JSON 을 건져낸다.
+  Salvages JSON even when it arrives wrapped in code fences or surrounded by prose.
 
-  구조화 출력을 지원하지 않는 모델·엔드포인트가 섞여 있어서 필요하다.
+  Needed because some models and endpoints in the mix do not support structured output.
   """
   def decode(body) when is_binary(body) do
     trimmed = String.trim(body)
@@ -65,13 +67,13 @@ defmodule VR.Summarize.Normalizer do
 
   def decode(_), do: {:error, :invalid_json}
 
-  # ── source 대조 ──────────────────────────────────────────
+  # ── source verification ─────────────────────────────────
 
   @doc """
-  `source` 를 실제 전사와 대조한다. 못 찾으면 `nil`.
+  Verifies a `source` against the actual transcript. Returns `nil` if not found.
 
-  반환된 `source` 에는 `start_ms` 가 붙는다 — 프런트가 시각을 다시
-  파싱하지 않고 바로 그 지점으로 점프할 수 있게.
+  The returned `source` carries a `start_ms` — so the frontend can jump
+  straight to that spot without re-parsing the timestamp.
   """
   def verify_source(source, index) when is_map(source) do
     session_id = text(source["session_id"])
@@ -84,7 +86,7 @@ defmodule VR.Summarize.Normalizer do
         "session_id" => session_id,
         "speaker" => segment.speaker,
         "time_label" => Serializer.time_label(start_ms),
-        # 인용은 모델 말이 아니라 실제 발화를 신뢰한다
+        # For the quote, trust the actual utterance, not the model's words
         "quote" => segment.text,
         "start_ms" => start_ms
       }
@@ -95,14 +97,14 @@ defmodule VR.Summarize.Normalizer do
 
   def verify_source(_, _), do: nil
 
-  @doc "세션들의 발화를 `{session_id, start_ms}` 로 찾을 수 있게 편다."
+  @doc "Flattens session utterances into a lookup keyed by `{session_id, start_ms}`."
   def build_index(sessions) do
     for session <- sessions,
         segment <- segments(session.transcript),
         into: %{} do
       start_ms = segment["start_ms"] || 0
 
-      # 초 단위로 자른다 — 라벨이 HH:MM:SS 라 밀리초는 어차피 왕복하며 날아간다
+      # Truncate to whole seconds — labels are HH:MM:SS, so milliseconds are lost in the round trip anyway
       key = {session.id, div(start_ms, 1000) * 1000}
 
       {key,
@@ -114,7 +116,7 @@ defmodule VR.Summarize.Normalizer do
     end
   end
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
   defp sourced_list(items, text_key, index) when is_list(items) do
     items
@@ -196,8 +198,8 @@ defmodule VR.Summarize.Normalizer do
     end
   end
 
-  # 바이트 오프셋으로 자른다. `String.slice/2` 는 글자 단위라
-  # 앞에 한글이 섞이면 엉뚱한 곳을 자른다.
+  # Slice by byte offset. `String.slice/2` works on characters, so multibyte
+  # text (e.g. Korean) before the braces would make it cut in the wrong place.
   defp slice_braces(body) do
     with start when start != nil <- index_of(body, "{"),
          finish when finish != nil <- last_index_of(body, "}"),

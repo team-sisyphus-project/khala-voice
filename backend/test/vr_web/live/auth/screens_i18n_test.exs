@@ -1,25 +1,27 @@
 defmodule VRWeb.AuthLive.ScreensI18nTest do
   @moduledoc """
-  로그인/가입 흐름의 auth 화면이 번역되는지 확인한다.
+  Verifies the auth screens in the login/signup flow are translated.
 
-  auth 화면은 세션 성립 전 단계라 `current_account` 가 없다 — 로케일은 항상
-  기본값(en)으로 해석된다(로그인한 사용자는 `:redirect_if_authenticated` 로
-  이 화면들에 도달하지 못한다). 따라서:
+  Auth screens precede session establishment, so there is no `current_account` —
+  the locale always resolves to the default (en); logged-in users never reach
+  these screens thanks to `:redirect_if_authenticated`. Therefore:
 
-  - 화면 렌더 검사: 익명 방문이 en 으로 렌더되고 하드코딩 한국어가 남지 않는지.
-  - ko 회귀 검사: ko 카탈로그가 auth 문안을 실제로 번역하는지(카탈로그 직접 조회).
+  - Screen render checks: anonymous visits render in en with no hard-coded Korean left.
+  - ko regression checks: the ko catalog actually translates the auth copy (direct
+    catalog lookups). Hangul below is kept as Unicode escapes because these tests
+    verify Korean-language handling specifically.
   """
   use VRWeb.ConnCase, async: true
 
   import Phoenix.LiveViewTest
   import VR.AccountsFixtures
 
-  # 한글 음절 블록. `u` 플래그로 유니코드 코드포인트를 매칭한다(em-dash 등
-  # 멀티바이트 문자를 바이트 범위로 오매칭하지 않도록).
-  @hangul ~r/[가-힣]/u
+  # The Hangul-syllables block (U+AC00-U+D7A3). The `u` flag matches Unicode codepoints
+  # (so multibyte characters like em-dashes are not mismatched by byte ranges).
+  @hangul ~r/[\x{AC00}-\x{D7A3}]/u
 
-  describe "로그인 화면" do
-    test "익명 방문은 영어로 렌더되고 한국어가 남지 않는다", %{conn: conn} do
+  describe "login screen" do
+    test "anonymous visits render in English with no Korean left", %{conn: conn} do
       {:ok, lv, _} = live(conn, ~p"/login")
       html = render(lv)
 
@@ -31,8 +33,8 @@ defmodule VRWeb.AuthLive.ScreensI18nTest do
     end
   end
 
-  describe "가입 화면" do
-    test "익명 방문은 영어로 렌더되고 한국어가 남지 않는다", %{conn: conn} do
+  describe "signup screen" do
+    test "anonymous visits render in English with no Korean left", %{conn: conn} do
       {:ok, lv, _} = live(conn, ~p"/register")
       html = render(lv)
 
@@ -43,8 +45,8 @@ defmodule VRWeb.AuthLive.ScreensI18nTest do
     end
   end
 
-  describe "비밀번호 재설정 요청 화면" do
-    test "익명 방문은 영어로 렌더되고 한국어가 남지 않는다", %{conn: conn} do
+  describe "password reset request screen" do
+    test "anonymous visits render in English with no Korean left", %{conn: conn} do
       {:ok, lv, _} = live(conn, ~p"/forgot-password")
       html = render(lv)
 
@@ -55,8 +57,8 @@ defmodule VRWeb.AuthLive.ScreensI18nTest do
     end
   end
 
-  describe "새 비밀번호 설정 화면" do
-    test "익명 방문은 영어로 렌더되고 한국어가 남지 않는다", %{conn: conn} do
+  describe "new password screen" do
+    test "anonymous visits render in English with no Korean left", %{conn: conn} do
       {:ok, lv, _} = live(conn, ~p"/reset-password/any-token")
       html = render(lv)
 
@@ -67,8 +69,8 @@ defmodule VRWeb.AuthLive.ScreensI18nTest do
     end
   end
 
-  describe "MFA 인증 코드 화면" do
-    test "en 폴백으로 렌더되고 한국어가 남지 않는다", %{conn: conn} do
+  describe "MFA verification code screen" do
+    test "renders with the en fallback and no Korean left", %{conn: conn} do
       account = confirmed_account_fixture(%{name: "Ada"})
       conn = Plug.Test.init_test_session(conn, %{"mfa_pending_account_id" => account.id})
 
@@ -81,8 +83,8 @@ defmodule VRWeb.AuthLive.ScreensI18nTest do
     end
   end
 
-  describe "MFA 등록 화면" do
-    test "en 폴백으로 렌더되고 한국어가 남지 않는다", %{conn: conn} do
+  describe "MFA enrollment screen" do
+    test "renders with the en fallback and no Korean left", %{conn: conn} do
       account = confirmed_account_fixture(%{name: "Ada"})
       conn = Plug.Test.init_test_session(conn, %{"mfa_pending_account_id" => account.id})
 
@@ -96,29 +98,31 @@ defmodule VRWeb.AuthLive.ScreensI18nTest do
     end
   end
 
-  describe "ko 카탈로그 회귀" do
+  describe "ko catalog regression" do
     setup do
       Gettext.put_locale(VRWeb.Gettext, "ko")
       on_exit(fn -> Gettext.put_locale(VRWeb.Gettext, "en") end)
     end
 
-    test "auth 문안이 ko 로 번역된다" do
-      assert Gettext.gettext(VRWeb.Gettext, "Sign in") == "로그인"
-      assert Gettext.gettext(VRWeb.Gettext, "Sign up") == "가입하기"
-      assert Gettext.gettext(VRWeb.Gettext, "Keep me signed in") == "로그인 상태 유지"
-      assert Gettext.gettext(VRWeb.Gettext, "Reset password") == "비밀번호 재설정"
-      assert Gettext.gettext(VRWeb.Gettext, "Set a new password") == "새 비밀번호 설정"
-      assert Gettext.gettext(VRWeb.Gettext, "Verification code") == "인증 코드"
+    test "auth copy is translated into ko" do
+      # Expected ko catalog msgstrs (Hangul kept as escapes; these verify Korean output)
+      assert Gettext.gettext(VRWeb.Gettext, "Sign in") == "\uB85C\uADF8\uC778"
+      assert Gettext.gettext(VRWeb.Gettext, "Sign up") == "\uAC00\uC785\uD558\uAE30"
+      assert Gettext.gettext(VRWeb.Gettext, "Keep me signed in") == "\uB85C\uADF8\uC778 \uC0C1\uD0DC \uC720\uC9C0"
+      assert Gettext.gettext(VRWeb.Gettext, "Reset password") == "\uBE44\uBC00\uBC88\uD638 \uC7AC\uC124\uC815"
+      assert Gettext.gettext(VRWeb.Gettext, "Set a new password") == "\uC0C8 \uBE44\uBC00\uBC88\uD638 \uC124\uC815"
+      assert Gettext.gettext(VRWeb.Gettext, "Verification code") == "\uC778\uC99D \uCF54\uB4DC"
 
       assert Gettext.gettext(VRWeb.Gettext, "Set up two-factor authentication") ==
-               "2단계 인증 설정"
+               "2\uB2E8\uACC4 \uC778\uC99D \uC124\uC815"
 
-      assert Gettext.gettext(VRWeb.Gettext, "Turn on and continue") == "켜고 계속"
+      assert Gettext.gettext(VRWeb.Gettext, "Turn on and continue") == "\uCF1C\uACE0 \uACC4\uC18D"
     end
 
-    test "OAuth 제공자 보간 문안이 ko 로 번역된다" do
+    test "the OAuth provider interpolation copy is translated into ko" do
+      # Korean: "Continue with Google"
       assert Gettext.gettext(VRWeb.Gettext, "Continue with %{provider}", provider: "Google") ==
-               "Google로 계속하기"
+               "Google\uB85C \uACC4\uC18D\uD558\uAE30"
     end
   end
 end

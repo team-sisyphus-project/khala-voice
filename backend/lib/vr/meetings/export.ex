@@ -1,26 +1,27 @@
 defmodule VR.Meetings.Export do
   @moduledoc """
-  회의록 마크다운 내보내기.
+  Meeting-notes Markdown export.
 
-  **출처: sisyphus** `assets/webapp/meeting-recorder.js` 의 `exportTranscriptMarkdown()`.
-  형식을 참고하고 다음을 바꿨다.
+  **Source: sisyphus** — `exportTranscriptMarkdown()` in `assets/webapp/meeting-recorder.js`.
+  The format is used as a reference, with the following changes.
 
-  | sisyphus | 이 앱 | 왜 |
+  | sisyphus | this app | why |
   |---|---|---|
-  | 클라이언트가 Blob 으로 만듦 | **서버 렌더링** | 원본은 데스크톱이 `.md`, 모바일이 `.txt` 로 갈렸다. 한 벌만 둔다 |
-  | 절대 벽시계 시각 | **세션 내 상대 `HH:MM:SS`** | 요약의 `source.time_label` 이 상대 시각이다. 벽시계로 쓰면 같은 문서 안에서 두 시계가 어긋나 대조가 안 된다 |
-  | 세션을 구분 없이 이어 붙임 | **세션 경계를 남긴다** | 파트가 나뉜 긴 회의가 한 덩어리로 보였다 |
-  | 요약 없음 | **요약 포함** | 명백한 누락. 요약이 이 앱의 핵심 산출물이다 |
-  | 파일명 새니타이즈 없음 | 있음 | 원본은 오디오 다운로드 경로에만 있고 마크다운에는 빠져 있었다 |
+  | Client builds a Blob | **Server rendering** | Originally desktop produced `.md` and mobile `.txt`. Keep one implementation |
+  | Absolute wall-clock times | **Relative `HH:MM:SS` within the session** | The summary's `source.time_label` is relative. Wall-clock times would put two clocks in one document that never line up |
+  | Sessions concatenated without boundaries | **Session boundaries kept** | Long meetings split into parts looked like one blob |
+  | No summary | **Summary included** | An obvious omission. The summary is this app's core deliverable |
+  | No filename sanitization | Present | The original only had it on the audio download path, not for Markdown |
 
-  ## 오디오 주소를 절대 넣지 않는다
+  ## Never include audio URLs
 
-  문서는 회의 밖으로 나간다. 서명 없는 오브젝트 주소가 실리면 그 문서를 받은
-  누구나 원본을 받을 수 있다. 이 모듈은 `audio_url` · `storage_key` 를 **참조조차 하지 않는다.**
+  Documents leave the meeting. If an unsigned object URL is embedded, anyone
+  who receives the document can fetch the original recording. This module does
+  not even **reference** `audio_url` or `storage_key`.
 
-  ## 전사 없는 세션도 남긴다
+  ## Sessions without a transcript are still listed
 
-  건너뛰면 문서만 받은 사람이 빠진 구간이 있다는 사실을 모른다.
+  Skipping them means a reader with only the document never learns a segment is missing.
   """
 
   alias VR.Config
@@ -29,7 +30,7 @@ defmodule VR.Meetings.Export do
 
   @default_timezone "Asia/Seoul"
 
-  @doc "회의록 전체를 마크다운으로."
+  @doc "The full meeting notes as Markdown."
   def to_markdown(%Meeting{} = meeting, sessions, opts \\ []) do
     sessions = Enum.sort_by(sessions, & &1.session_index)
     tz = opts[:timezone] || timezone()
@@ -43,42 +44,43 @@ defmodule VR.Meetings.Export do
     |> Enum.join("\n---\n\n")
   end
 
-  @doc "다운로드 파일명. 경로·제어 문자를 지운다."
+  @doc "The download filename. Path and control characters are removed."
   def filename(%Meeting{} = meeting) do
     base =
-      (meeting.title || "회의")
+      (meeting.title || "Meeting")
       |> String.replace(~r/[\/\\:*?"<>|\x00-\x1f]/u, "_")
       |> String.replace(~r/\s+/u, " ")
       |> String.trim()
       |> String.trim(".")
-      # 바이트가 아니라 글자 수로 자른다 — 한글이 3바이트라 바이트로 자르면 깨진다
+      # Truncate by grapheme count, not bytes — multibyte characters (3 bytes
+      # each in Korean) would be corrupted by a byte-level cut
       |> truncate_graphemes(60)
 
-    base = if base == "", do: "회의", else: base
+    base = if base == "", do: "Meeting", else: base
 
     "#{base}_#{date_stamp(meeting)}.md"
   end
 
   @doc """
-  `Content-Disposition` 헤더.
+  The `Content-Disposition` header.
 
-  한글 제목은 `filename=` 만으로는 깨진다. **RFC 5987 `filename*` 을 함께 보낸다.**
+  Non-ASCII titles break with `filename=` alone. **RFC 5987 `filename*` is sent alongside it.**
   """
   def content_disposition(%Meeting{} = meeting) do
     name = filename(meeting)
     ascii = name |> ascii_fallback() |> String.replace("\"", "")
 
     ~s(attachment; filename="#{ascii}"; filename*=UTF-8''#{URI.encode(name, &URI.char_unreserved?/1)})
-    # 헤더 인젝션 방어. 파일명은 이미 제어 문자를 걸렀지만 한 번 더 막는다.
+    # Header injection defense. The filename already filters control characters, but block once more.
     |> String.replace(~r/[\r\n]/, "")
   end
 
-  @doc "내보낼 것이 있는가."
+  @doc "Is there anything to export?"
   def exportable?(%Meeting{} = meeting, sessions) do
     has_summary?(meeting) or Enum.any?(sessions, &(segments(&1) != []))
   end
 
-  # ── 머리말 ───────────────────────────────────────────────
+  # ── Header ───────────────────────────────────────────────
 
   defp header(meeting, sessions, tz) do
     transcribed = Enum.count(sessions, &(segments(&1) != []))
@@ -86,14 +88,14 @@ defmodule VR.Meetings.Export do
 
     lines =
       [
-        "# #{escape_inline(meeting.title || "제목 없는 회의")}",
+        "# #{escape_inline(meeting.title || "Untitled Meeting")}",
         "",
-        "- **날짜**: #{local_date(meeting, tz)} (#{tz})",
+        "- **Date**: #{local_date(meeting, tz)} (#{tz})",
         duration_line(meeting),
         speakers != [] &&
-          "- **참여자**: #{speakers |> Enum.map(&escape_inline/1) |> Enum.join(", ")}",
+          "- **Participants**: #{speakers |> Enum.map(&escape_inline/1) |> Enum.join(", ")}",
         sessions != [] &&
-          "- **세션**: #{length(sessions)}개 (전사 완료 #{transcribed} / 미완 #{length(sessions) - transcribed})",
+          "- **Sessions**: #{length(sessions)} (transcribed #{transcribed} / pending #{length(sessions) - transcribed})",
         ""
       ]
       |> Enum.reject(&(&1 in [nil, false]))
@@ -103,24 +105,24 @@ defmodule VR.Meetings.Export do
 
   defp duration_line(%Meeting{total_duration_seconds: seconds})
        when is_integer(seconds) and seconds > 0 do
-    "- **길이**: #{human_duration(seconds)}"
+    "- **Duration**: #{human_duration(seconds)}"
   end
 
   defp duration_line(_meeting), do: nil
 
-  # ── 요약 ─────────────────────────────────────────────────
+  # ── Summary ──────────────────────────────────────────────
 
   defp summary_section(%Meeting{summary_data: data}) when is_map(data) and map_size(data) > 0 do
     [
-      "## 요약",
+      "## Summary",
       "",
       escape_block(data["one_liner"] || ""),
       "",
-      sourced_block("### 결정사항", data["decisions"], & &1["text"]),
-      sourced_block("### 할 일", data["action_items"], &action_text/1),
-      plain_block("### 주요 사실", data["facts"]),
-      plain_block("### 열린 질문", data["open_questions"]),
-      plain_block("### 다음 단계", data["next_steps"]),
+      sourced_block("### Decisions", data["decisions"], & &1["text"]),
+      sourced_block("### Action Items", data["action_items"], &action_text/1),
+      plain_block("### Key Facts", data["facts"]),
+      plain_block("### Open Questions", data["open_questions"]),
+      plain_block("### Next Steps", data["next_steps"]),
       topics_line(data["key_topics"]),
       meta_comment(data),
       ""
@@ -174,28 +176,28 @@ defmodule VR.Meetings.Export do
   defp plain_block(_title, _items), do: nil
 
   defp topics_line(topics) when is_list(topics) and topics != [] do
-    "**핵심 주제**: #{topics |> Enum.map(&escape_inline/1) |> Enum.join(", ")}\n"
+    "**Key Topics**: #{topics |> Enum.map(&escape_inline/1) |> Enum.join(", ")}\n"
   end
 
   defp topics_line(_topics), do: nil
 
   defp meta_comment(data) do
     parts = [data["model"], data["generated_at"]] |> Enum.reject(&(&1 in [nil, ""]))
-    if parts == [], do: nil, else: "<!-- 요약: #{Enum.join(parts, " · ")} -->\n"
+    if parts == [], do: nil, else: "<!-- Summary: #{Enum.join(parts, " · ")} -->\n"
   end
 
-  # ── 전사 ─────────────────────────────────────────────────
+  # ── Transcript ───────────────────────────────────────────
 
   defp transcript_section([], _tz), do: nil
 
   defp transcript_section(sessions, tz) do
-    "## 전사\n\n" <> Enum.map_join(sessions, "\n", &session_block(&1, tz))
+    "## Transcript\n\n" <> Enum.map_join(sessions, "\n", &session_block(&1, tz))
   end
 
   defp session_block(%RecordingSession{} = session, tz) do
     case segments(session) do
       [] ->
-        "### #{session_heading(session, tz)} — 전사 없음\n\n이 세션은 전사되지 않아 본문에 포함되지 않았습니다.\n"
+        "### #{session_heading(session, tz)} — no transcript\n\nThis session was not transcribed and is not included in the body.\n"
 
       segments ->
         speaker_map = session.speaker_map || %{}
@@ -205,7 +207,7 @@ defmodule VR.Meetings.Export do
             name = Speakers.display_name(speaker_map, segment["speaker"])
             label = Serializer.time_label(segment["start_ms"])
 
-            # 본문을 다음 줄로 내린다. 한 줄 형식은 발화에 `:` 가 있으면 깨진다.
+            # Put the text on the next line. A single-line format breaks when an utterance contains `:`.
             "**#{escape_inline(name)}** `#{label}`\n\n#{escape_block(segment["text"])}\n"
           end)
 
@@ -214,7 +216,7 @@ defmodule VR.Meetings.Export do
   end
 
   defp session_heading(%RecordingSession{} = session, tz) do
-    base = "세션 #{session.session_index}"
+    base = "Session #{session.session_index}"
     part = part_label(session)
     time = session_time_range(session, tz)
 
@@ -223,7 +225,7 @@ defmodule VR.Meetings.Export do
 
   defp part_label(%RecordingSession{metadata: metadata}) when is_map(metadata) do
     case metadata["part"] do
-      %{"index" => i, "total" => total} -> "파트 #{i}/#{total}"
+      %{"index" => i, "total" => total} -> "Part #{i}/#{total}"
       %{"label" => label} when is_binary(label) -> label
       _ -> nil
     end
@@ -247,7 +249,7 @@ defmodule VR.Meetings.Export do
 
   defp session_time_range(_session, _tz), do: nil
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
   defp segments(%RecordingSession{transcript: %{"segments" => segments}}) when is_list(segments),
     do: segments
@@ -256,8 +258,8 @@ defmodule VR.Meetings.Export do
 
   defp has_summary?(%Meeting{summary_data: data}), do: is_map(data) and map_size(data) > 0
 
-  # 클라이언트에서 받지 않는다. sisyphus 는 브라우저의 `Intl` 값을 써서
-  # 서울과 뉴욕에서 다른 문서가 나왔다.
+  # Not taken from the client. sisyphus used the browser's `Intl` value, so
+  # Seoul and New York produced different documents.
   defp timezone do
     case Config.fetch("app.timezone") do
       value when is_binary(value) and value != "" -> value
@@ -289,7 +291,7 @@ defmodule VR.Meetings.Export do
   defp shift(datetime, tz) do
     case DateTime.shift_zone(datetime, tz) do
       {:ok, shifted} -> shifted
-      # 타임존 DB 가 없거나 이름이 틀렸다. UTC 로라도 낸다 — 문서를 못 만드는 것보다 낫다.
+      # The timezone DB is missing or the name is wrong. Emit UTC anyway — better than no document.
       _ -> datetime
     end
   end
@@ -304,9 +306,9 @@ defmodule VR.Meetings.Export do
     rest = rem(seconds, 60)
 
     cond do
-      minutes == 0 -> "#{rest}초"
-      rest == 0 -> "#{minutes}분"
-      true -> "#{minutes}분 #{rest}초"
+      minutes == 0 -> "#{rest} sec"
+      rest == 0 -> "#{minutes} min"
+      true -> "#{minutes} min #{rest} sec"
     end
   end
 
@@ -320,14 +322,14 @@ defmodule VR.Meetings.Export do
     |> String.replace(~r/_+/, "_")
   end
 
-  # 볼드·코드 안에서 마크다운이 깨지지 않게
+  # So Markdown does not break inside bold or code
   defp escape_inline(value) do
     value
     |> to_string()
     |> String.replace(~r/([\\`*_\[\]|])/u, "\\\\\\1")
   end
 
-  # 본문은 줄머리 기호만 막는다. 문장 안의 `*` 까지 이스케이프하면 읽기 나빠진다.
+  # Body text only blocks line-leading markers. Escaping every `*` mid-sentence hurts readability.
   defp escape_block(value) do
     value
     |> to_string()

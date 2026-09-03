@@ -1,12 +1,13 @@
 defmodule VRWeb.Admin.SocialLive do
   @moduledoc """
-  소셜 로그인 제공자 관리.
+  Manage social sign-in providers.
 
-  소셜 로그인은 필수가 아니다. **키가 있고 켜져 있을 때만** 로그인 화면에 나타난다.
+  Social sign-in is optional. A provider appears on the sign-in screen **only
+  when it has credentials and is enabled**.
 
-  - 키가 없으면 켤 수 없다 (켜진 채 키가 없는 상태를 만들지 않는다)
-  - 끄기 전에 그 제공자로만 로그인 가능한 계정 수를 확인시킨다
-  - `enabled`는 DB에만 있다. 환경변수로는 켜지지 않는다
+  - It cannot be enabled without credentials (we never allow an enabled-but-keyless state)
+  - Before disabling, the operator is shown how many accounts can only sign in through that provider
+  - `enabled` lives only in the DB; environment variables cannot turn it on
   """
 
   use VRWeb, :live_view
@@ -35,10 +36,10 @@ defmodule VRWeb.Admin.SocialLive do
     case Providers.upsert(name, attrs) do
       {:ok, _} ->
         {:noreply,
-         socket |> put_flash(:info, "#{name} 설정을 저장했습니다") |> assign(editing: nil) |> load()}
+         socket |> put_flash(:info, "Saved settings for #{name}.") |> assign(editing: nil) |> load()}
 
       {:error, _} ->
-        {:noreply, put_flash(socket, :error, "저장에 실패했습니다")}
+        {:noreply, put_flash(socket, :error, "Save failed.")}
     end
   end
 
@@ -47,11 +48,11 @@ defmodule VRWeb.Admin.SocialLive do
 
     case Providers.set_enabled(name, enabled) do
       {:ok, _} ->
-        msg = if enabled, do: "#{name} 로그인을 켰습니다", else: "#{name} 로그인을 껐습니다"
+        msg = if enabled, do: "Turned on #{name} sign-in.", else: "Turned off #{name} sign-in."
         {:noreply, socket |> put_flash(:info, msg) |> load()}
 
       {:error, :credentials_missing} ->
-        {:noreply, put_flash(socket, :error, "#{name}: Client ID와 Secret을 먼저 입력해야 켤 수 있습니다")}
+        {:noreply, put_flash(socket, :error, "#{name}: enter a Client ID and Secret before turning this on.")}
     end
   end
 
@@ -60,8 +61,8 @@ defmodule VRWeb.Admin.SocialLive do
     ~H"""
     <.shell
       active={:social}
-      title="소셜 로그인"
-      subtitle="키가 있고 켜져 있는 제공자만 로그인 화면에 나타납니다. 이메일+비밀번호 로그인은 항상 켜져 있습니다."
+      title="Social sign-in"
+      subtitle="Only providers with credentials that are turned on appear on the sign-in screen. Email + password sign-in is always on."
     >
       <div class="space-y-3">
         <div :for={p <- @providers} class="vr-card">
@@ -71,8 +72,8 @@ defmodule VRWeb.Admin.SocialLive do
                 <span class="font-bold text-[17px]" style="color: var(--text-primary);">
                   {p.display_name}
                 </span>
-                <span :if={p.active} class="vr-chip vr-chip--ok">로그인 화면에 노출 중</span>
-                <span :if={not p.active} class="vr-chip vr-chip--neutral">미노출</span>
+                <span :if={p.active} class="vr-chip vr-chip--ok">Shown on sign-in screen</span>
+                <span :if={not p.active} class="vr-chip vr-chip--neutral">Not shown</span>
               </div>
 
               <div class="flex items-center gap-3">
@@ -85,7 +86,7 @@ defmodule VRWeb.Admin.SocialLive do
                   phx-value-provider={p.provider}
                   phx-value-to="on"
                 >
-                  켜기
+                  Turn on
                 </button>
                 <button
                   :if={p.enabled}
@@ -95,20 +96,20 @@ defmodule VRWeb.Admin.SocialLive do
                   phx-value-to="off"
                   data-confirm={off_confirm(p)}
                 >
-                  끄기
+                  Turn off
                 </button>
                 <button
                   class="vr-btn vr-btn--sm vr-btn--ghost"
                   phx-click="edit"
                   phx-value-provider={p.provider}
                 >
-                  {if @editing == p.provider, do: "닫기", else: "키 설정"}
+                  {if @editing == p.provider, do: "Close", else: "Set credentials"}
                 </button>
               </div>
             </div>
 
             <p :if={p.enabled and not p.credentials_present} class="vr-notice vr-notice--error">
-              켜져 있지만 키가 없어 로그인 화면에 노출되지 않습니다.
+              Enabled, but not shown on the sign-in screen because credentials are missing.
             </p>
 
             <form
@@ -134,7 +135,7 @@ defmodule VRWeb.Admin.SocialLive do
                 <span class="vr-label mb-1.5">
                   Client Secret
                   <span :if={p.credentials_present} class="opacity-60">
-                    — 비워두면 기존 값 유지
+                    — leave blank to keep the current value
                   </span>
                 </span>
                 <input
@@ -159,9 +160,9 @@ defmodule VRWeb.Admin.SocialLive do
 
               <div class="flex gap-2 justify-end">
                 <button type="button" class="vr-btn vr-btn--sm vr-btn--ghost" phx-click="cancel">
-                  취소
+                  Cancel
                 </button>
-                <button type="submit" class="vr-btn vr-btn--sm vr-btn--primary">저장</button>
+                <button type="submit" class="vr-btn vr-btn--sm vr-btn--primary">Save</button>
               </div>
             </form>
           </div>
@@ -174,11 +175,11 @@ defmodule VRWeb.Admin.SocialLive do
   defp off_confirm(p) do
     case Providers.locked_out_account_count(p.provider) do
       0 ->
-        "#{p.display_name} 로그인을 끕니다. 계속할까요?"
+        "This will turn off #{p.display_name} sign-in. Continue?"
 
       n ->
-        "#{p.display_name} 로만 로그인 가능한 계정이 #{n}개 있습니다. " <>
-          "끄면 이 계정들은 로그인할 수 없게 됩니다. 비밀번호 설정 안내 메일이 발송됩니다. 계속할까요?"
+        "#{n} account(s) can only sign in with #{p.display_name}. " <>
+          "Turning it off will lock these accounts out. They will be sent an email with instructions to set a password. Continue?"
     end
   end
 end

@@ -1,5 +1,5 @@
 defmodule VRWeb.Admin.DashboardLive do
-  @moduledoc "어드민 대시보드 — 무엇이 설정됐고 무엇이 빠졌는지 한눈에."
+  @moduledoc "Admin dashboard — what is configured and what is missing, at a glance."
 
   use VRWeb, :live_view
 
@@ -20,11 +20,11 @@ defmodule VRWeb.Admin.DashboardLive do
     summary_status = %{
       feature: :summary,
       ready: LlmProviders.ready?(),
-      missing: if(LlmProviders.ready?(), do: [], else: [%{label: "LLM API 키"}])
+      missing: if(LlmProviders.ready?(), do: [], else: [%{label: "LLM API key"}])
     }
 
-    # 설정만이 아니라 FFmpeg 유무까지 본 실제 판정으로 덮는다.
-    # 키가 다 있어도 FFmpeg 이 없으면 전사는 실패한다.
+    # Override with the real verdict, which also checks for FFmpeg, not just config.
+    # Even with all keys present, transcription fails without FFmpeg.
     statuses =
       Enum.map(statuses, fn
         %{feature: :transcription} = status ->
@@ -60,8 +60,8 @@ defmodule VRWeb.Admin.DashboardLive do
     ~H"""
     <.shell
       active={:dashboard}
-      title="대시보드"
-      subtitle="배포 후 여기서 API 키를 넣으면 각 기능이 켜집니다."
+      title="Dashboard"
+      subtitle="After deploying, enter API keys here to turn on each feature."
     >
       <.readiness_banner statuses={@statuses} />
 
@@ -69,11 +69,11 @@ defmodule VRWeb.Admin.DashboardLive do
         :if={not @ffmpeg.ok}
         kind={:error}
         icon="error"
-        title={"FFmpeg이 없습니다: " <> Enum.join(@ffmpeg.missing, ", ")}
+        title={"FFmpeg is missing: " <> Enum.join(@ffmpeg.missing, ", ")}
         class="mb-4"
       >
-        20분을 넘는 녹음은 분할이 필요하고, 모든 오디오는 STT로 보내기 전 MP3로 변환됩니다.
-        FFmpeg이 없으면 전사 경로 전체가 실패합니다.
+        Recordings longer than 20 minutes need to be split, and all audio is converted to MP3 before being sent to STT.
+        Without FFmpeg, the entire transcription path fails.
       </.notice>
 
       <div class="grid grid-cols-2 gap-3">
@@ -84,24 +84,24 @@ defmodule VRWeb.Admin.DashboardLive do
                 {feature_label(s.feature)}
               </h3>
               <span class={["vr-chip", if(s.ready, do: "vr-chip--ok", else: "vr-chip--warn")]}>
-                {if s.ready, do: "동작 중", else: "미설정"}
+                {if s.ready, do: "Running", else: "Not set"}
               </span>
             </div>
             <p :if={not s.ready} class="vr-hint">
-              필요: {s.missing |> Enum.map(& &1.label) |> Enum.join(", ")}
+              Requires: {s.missing |> Enum.map(& &1.label) |> Enum.join(", ")}
             </p>
-            <p :if={s.ready} class="vr-hint">필요한 설정이 모두 채워졌습니다.</p>
+            <p :if={s.ready} class="vr-hint">All required settings are in place.</p>
           </div>
         </div>
       </div>
 
       <div class="vr-card mt-3">
         <div class="vr-card__body">
-          <h3 class="font-semibold mb-2" style="color: var(--text-primary);">로그인 수단</h3>
+          <h3 class="font-semibold mb-2" style="color: var(--text-primary);">Sign-in methods</h3>
           <div class="flex flex-wrap gap-1.5">
-            <span class="vr-chip vr-chip--ok">이메일 + 비밀번호 (항상 켜짐)</span>
+            <span class="vr-chip vr-chip--ok">Email + password (always on)</span>
             <span :for={p <- @social} class="vr-chip vr-chip--ok">{p.display_name}</span>
-            <span :if={@social == []} class="vr-hint">활성화된 소셜 로그인이 없습니다.</span>
+            <span :if={@social == []} class="vr-hint">No social sign-in providers are enabled.</span>
           </div>
         </div>
       </div>

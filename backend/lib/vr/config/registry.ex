@@ -1,59 +1,60 @@
 defmodule VR.Config.Registry do
   @moduledoc """
-  시스템 설정 키의 선언적 정의.
+  Declarative definitions of system configuration keys.
 
-  어드민 설정 화면은 **이 레지스트리에서 생성된다.** 새 설정값을 추가하려면
-  여기에 항목 하나만 추가하면 되고, 화면·검증·마스킹·환경변수 폴백이 따라온다.
+  The admin settings screen is **generated from this registry.** To add a new
+  config value, add a single entry here — the screen, validation, masking, and
+  env-var fallback follow along.
 
-  ## 항목 필드
+  ## Entry fields
 
-  | 필드 | 뜻 |
+  | Field | Meaning |
   |---|---|
-  | `key` | `"그룹.이름"` 형식. DB `system_configs.key` |
-  | `group` | 어드민 화면 묶음 |
-  | `label` | 화면에 보이는 이름 |
-  | `env` | 환경변수 폴백 이름 (nil이면 DB 전용) |
+  | `key` | `"group.name"` format. DB `system_configs.key` |
+  | `group` | Admin screen grouping |
+  | `label` | Name shown on screen |
+  | `env` | Environment variable fallback name (nil means DB-only) |
   | `type` | `:string` `:text` `:boolean` `:integer` `:json` |
-  | `secret` | true면 값을 화면에 되돌려 보여주지 않고 마스킹 |
-  | `required` | 해당 기능이 동작하려면 필요한 값 |
-  | `feature` | 이 값이 속한 기능. 미설정 시 그 기능이 꺼진다 |
-  | `help` | 입력 도움말 |
+  | `secret` | When true, the value is masked and never echoed back to the screen |
+  | `required` | Value needed for the feature to operate |
+  | `feature` | The feature this value belongs to. Unset means the feature turns off |
+  | `help` | Input help text |
   """
 
   @groups [
-    storage: %{label: "스토리지 (S3)", icon: "hero-cloud-arrow-up"},
-    stt: %{label: "전사 (Google STT)", icon: "hero-microphone"},
-    llm: %{label: "AI 요약", icon: "hero-sparkles"},
-    mail: %{label: "메일 발송", icon: "hero-envelope"},
-    push: %{label: "웹 푸시", icon: "hero-bell"},
-    policy: %{label: "정책", icon: "hero-adjustments-horizontal"},
-    app: %{label: "앱", icon: "hero-globe-alt"},
-    khala: %{label: "칼라 연동", icon: "hero-paper-airplane"}
+    storage: %{label: "Storage (S3)", icon: "hero-cloud-arrow-up"},
+    stt: %{label: "Transcription (Google STT)", icon: "hero-microphone"},
+    llm: %{label: "AI summary", icon: "hero-sparkles"},
+    mail: %{label: "Mail delivery", icon: "hero-envelope"},
+    push: %{label: "Web push", icon: "hero-bell"},
+    policy: %{label: "Policy", icon: "hero-adjustments-horizontal"},
+    app: %{label: "App", icon: "hero-globe-alt"},
+    khala: %{label: "Khala integration", icon: "hero-paper-airplane"}
   ]
 
   @entries [
-    # ── 스토리지 ────────────────────────────────────────────
+    # ── Storage ─────────────────────────────────────────────
     %{
       key: "storage.bucket",
       group: :storage,
-      label: "버킷 이름",
+      label: "Bucket name",
       env: "STORAGE_BUCKET",
       type: :string,
       secret: false,
       required: true,
       feature: :storage,
-      help: "녹음 오디오와 전사본이 저장되는 S3 버킷"
+      help: "S3 bucket where recording audio and transcripts are stored"
     },
     %{
       key: "storage.region",
       group: :storage,
-      label: "리전",
+      label: "Region",
       env: "STORAGE_REGION",
       type: :string,
       secret: false,
       required: true,
       feature: :storage,
-      help: "예: ap-northeast-2"
+      help: "e.g. ap-northeast-2"
     },
     %{
       key: "storage.access_key_id",
@@ -64,7 +65,7 @@ defmodule VR.Config.Registry do
       secret: true,
       required: true,
       feature: :storage,
-      help: "S3 PutObject 권한이 있는 IAM 키"
+      help: "IAM key with S3 PutObject permission"
     },
     %{
       key: "storage.secret_access_key",
@@ -80,42 +81,42 @@ defmodule VR.Config.Registry do
     %{
       key: "storage.cdn_base_url",
       group: :storage,
-      label: "CDN 기본 URL",
+      label: "CDN base URL",
       env: "STORAGE_CDN_BASE_URL",
       type: :string,
       secret: false,
       required: false,
       feature: :storage,
-      help: "다운로드에 사용할 도메인. 비우면 S3 URL을 직접 쓴다"
+      help: "Domain used for downloads. Leave empty to use S3 URLs directly"
     },
     %{
       key: "storage.download_url_ttl_seconds",
       group: :storage,
-      label: "오디오 다운로드 URL 만료(초)",
+      label: "Audio download URL expiry (seconds)",
       env: "STORAGE_DOWNLOAD_URL_TTL_SECONDS",
       type: :integer,
       secret: false,
       required: false,
       feature: nil,
-      help: "재생용 서명 URL 의 유효 시간. 비우면 300초. 길게 잡으면 링크가 새어도 그만큼 오래 산다"
+      help: "Lifetime of signed playback URLs. Defaults to 300 seconds when empty. A longer value means a leaked link stays valid that much longer"
     },
 
-    # ── 전사 (Google Cloud STT v2) ──────────────────────────
+    # ── Transcription (Google Cloud STT v2) ─────────────────
     %{
       key: "stt.credentials_json",
       group: :stt,
-      label: "서비스 계정 JSON",
+      label: "Service account JSON",
       env: "STT_CREDENTIALS_JSON",
       type: :text,
       secret: true,
       required: true,
       feature: :transcription,
-      help: "GCP 서비스 계정 키 파일의 내용 전체를 붙여넣는다"
+      help: "Paste the full contents of the GCP service account key file"
     },
     %{
       key: "stt.project_id",
       group: :stt,
-      label: "GCP 프로젝트 ID",
+      label: "GCP project ID",
       env: "STT_PROJECT_ID",
       type: :string,
       secret: false,
@@ -126,113 +127,113 @@ defmodule VR.Config.Registry do
     %{
       key: "stt.location",
       group: :stt,
-      label: "리전",
+      label: "Region",
       env: "STT_LOCATION",
       type: :string,
       secret: false,
       required: false,
       feature: :transcription,
-      help: "기본값 us"
+      help: "Defaults to us"
     },
     %{
       key: "stt.recognizer",
       group: :stt,
-      label: "Recognizer 이름",
+      label: "Recognizer name",
       env: "STT_RECOGNIZER",
       type: :string,
       secret: false,
       required: false,
       feature: :transcription,
-      help: "기본값 meeting-transcriber"
+      help: "Defaults to meeting-transcriber"
     },
     %{
       key: "stt.gcs_bucket",
       group: :stt,
-      label: "GCS 임시 버킷",
+      label: "GCS staging bucket",
       env: "STT_GCS_BUCKET",
       type: :string,
       secret: false,
       required: true,
       feature: :transcription,
-      help: "batchRecognize는 gs:// 경로를 요구한다. 오디오를 잠시 올렸다 지우는 버킷"
+      help: "batchRecognize requires a gs:// path. A bucket where audio is briefly uploaded then deleted"
     },
     %{
       key: "stt.cost_per_minute_usd",
       group: :stt,
-      label: "분당 원가 (USD)",
+      label: "Cost per minute (USD)",
       env: "STT_COST_PER_MINUTE_USD",
       type: :string,
       secret: false,
       required: false,
       feature: nil,
-      help: "크레딧 환산의 입력이다. Google STT 공시 단가를 넣는다 (예: 0.016). 비우면 계량하지 않는다"
+      help: "Input to credit conversion. Enter Google STT's published rate (e.g. 0.016). Leave empty to skip metering"
     },
     %{
       key: "stt.dev_mode",
       group: :stt,
-      label: "개발 모드",
+      label: "Dev mode",
       env: "STT_DEV_MODE",
       type: :boolean,
       secret: false,
       required: false,
       feature: nil,
-      help: "켜면 실제 API를 호출하지 않고 목 전사 결과를 반환한다. GCP 자격증명 없이 개발할 때"
+      help: "When on, returns mock transcription results without calling the real API. For developing without GCP credentials"
     },
 
-    # ── AI 요약 ─────────────────────────────────────────────
-    # 제공자별 키·모델·단가는 `llm_providers` 테이블에서 관리한다
-    # (어드민 → LLM 제공자). 여기에는 전역 스위치만 둔다.
+    # ── AI summary ──────────────────────────────────────────
+    # Per-provider keys, models, and rates are managed in the `llm_providers`
+    # table (Admin → LLM providers). Only global switches live here.
     %{
       key: "llm.dev_mode",
       group: :llm,
-      label: "개발 모드",
+      label: "Dev mode",
       env: "LLM_DEV_MODE",
       type: :boolean,
       secret: false,
       required: false,
       feature: nil,
-      help: "켜면 LLM을 호출하지 않고 목 요약을 만든다. 실제 전사에서 인용을 뽑으므로 점프 동작까지 확인된다"
+      help: "When on, generates mock summaries without calling the LLM. Quotes are pulled from the real transcription, so jump behavior is verified too"
     },
     %{
       key: "llm.auto_summarize",
       group: :llm,
-      label: "전사 완료 시 자동 요약",
+      label: "Auto-summarize when transcription completes",
       env: "LLM_AUTO_SUMMARIZE",
       type: :boolean,
       secret: false,
       required: false,
       feature: nil,
-      help: "끄면 사용자가 [요약] 을 눌렀을 때만 생성한다"
+      help: "When off, summaries are only generated when the user presses [Summarize]"
     },
     %{
       key: "app.trust_proxy_headers",
       group: :app,
-      label: "프록시 헤더 신뢰",
+      label: "Trust proxy headers",
       env: "APP_TRUST_PROXY_HEADERS",
       type: :boolean,
       secret: false,
       required: false,
       feature: nil,
       help:
-        "리버스 프록시 뒤에 있을 때만 켠다. 켜면 X-Forwarded-For 를 방문자 IP 로 쓴다. 프록시가 없는데 켜면 헤더 한 줄로 IP 제한을 우회당한다"
+        "Only turn on behind a reverse proxy. When on, X-Forwarded-For is used as the visitor IP. With no proxy in front, a single header line bypasses IP restrictions"
     },
     %{
       key: "app.timezone",
       group: :app,
-      label: "표기 기준 시간대",
+      label: "Display timezone",
       env: "APP_TIMEZONE",
       type: :string,
       secret: false,
       required: false,
       feature: nil,
-      help: "회의록 내보내기의 날짜·시각 표기 기준. 예: Asia/Seoul. 비우면 Asia/Seoul"
+      help: "Timezone used for date/time display in meeting-notes exports. e.g. Asia/Seoul. Defaults to Asia/Seoul when empty"
     },
 
-    # ── 메일 ────────────────────────────────────────────────
+    # ── Mail ────────────────────────────────────────────────
     %{
       key: "mail.provider",
       group: :mail,
-      label: "제공자",
+      label: "Provider",
       env: "MAIL_PROVIDER",
       type: :string,
       secret: false,
@@ -243,7 +244,7 @@ defmodule VR.Config.Registry do
     %{
       key: "mail.domain",
       group: :mail,
-      label: "발송 도메인",
+      label: "Sending domain",
       env: "MAIL_DOMAIN",
       type: :string,
       secret: false,
@@ -254,7 +255,7 @@ defmodule VR.Config.Registry do
     %{
       key: "mail.api_key",
       group: :mail,
-      label: "API 키",
+      label: "API key",
       env: "MAIL_API_KEY",
       type: :string,
       secret: true,
@@ -263,11 +264,11 @@ defmodule VR.Config.Registry do
       help: nil
     },
 
-    # ── 웹 푸시 ─────────────────────────────────────────────
+    # ── Web push ────────────────────────────────────────────
     %{
       key: "push.vapid_public_key",
       group: :push,
-      label: "VAPID 공개키",
+      label: "VAPID public key",
       env: "VAPID_PUBLIC_KEY",
       type: :string,
       secret: false,
@@ -278,7 +279,7 @@ defmodule VR.Config.Registry do
     %{
       key: "push.vapid_private_key",
       group: :push,
-      label: "VAPID 비밀키",
+      label: "VAPID private key",
       env: "VAPID_PRIVATE_KEY",
       type: :string,
       secret: true,
@@ -295,116 +296,116 @@ defmodule VR.Config.Registry do
       secret: false,
       required: true,
       feature: :push,
-      help: "mailto: 또는 https: 로 시작하는 연락처"
+      help: "Contact starting with mailto: or https:"
     },
 
-    # ── 정책 ────────────────────────────────────────────────
+    # ── Policy ──────────────────────────────────────────────
     %{
       key: "policy.invite_code_required",
       group: :policy,
-      label: "가입 시 초대코드 필요",
+      label: "Invite code required at signup",
       env: nil,
       type: :boolean,
       secret: false,
       required: false,
       feature: nil,
-      help: "켜면 초대코드가 있어야 가입할 수 있다"
+      help: "When on, an invite code is required to sign up"
     },
     %{
       key: "policy.hard_stop_on_zero_credits",
       group: :policy,
-      label: "크레딧 소진 시 차단",
+      label: "Block when credits run out",
       env: nil,
       type: :boolean,
       secret: false,
       required: false,
       feature: nil,
-      help: "켜면 잔액이 0 이하일 때 신규 전사·요약 요청을 거부한다. 유료화 시 켠다"
+      help: "When on, new transcription and summary requests are rejected when the balance is at or below zero. Turn on when monetizing"
     },
 
-    # ── 앱 ──────────────────────────────────────────────────
+    # ── App ─────────────────────────────────────────────────
     %{
       key: "app.base_url",
       group: :app,
-      label: "서비스 기본 URL",
+      label: "Service base URL",
       env: "APP_BASE_URL",
       type: :string,
       secret: false,
       required: true,
       feature: :mail,
-      help: "메일에 들어가는 링크의 기준 주소. 예: https://voice.example.com"
+      help: "Base address for links included in emails. e.g. https://voice.example.com"
     },
     %{
       key: "app.bootstrap_admin_email",
       group: :app,
-      label: "초기 관리자 이메일",
+      label: "Initial admin email",
       env: "BOOTSTRAP_ADMIN_EMAIL",
       type: :string,
       secret: false,
       required: false,
       feature: nil,
-      help: "최초 관리자 계정을 만들 때만 사용한다"
+      help: "Used only when creating the very first admin account"
     },
     %{
       key: "app.bootstrap_admin_password",
       group: :app,
-      label: "초기 관리자 비밀번호",
+      label: "Initial admin password",
       env: "BOOTSTRAP_ADMIN_PASSWORD",
       type: :string,
       secret: true,
       required: false,
       feature: nil,
-      help: "최초 관리자 계정을 만들 때만 사용한다. 비우면 안전한 무작위 비밀번호를 만든다"
+      help: "Used only when creating the very first admin account. When empty, a secure random password is generated"
     },
 
-    # ── 칼라 연동 ───────────────────────────────────────────
-    # 시크릿이 없다. 칼라는 공개 클라이언트라(PKCE) client_secret 을 쓰지 않고,
-    # client_id 는 동적 등록으로 받는다 (`docs/15-mcp-khala.md`).
+    # ── Khala integration ───────────────────────────────────
+    # No secrets here. Khala is a public client (PKCE), so no client_secret is
+    # used, and the client_id comes from dynamic registration (`docs/15-mcp-khala.md`).
     %{
       key: "khala.enabled",
       group: :khala,
-      label: "칼라 연동 사용",
+      label: "Enable Khala integration",
       env: "KHALA_ENABLED",
       type: :boolean,
       secret: false,
       required: false,
       feature: :khala,
-      help: "끄면 설정·회의 화면에서 칼라 연동이 아예 사라진다"
+      help: "When off, the Khala integration disappears entirely from the settings and meeting screens"
     },
     %{
       key: "khala.mcp_url",
       group: :khala,
-      label: "칼라 MCP 주소",
+      label: "Khala MCP address",
       env: "KHALA_MCP_URL",
       type: :string,
       secret: false,
       required: false,
       feature: :khala,
-      help: "예: https://mcp.khala.to/mcp — OAuth 엔드포인트는 이 주소에서 자동으로 찾는다"
+      help: "e.g. https://mcp.khala.to/mcp — OAuth endpoints are discovered automatically from this address"
     }
   ]
 
-  @doc "모든 설정 항목"
+  @doc "All configuration entries"
   def entries, do: @entries
 
-  @doc "그룹 정의 (순서 있음)"
+  @doc "Group definitions (ordered)"
   def groups, do: @groups
 
-  @doc "그룹에 속한 항목들"
+  @doc "Entries belonging to a group"
   def entries_for(group), do: Enum.filter(@entries, &(&1.group == group))
 
-  @doc "키로 항목 조회"
+  @doc "Look up an entry by key"
   def entry(key), do: Enum.find(@entries, &(&1.key == key))
 
-  @doc "알려진 키 목록"
+  @doc "List of known keys"
   def keys, do: Enum.map(@entries, & &1.key)
 
-  @doc "기능이 동작하는 데 필요한 항목들"
+  @doc "Entries required for a feature to operate"
   def required_for(feature) do
     Enum.filter(@entries, &(&1.feature == feature and &1.required))
   end
 
-  @doc "선언된 기능 목록"
+  @doc "List of declared features"
   def features do
     @entries |> Enum.map(& &1.feature) |> Enum.reject(&is_nil/1) |> Enum.uniq()
   end

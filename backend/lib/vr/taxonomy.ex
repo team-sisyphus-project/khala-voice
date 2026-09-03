@@ -1,22 +1,26 @@
 defmodule VR.Taxonomy do
   @moduledoc """
-  토픽 · 라벨 — 회의 분류.
+  Topics and labels — meeting classification.
 
-  **출처: sisyphus** `lib/sisyphus/topics.ex` · `lib/sisyphus/labels.ex` 의 CRUD 골격.
-  소프트 삭제 · 삭제 시 detach · 사용자 정렬 · 소유권 검증은 **이 앱에서 새로 썼다**.
+  **Source: sisyphus** — the CRUD skeleton of `lib/sisyphus/topics.ex` and
+  `lib/sisyphus/labels.ex`. Soft delete, detach-on-delete, user ordering, and
+  ownership validation were **written new in this app**.
 
-  ## 분류는 계정의 것이다
+  ## Classification belongs to the account
 
-  sisyphus 는 프로젝트가 소유했다. 이 앱에는 프로젝트가 없으므로 계정이 소유한다.
-  회의에 붙일 수 있는 것은 **그 회의 owner 의 분류뿐**이다 — Contributor 가
-  자기 라벨을 남의 회의에 붙이면 owner 의 아카이브 검색이 자기 분류로 안 걸린다.
+  In sisyphus, projects owned it. This app has no projects, so accounts own it.
+  The only things that can be attached to a meeting are **the meeting owner's
+  classifications** — if a Contributor attached their own label to someone
+  else's meeting, the owner's archive search would never surface it under the
+  owner's classifications.
 
-  ## 삭제하면 쓰던 회의에서 떼어낸다
+  ## Deleting detaches from the meetings that used it
 
-  참조만 남기면 그 회의는 **어떤 필터로도 걸리지 않는다.** 삭제된 토픽은 필터
-  목록에 없으니 고를 수 없고, 남은 참조 때문에 "분류 없음" 으로도 안 잡힌다.
-  아카이브 검색이 주 용도인 앱에서 이건 조용한 데이터 유실이다.
-  그래서 소프트 삭제와 detach 를 **한 트랜잭션**에서 한다.
+  Leaving only the reference means that meeting **matches no filter at all.**
+  A deleted topic is absent from the filter list, so it cannot be selected, and
+  the leftover reference keeps the meeting out of "unclassified" too. In an app
+  whose main use is archive search, that is silent data loss.
+  So the soft delete and the detach happen in **one transaction**.
   """
 
   import Ecto.Query, warn: false
@@ -27,9 +31,9 @@ defmodule VR.Taxonomy do
   alias VR.Repo
   alias VR.Taxonomy.{Label, Topic}
 
-  # ── 조회 ─────────────────────────────────────────────────
+  # ── Lookup ───────────────────────────────────────────────
 
-  @doc "내 토픽. 정렬 순서 → 이름순."
+  @doc "My topics. Sort order, then name."
   def list_topics(owner, opts \\ [])
   def list_topics(%Account{id: id}, opts), do: list_topics(id, opts)
 
@@ -41,7 +45,7 @@ defmodule VR.Taxonomy do
     )
   end
 
-  @doc "내 라벨. 이름순."
+  @doc "My labels. By name."
   def list_labels(owner, opts \\ [])
   def list_labels(%Account{id: id}, opts), do: list_labels(id, opts)
 
@@ -54,9 +58,10 @@ defmodule VR.Taxonomy do
   end
 
   @doc """
-  토픽별 회의 수를 함께 준다. 관리 화면이 "이걸 지우면 몇 개가 풀리는지" 를 보여줘야 한다.
+  Returns each topic with its meeting count. The management screen has to show
+  "how many meetings get detached if this is deleted".
 
-  삭제된 회의는 세지 않는다.
+  Deleted meetings are not counted.
   """
   def list_topics_with_counts(owner) do
     owner_id = account_id(owner)
@@ -76,7 +81,7 @@ defmodule VR.Taxonomy do
     |> Enum.map(&%{label: &1, meeting_count: Map.get(counts, &1.id, 0)})
   end
 
-  @doc "내 토픽 하나. **남의 것이면 nil** — 없는 것과 구별되지 않아야 한다."
+  @doc "One of my topics. **nil if it belongs to someone else** — must be indistinguishable from nonexistent."
   def get_topic(owner_id, id) when is_binary(owner_id) and is_binary(id) do
     Repo.one(
       from t in Topic,
@@ -96,10 +101,10 @@ defmodule VR.Taxonomy do
   def get_label(_owner_id, _id), do: nil
 
   @doc """
-  회의 목록을 그릴 때 쓰는 일괄 해석.
+  Batch resolution used when rendering a meeting list.
 
-  **삭제된 분류도 돌려준다.** 아직 회의에 남아 있는 참조를 이름 없이
-  그리면 화면에 정체불명의 칩이 뜬다.
+  **Deleted classifications are returned too.** Rendering a reference still on a
+  meeting without its name puts an unidentifiable chip on screen.
   """
   def resolve_for(meetings) when is_list(meetings) do
     topic_ids = meetings |> Enum.map(& &1.topic_id) |> Enum.reject(&is_nil/1) |> Enum.uniq()
@@ -111,9 +116,9 @@ defmodule VR.Taxonomy do
     }
   end
 
-  # ── 생성 · 수정 ──────────────────────────────────────────
+  # ── Create & update ──────────────────────────────────────
 
-  @doc "토픽을 만든다. 정렬 순서는 맨 뒤로 붙인다."
+  @doc "Creates a topic. Its sort order is appended at the end."
   def create_topic(owner, attrs \\ %{}) do
     owner_id = account_id(owner)
 
@@ -136,12 +141,13 @@ defmodule VR.Taxonomy do
     label |> Label.update_changeset(attrs) |> Repo.update()
   end
 
-  # ── 삭제 ─────────────────────────────────────────────────
+  # ── Delete ───────────────────────────────────────────────
 
   @doc """
-  토픽을 지우고 쓰던 회의에서 떼어낸다. 한 트랜잭션이다.
+  Deletes a topic and detaches it from the meetings that used it. One transaction.
 
-  몇 개가 풀렸는지 돌려준다 — 사용자가 되돌릴지 판단할 근거다.
+  Returns how many were detached — the basis for the user to decide whether to
+  undo.
   """
   def delete_topic(%Topic{} = topic) do
     Multi.new()
@@ -161,7 +167,7 @@ defmodule VR.Taxonomy do
     end
   end
 
-  @doc "라벨을 지우고 회의의 `label_ids` 에서 **그 id 만** 뺀다."
+  @doc "Deletes a label and removes **only that id** from meetings' `label_ids`."
   def delete_label(%Label{} = label) do
     Multi.new()
     |> Multi.update(:label, Label.delete_changeset(label))
@@ -183,14 +189,14 @@ defmodule VR.Taxonomy do
     end
   end
 
-  # ── 정렬 ─────────────────────────────────────────────────
+  # ── Ordering ─────────────────────────────────────────────
 
   @doc """
-  토픽 순서를 바꾼다. **전체 목록을 통째로** 받는다.
+  Reorders topics. Takes **the entire list at once**.
 
-  부분 재정렬을 받으면 빠진 것들의 순서를 서버가 추측해야 하고,
-  두 창에서 동시에 옮기면 순서가 어긋난 채로 남는다.
-  하나라도 내 것이 아니거나 개수가 다르면 **아무것도 바꾸지 않는다.**
+  Accepting a partial reorder would force the server to guess the order of the
+  omitted ones, and two windows moving items concurrently would leave the order
+  inconsistent. If even one is not mine, or the count differs, **nothing changes.**
   """
   def reorder_topics(owner, ids) when is_list(ids) do
     owner_id = account_id(owner)
@@ -220,13 +226,16 @@ defmodule VR.Taxonomy do
     end
   end
 
-  # ── 회의에 붙일 때 ───────────────────────────────────────
+  # ── Attaching to meetings ────────────────────────────────
 
   @doc """
-  회의에 붙일 수 있는 값인가. **회의 owner 의 분류만** 허용한다.
+  Are these values attachable to the meeting? Only **the meeting owner's
+  classifications** are allowed.
 
-  Contributor 가 자기 라벨을 남의 회의에 붙이면, owner 의 아카이브 검색에서
-  그 회의가 자기 분류로 걸리지 않는다. 붙인 사람만 아는 분류가 된다.
+  If a Contributor attached their own label to someone else's meeting, that
+  meeting would not surface under the owner's classifications in the owner's
+  archive search. It would become a classification only the person who attached
+  it knows about.
   """
   def validate_assignment(owner_id, topic_id, label_ids)
 
@@ -263,7 +272,7 @@ defmodule VR.Taxonomy do
 
   defp validate_labels(_owner_id, _ids), do: {:error, :invalid_label}
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
   defp account_id(%Account{id: id}), do: id
   defp account_id(id) when is_binary(id), do: id

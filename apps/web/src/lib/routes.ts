@@ -1,11 +1,12 @@
 /**
- * 화면 주소를 **한 곳에서** 만든다.
+ * Screen addresses are built **in one place**.
  *
- * 예전에는 `/app/meetings` 같은 문자열이 20개 파일에 흩어져 있었다. 표면을
- * 나누는 순간(`/app` 데스크톱 · `/m` 모바일) 그게 전부 틀린 주소가 된다.
+ * Strings like `/app/meetings` used to be scattered across 20 files. The
+ * moment the surfaces split (`/app` desktop · `/m` mobile), every one of them
+ * became a wrong address.
  *
- * 화면 코드는 자기가 어느 표면에서 도는지 몰라도 된다 — `useRoutes()` 가
- * 지금 주소에서 접두어를 읽어 붙인다.
+ * Screen code doesn't need to know which surface it runs on — `useRoutes()`
+ * reads the prefix off the current address and prepends it.
  */
 
 import { useLocation } from "react-router";
@@ -20,7 +21,7 @@ export interface Routes {
   taxonomy: string;
   billing: string;
   settings: string;
-  /** 계정 설정은 LiveView 라 표면 접두어가 없다 */
+  /** Account settings is LiveView, so it has no surface prefix */
   account: string;
   friends: string;
 }

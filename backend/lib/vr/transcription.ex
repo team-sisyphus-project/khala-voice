@@ -1,9 +1,10 @@
 defmodule VR.Transcription do
   @moduledoc """
-  전사 진입점 — 큐잉과 사용량 계량.
+  Transcription entry point — queueing and usage metering.
 
-  실제 STT 호출은 `VR.Transcription.GoogleSTT`, 오디오 처리는
-  `VR.Transcription.Audio` 가 한다. 여기는 그 둘을 도메인에 붙인다.
+  The actual STT calls are made by `VR.Transcription.GoogleSTT`, and audio
+  processing by `VR.Transcription.Audio`. This module wires those two into the
+  domain.
   """
 
   alias VR.Billing.Credits
@@ -16,10 +17,11 @@ defmodule VR.Transcription do
   require Logger
 
   @doc """
-  세션 전사를 큐에 넣는다.
+  Enqueues a session for transcription.
 
-  20분을 넘으면 분할 워커로, 아니면 전사 워커로 보낸다.
-  판단은 여기서 한 번만 한다 — 워커마다 하면 규칙이 갈라진다.
+  Over 20 minutes goes to the split worker; otherwise to the transcription worker.
+  The decision is made here exactly once — deciding per worker would let the
+  rules diverge.
   """
   def enqueue(%RecordingSession{} = session) do
     cond do
@@ -40,23 +42,23 @@ defmodule VR.Transcription do
     end
   end
 
-  @doc "이 환경에서 전사가 가능한가. 어드민 대시보드가 쓴다."
+  @doc "Is transcription possible in this environment? Used by the admin dashboard."
   def ready? do
     GoogleSTT.ready?() and (GoogleSTT.dev_mode?() or Audio.available?())
   end
 
   @doc """
-  전사 사용량을 계량한다.
+  Meters transcription usage.
 
-  단가가 설정되지 않았으면 **계량하지 않고 넘어간다** —
-  요금 설정이 덜 됐다고 전사를 실패시키지 않는다.
+  If no rate is configured, **metering is skipped** —
+  transcription is not failed just because pricing setup is incomplete.
   """
   def charge(%RecordingSession{} = session, account_id) do
     with {:ok, cost} <- usage_cost(session) do
       Credits.charge_usage(account_id, cost,
         charge_domain: "stt",
-        reason: "전사 #{minutes(session)}분",
-        # 워커가 재시도돼도 두 번 기록되지 않는다
+        reason: "Transcription #{minutes(session)} min",
+        # Not recorded twice even if the worker retries
         idempotency_key: "stt:#{session.id}",
         pricing_snapshot: %{
           "duration_seconds" => session.duration_seconds,
@@ -66,7 +68,7 @@ defmodule VR.Transcription do
       )
     else
       {:error, :no_pricing} ->
-        Logger.info("[Transcription] STT 단가가 없어 계량을 건너뜁니다: #{session.id}")
+        Logger.info("[Transcription] no STT rate configured; skipping metering: #{session.id}")
         {:ok, :not_metered}
 
       error ->
@@ -90,7 +92,8 @@ defmodule VR.Transcription do
     end
   end
 
-  # 분 단위 올림. 30초를 써도 1분으로 센다 — 제공자도 그렇게 청구한다.
+  # Rounded up to the minute. Using 30 seconds still counts as 1 minute — the
+  # provider bills that way too.
   defp minutes(%RecordingSession{duration_seconds: seconds}) when is_integer(seconds),
     do: max(ceil(seconds / 60), 1)
 

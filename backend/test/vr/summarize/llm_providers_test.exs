@@ -8,12 +8,12 @@ defmodule VR.Summarize.LlmProvidersTest do
     :ok
   end
 
-  test "아무것도 없으면 요약이 비활성" do
+  test "summarization is inactive with nothing configured" do
     refute LlmProviders.ready?()
     assert LlmProviders.primary() == nil
   end
 
-  test "키가 있고 켜면 사용 가능" do
+  test "available when a key exists and it is enabled" do
     {:ok, _} =
       LlmProviders.upsert(%{
         "provider" => "gemini",
@@ -26,7 +26,7 @@ defmodule VR.Summarize.LlmProvidersTest do
     assert LlmProviders.primary().provider == "gemini"
   end
 
-  test "우선순위가 낮은 제공자를 먼저 쓴다" do
+  test "lower-priority-number providers are used first" do
     {:ok, _} =
       LlmProviders.upsert(%{
         "provider" => "gemini",
@@ -48,7 +48,7 @@ defmodule VR.Summarize.LlmProvidersTest do
     assert LlmProviders.primary().provider == "anthropic"
   end
 
-  test "빈 api_key로 저장해도 기존 키가 유지된다" do
+  test "saving with an empty api_key keeps the existing key" do
     {:ok, _} =
       LlmProviders.upsert(%{
         "provider" => "gemini",
@@ -61,7 +61,7 @@ defmodule VR.Summarize.LlmProvidersTest do
     assert LlmProviders.ready?()
   end
 
-  test "api_key는 DB에 평문으로 남지 않는다" do
+  test "api_key is not stored in the DB as plaintext" do
     {:ok, _} =
       LlmProviders.upsert(%{
         "provider" => "gemini",

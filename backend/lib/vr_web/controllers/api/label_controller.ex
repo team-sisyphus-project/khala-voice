@@ -1,6 +1,6 @@
 defmodule VRWeb.API.LabelController do
   @moduledoc """
-  라벨 CRUD. 응답 규칙은 `VRWeb.API.TopicController` 와 같다 — 없는 것도 남의 것도 404.
+  Label CRUD. Response rules match `VRWeb.API.TopicController` — nonexistent and someone else's both get 404.
   """
 
   use VRWeb, :controller

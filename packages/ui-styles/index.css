@@ -1,23 +1,23 @@
 /**
- * 디자인 시스템 진입점. **웹앱(React)과 LiveView 가 같은 이 파일을 읽는다.**
+ * Design system entry point. **The web app (React) and LiveView both read this same file.**
  *
- * 두 벌로 복사해 두면 반드시 갈라진다 — sisyphus 가 데스크톱/모바일에 같은
- * 로직을 두 벌 두었다가 동작이 갈린 것과 같은 실수다(`CLAUDE.md`).
+ * Keeping two copies guarantees divergence — the same mistake sisyphus made by keeping
+ * the same logic in two copies for desktop/mobile until behavior split (`CLAUDE.md`).
  *
- * **출처: devkanban** `mobile/src/styles/app.css` — 임포트 순서를 그대로 지킨다.
- * 순서가 곧 규칙이다:
+ * **Source: devkanban** `mobile/src/styles/app.css` — the import order is kept as-is.
+ * The order is the rule:
  *
- *   components → redesign : 뒤가 앞을 덮어 현재 디자인이 된다
- *   → press               : 컴포넌트가 각자 갖던 `:active` 를 시스템 규칙 하나로 덮는다
- *   → game-skin           : 게임 테마의 누름은 문법이 반대(아래로 눌린다)라 맨 뒤
+ *   components → redesign : the latter overrides the former to form the current design
+ *   → press               : replaces each component's own `:active` with one system rule
+ *   → game-skin           : the game theme's press grammar is inverted (pushes down), so it goes last
  *
- * 우리 쪽 조정은 `overrides.css` 에만 쓴다. `devkanban/` 아래 파일은 손대지 않는다.
+ * Our own adjustments go in `overrides.css` only. Files under `devkanban/` are never touched.
  */
 @import "./devkanban/tokens.css";
 @import "./devkanban/base.css";
 @import "./devkanban/components.css";
 @import "./devkanban/redesign.css";
-/* 매체 스킨(수채화·연필)은 컴포넌트 규칙 뒤에 와야 한다 */
+/* Media skins (watercolor/pencil) must come after the component rules */
 @import "./devkanban/media-skin.css";
 @import "./devkanban/press.css";
 @import "./devkanban/game-skin.css";

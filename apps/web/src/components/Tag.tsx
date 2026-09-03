@@ -1,14 +1,15 @@
 import type { Label, Topic } from "@core/api";
 
 /**
- * 토픽 · 라벨 칩.
+ * Topic and label chips.
  *
- * **출처: sisyphus** 의 라벨 칩. 색은 자유 HEX 가 아니라 **팔레트 키**다 —
- * 테마가 넷(light · dark · pencil · game)이라 사용자가 고른 임의 색이
- * 네 배경 모두에서 읽힌다는 보장이 없다. 키를 실제 색으로 바꾸는 것은 CSS 가 한다.
+ * **Source: sisyphus** — its label chips. Colors are **palette keys**, not
+ * free-form HEX — with four themes (light · dark · pencil · game), an
+ * arbitrary user-picked color has no guarantee of reading on all four
+ * backgrounds. CSS turns keys into actual colors.
  *
- * 삭제된 분류도 그린다. 아직 회의에 참조가 남아 있는데 이름 없이 그리면
- * 화면에 정체불명의 칩이 뜬다.
+ * Deleted taxonomy still renders. Meetings may still reference it, and
+ * rendering without a name puts an unidentifiable chip on screen.
  */
 export function Tag({
   item,
@@ -60,7 +61,7 @@ export function Tag({
   );
 }
 
-/** 회의 카드에 붙는 분류 묶음. 없으면 아무것도 그리지 않는다. */
+/** The taxonomy cluster on a meeting card. Renders nothing when empty. */
 export function TagRow({ topic, labels }: { topic?: Topic | null; labels?: Label[] }) {
   const items = labels ?? [];
   if (!topic && items.length === 0) return null;

@@ -1,9 +1,9 @@
 defmodule VRWeb.SessionController do
   @moduledoc """
-  로그인·로그아웃의 실제 처리.
+  The actual sign-in / sign-out handling.
 
-  LiveView는 WebSocket 위에서 돌아 쿠키를 심을 수 없다.
-  그래서 폼은 LiveView가 그리고 제출은 여기로 온다.
+  LiveView runs over a WebSocket and cannot set cookies.
+  So LiveView renders the form, and submissions come here.
   """
 
   use VRWeb, :controller
@@ -12,9 +12,9 @@ defmodule VRWeb.SessionController do
   alias VR.Accounts.MFA
   alias VRWeb.UserAuth
 
-  @doc "가입 직후 자동 로그인."
+  @doc "Automatic sign-in right after registration."
   def create(conn, %{"_action" => "registered"} = params) do
-    create(conn, params, "가입이 완료되었습니다. 확인 메일을 보냈습니다.")
+    create(conn, params, "Registration complete. A confirmation email has been sent.")
   end
 
   def create(conn, params), do: create(conn, params, nil)
@@ -26,7 +26,7 @@ defmodule VRWeb.SessionController do
     case Accounts.login_allowed?(email, ip) do
       {:error, :too_many_attempts} ->
         conn
-        |> put_flash(:error, "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.")
+        |> put_flash(:error, "Too many sign-in attempts. Please try again later.")
         |> redirect(to: ~p"/login")
 
       :ok ->
@@ -34,21 +34,23 @@ defmodule VRWeb.SessionController do
           nil ->
             Accounts.record_login_attempt(email, ip, false)
 
-            # 계정이 없는 것인지 비밀번호가 틀린 것인지 구분해 알려주지 않는다
+            # Don't reveal whether the account is missing or the password is wrong
             conn
-            |> put_flash(:error, "이메일 또는 비밀번호가 올바르지 않습니다")
+            |> put_flash(:error, "Invalid email or password")
             |> redirect(to: ~p"/login")
 
           account ->
             Accounts.record_login_attempt(email, ip, true)
 
             if MFA.required?(account) do
-              # 아직 로그인시키지 않는다. 코드 확인까지 통과해야 세션이 생긴다.
-              # 여기 담는 것은 계정 ID 뿐이고, 세션 토큰은 그 뒤에 발급된다.
+              # Don't sign them in yet. The session is only created once the code
+              # check passes. All we store here is the account ID; the session
+              # token is issued afterwards.
               #
-              # **아직 켜지 않았으면 등록부터.** 코드 화면으로 보내면 확인할 코드가
-              # 없어 아무 데도 못 간다 — 켜는 화면이 어드민 구역 안에 있으면
-              # 그게 데드락이 된다 (devkanban 이 `/login/mfa/enroll` 로 푼 문제).
+              # **If MFA is not enabled yet, enroll first.** Sending them to the
+              # code screen would leave them stuck with no code to verify — and if
+              # the enable screen lives inside the admin area, that becomes a
+              # deadlock (the problem devkanban solved with `/login/mfa/enroll`).
               target = if account.mfa_enabled, do: ~p"/login/mfa", else: ~p"/login/mfa/enroll"
 
               conn
@@ -66,10 +68,11 @@ defmodule VRWeb.SessionController do
   end
 
   @doc """
-  2단계 인증 확인. 통과하면 그때 세션이 생긴다.
+  Two-factor authentication check. The session is created only on success.
 
-  대기 상태는 5분만 유효하다 — 로그인 화면을 열어둔 채 자리를 비운 사이
-  누군가 코드만 넣으면 들어가는 상황을 막는다.
+  The pending state is valid for just 5 minutes — this prevents someone from
+  getting in by simply entering a code while the user is away from an open
+  sign-in screen.
   """
   def verify_mfa(conn, %{"code" => code}) do
     account_id = get_session(conn, :mfa_pending_account_id)
@@ -80,7 +83,7 @@ defmodule VRWeb.SessionController do
       is_nil(account_id) or expired?(started_at) ->
         conn
         |> clear_mfa_pending()
-        |> put_flash(:error, "인증 시간이 지났습니다. 다시 로그인해 주세요.")
+        |> put_flash(:error, "Verification timed out. Please sign in again.")
         |> redirect(to: ~p"/login")
 
       true ->
@@ -100,16 +103,16 @@ defmodule VRWeb.SessionController do
             Accounts.record_login_attempt(account && account.email, client_ip(conn), false)
 
             conn
-            |> put_flash(:error, "코드가 맞지 않습니다")
+            |> put_flash(:error, "The code is incorrect")
             |> redirect(to: ~p"/login/mfa")
         end
     end
   end
 
   @doc """
-  2단계 인증을 켜고 로그인을 마친다 (`POST /login/mfa/enroll`).
+  Enables two-factor authentication and completes sign-in (`POST /login/mfa/enroll`).
 
-  **출처: devkanban** `SessionController.verify_enroll/2` — 같은 흐름이다.
+  **Source: devkanban** `SessionController.verify_enroll/2` — the same flow.
   """
   def enroll(conn, params) do
     account_id = get_session(conn, :mfa_pending_account_id)
@@ -123,7 +126,7 @@ defmodule VRWeb.SessionController do
       expired?(started_at) ->
         conn
         |> clear_mfa_pending()
-        |> put_flash(:error, "인증 시간이 지났습니다. 다시 로그인해 주세요.")
+        |> put_flash(:error, "Verification timed out. Please sign in again.")
         |> redirect(to: ~p"/login")
 
       true ->
@@ -135,9 +138,9 @@ defmodule VRWeb.SessionController do
              {:ok, updated, backup_codes} <- MFA.enable(account, binary, params["code"] || "") do
           conn
           |> clear_mfa_pending()
-          # 백업 코드는 **지금만** 보여줄 수 있다. 해시로만 저장하기 때문이다.
+          # Backup codes can only be shown **right now** — we store only their hashes.
           |> put_session(:mfa_backup_codes, backup_codes)
-          |> put_flash(:info, "2단계 인증을 켰습니다. 백업 코드를 설정에서 확인하세요.")
+          |> put_flash(:info, "Two-factor authentication is enabled. Check your backup codes in Settings.")
           |> UserAuth.log_in_account(
             updated,
             %{"remember_me" => if(remember?, do: "true", else: "false")},
@@ -146,13 +149,13 @@ defmodule VRWeb.SessionController do
         else
           _ ->
             conn
-            |> put_flash(:error, "코드가 맞지 않습니다")
+            |> put_flash(:error, "The code is incorrect")
             |> redirect(to: ~p"/login/mfa/enroll")
         end
     end
   end
 
-  # 등록 폼은 비밀키를 base32 로 실어 보낸다 (인증기 앱이 쓰는 표기와 같다).
+  # The enrollment form carries the secret in base32 (the same notation authenticator apps use).
   defp decode_secret(value) when is_binary(value) and value != "",
     do: Base.decode32(value, padding: false)
 
@@ -174,7 +177,7 @@ defmodule VRWeb.SessionController do
 
   def delete(conn, _params) do
     conn
-    |> put_flash(:info, "로그아웃되었습니다")
+    |> put_flash(:info, "You have been signed out")
     |> UserAuth.log_out_account()
   end
 

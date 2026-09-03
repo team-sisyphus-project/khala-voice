@@ -26,13 +26,13 @@ import {hooks as colocatedHooks} from "phoenix-colocated/vr"
 import topbar from "../vendor/topbar"
 
 /**
- * 클립보드 복사.
+ * Clipboard copy.
  *
- * 초대·공유 링크는 토큰이 길어서 손으로 옮겨 적으면 한 글자만 틀려도 열리지 않고,
- * 어디서 틀렸는지 알 방법이 없다.
+ * Invite/share link tokens are long: copy one by hand and a single wrong
+ * character makes it fail to open, with no way to tell where the typo is.
  *
- * `navigator.clipboard` 는 보안 컨텍스트(https 또는 localhost)에서만 동작한다.
- * 막힌 환경에서는 입력을 선택해 주기만 하고 — 사용자가 Ctrl+C 로 끝낼 수 있다.
+ * `navigator.clipboard` only works in a secure context (https or localhost).
+ * Where it is blocked, we just select the input — the user can finish with Ctrl+C.
  */
 const CopyToClipboard = {
   mounted() {
@@ -47,9 +47,9 @@ const CopyToClipboard = {
 
       try {
         await navigator.clipboard.writeText(source.value)
-        this.flash(trigger, "복사됨")
+        this.flash(trigger, "Copied")
       } catch {
-        // 클립보드가 막혔다. 선택은 해 뒀으니 그대로 복사할 수 있다.
+        // Clipboard is blocked. The text is already selected, so it can be copied as-is.
         this.flash(trigger, "Ctrl+C")
       }
     }
@@ -129,9 +129,10 @@ if (process.env.NODE_ENV === "development") {
 
 
 
-// ── 테마 ──────────────────────────────────────────────────
-// LiveView 에서 테마를 바꾸면 여기서 받아 즉시 적용하고 캐시를 갱신한다.
-// 연필·게임은 CSS 가 번들에 없어 그때 내려받는다.
+// ── Theme ─────────────────────────────────────────────────
+// When the theme changes in LiveView, we receive it here, apply it immediately,
+// and refresh the cache. Pencil and game themes are not in the bundle, so their
+// CSS is fetched on demand.
 window.addEventListener("phx:vr:theme", (event) => {
   const theme = event.detail?.theme;
   if (!theme) return;
@@ -153,7 +154,7 @@ window.addEventListener("phx:vr:theme", (event) => {
     link.href = href;
     link.dataset.vrTheme = href;
     link.onload = apply;
-    // CSS 를 못 받으면 테마를 바꾸지 않는다. 반쯤 적용된 화면보다 낫다.
+    // If the CSS fails to load, don't switch themes. Better than a half-applied screen.
     link.onerror = () => root.removeAttribute("data-theme-loading");
     document.head.appendChild(link);
   } else {

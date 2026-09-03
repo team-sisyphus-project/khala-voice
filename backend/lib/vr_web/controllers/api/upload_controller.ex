@@ -1,9 +1,10 @@
 defmodule VRWeb.API.UploadController do
   @moduledoc """
-  업로드 URL 발급.
+  Upload URL issuance.
 
-  브라우저가 S3에 **직접** 올린다. 앱 서버를 거치지 않는다 —
-  1시간 녹음이 수십 MB인데 통과시키면 메모리와 대역폭이 그대로 낭비된다.
+  The browser uploads **directly** to S3, never through the app server —
+  an hour-long recording is tens of megabytes, and passing it through would
+  waste memory and bandwidth outright.
   """
 
   use VRWeb, :controller
@@ -28,15 +29,15 @@ defmodule VRWeb.API.UploadController do
              session.started_at_unix,
              Storage.extension_for(content_type)
            ),
-         # 키는 **서버가 정하고 여기서 기록한다.** 업로드가 끝난 뒤
-         # 클라이언트가 알려주는 주소를 믿지 않기 위한 것이다.
+         # The key is **chosen by the server and recorded here** — so that we
+         # never have to trust an address reported by the client after the upload.
          {:ok, _session} <- Meetings.set_storage_key(session, key),
          {:ok, result} <- Storage.presign_upload(key: key, content_type: content_type) do
       json(conn, result)
     end
   end
 
-  # 업로드가 끝난 세션에 presign 을 다시 내주면 같은 키에 PUT 해서 원본을 덮을 수 있다.
+  # Re-issuing a presign for a finished session would allow a PUT to the same key, overwriting the original.
   defp ensure_presignable(%{status: "recording"}), do: :ok
   defp ensure_presignable(_session), do: {:error, :already_uploaded}
 

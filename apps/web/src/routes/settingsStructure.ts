@@ -9,15 +9,15 @@ export type SettingItem =
 
 export const SETTINGS_SECTIONS: ReadonlyArray<{
   id: "display" | "recording" | "notifications" | "account-security";
-  title: "화면" | "녹음" | "알림" | "계정 및 보안";
+  title: "Display" | "Recording" | "Notifications" | "Account & security";
   items: readonly SettingItem[];
 }> = [
-  { id: "display", title: "화면", items: ["theme", "install"] },
-  { id: "recording", title: "녹음", items: ["microphone-and-language"] },
-  { id: "notifications", title: "알림", items: ["completion-notification"] },
+  { id: "display", title: "Display", items: ["theme", "install"] },
+  { id: "recording", title: "Recording", items: ["microphone-and-language"] },
+  { id: "notifications", title: "Notifications", items: ["completion-notification"] },
   {
     id: "account-security",
-    title: "계정 및 보안",
+    title: "Account & security",
     items: ["billing", "integrations", "account"],
   },
 ] as const;

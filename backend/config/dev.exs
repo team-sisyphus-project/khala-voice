@@ -16,24 +16,24 @@ config :vr, VR.Repo,
 # The watchers configuration can be used to run external
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
-# ── 실기기(폰) 테스트 ────────────────────────────────────────────
+# ── Real-device (phone) testing ─────────────────────────────────
 #
-# 기본은 127.0.0.1 에만 바인딩한다. 개발 서버를 LAN 에 노출하지 않는다.
+# By default we bind to 127.0.0.1 only. The dev server is not exposed to the LAN.
 #
-# 폰에서 접속하려면 DEV_BIND_ALL=true 로 켠다. 이때 HTTPS 도 함께 열린다 —
-# getUserMedia 는 보안 컨텍스트에서만 동작하고, localhost 가 아닌 주소는
-# http 로는 마이크를 열 수 없다.
+# To connect from a phone, enable DEV_BIND_ALL=true. That also opens HTTPS —
+# getUserMedia only works in a secure context, and a non-localhost address
+# cannot open the microphone over http.
 #
 #     DEV_BIND_ALL=true mix phx.server
-#     → https://<맥의 LAN IP>:4001/spike/recorder
+#     → https://<your Mac's LAN IP>:4001/spike/recorder
 #
-# 자체 서명 인증서라 폰에서 경고가 뜬다. 수동으로 신뢰해야 한다.
+# The certificate is self-signed, so the phone shows a warning. Trust it manually.
 bind_all? = System.get_env("DEV_BIND_ALL") == "true"
 dev_ip = if bind_all?, do: {0, 0, 0, 0}, else: {127, 0, 0, 1}
 
-# port 는 여기서 읽지 않는다. PORT / HTTPS_PORT 해석 규칙은
-# config/runtime.exs 한 곳에만 있고, runtime.exs 가 아래 설정 위에 port 를 덮어쓴다.
-# (규칙이 두 파일에 복제되면 한쪽만 고쳐지는 드리프트가 생긴다)
+# The port is not read here. The PORT / HTTPS_PORT resolution rules live in
+# config/runtime.exs alone, and runtime.exs overwrites the port on top of the config below.
+# (Duplicating the rules across two files invites drift where only one gets fixed)
 config :vr, VRWeb.Endpoint,
   http: [ip: dev_ip],
   check_origin: false,
@@ -49,7 +49,7 @@ if bind_all? do
   config :vr, VRWeb.Endpoint,
     https: [
       ip: {0, 0, 0, 0},
-      # port 는 runtime.exs 가 채운다 (기본 4001)
+      # runtime.exs fills in the port (default 4001)
       cipher_suite: :strong,
       certfile: "priv/cert/selfsigned.pem",
       keyfile: "priv/cert/selfsigned_key.pem"

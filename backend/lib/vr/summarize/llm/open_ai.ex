@@ -1,10 +1,10 @@
 defmodule VR.Summarize.LLM.OpenAI do
   @moduledoc """
-  OpenAI 어댑터. OpenAI 호환 엔드포인트(`base_url` 지정)도 여기로 받는다.
+  OpenAI adapter. OpenAI-compatible endpoints (via `base_url`) go through here too.
 
-  `response_format: json_schema` 로 구조화 출력을 건다.
-  호환 서버가 이를 모를 수 있으므로, 실패해도 본문에서 JSON 을
-  건져낼 수 있게 `Normalizer.decode/1` 이 뒤를 받친다.
+  Structured output is requested with `response_format: json_schema`.
+  Compatible servers may not understand it, so `Normalizer.decode/1` backs
+  this up by salvaging JSON from the body even when that fails.
   """
 
   alias VR.Summarize.LLM.HTTP
@@ -41,7 +41,7 @@ defmodule VR.Summarize.LLM.OpenAI do
     end
   end
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
   defp base_url(provider) do
     case provider.base_url do

@@ -1,38 +1,38 @@
 defmodule VR.Transcription.Audio do
   @moduledoc """
-  FFmpeg 로 오디오를 다루는 것들 — 길이 확인 · 분할 · MP3 변환.
+  Audio handling via FFmpeg — duration checks, splitting, MP3 conversion.
 
-  **출처: sisyphus** `lib/sisyphus/meetings/audio_splitter.ex` — 거의 그대로.
+  **Source: sisyphus** `lib/sisyphus/meetings/audio_splitter.ex` — almost verbatim.
 
-  ## 왜 19분인가
+  ## Why 19 minutes
 
-  Google STT `batchRecognize` 에 길이 제한이 있어 20분을 넘기면 실패한다.
-  19분으로 자르는 것은 **여유를 두기 위해서**다. 정확히 20분으로 자르면
-  인코딩 오차나 컨테이너 헤더 때문에 경계에서 걸린다.
+  Google STT `batchRecognize` has a length limit and fails past 20 minutes.
+  Cutting at 19 minutes is **to leave headroom**. Cutting at exactly 20 minutes
+  trips the boundary due to encoding drift or container headers.
 
-  ## 왜 MP3 로 바꾸는가
+  ## Why convert to MP3
 
-  webm/opus 를 그대로 넘기면 STT 가 간헐적으로 디코딩에 실패한다.
-  MP3 는 어느 경로에서도 안정적이고, 브라우저 재생 호환성도 가장 넓다.
+  Passing webm/opus straight through makes STT fail decoding intermittently.
+  MP3 is stable on every path and has the widest browser playback compatibility.
   """
 
   require Logger
 
-  # 20분 제한에 여유를 둔다
+  # Headroom under the 20-minute limit
   @chunk_seconds 19 * 60
-  # 이보다 길면 분할한다
+  # Split anything longer than this
   @split_threshold_seconds 20 * 60
 
   def chunk_seconds, do: @chunk_seconds
   def split_threshold_seconds, do: @split_threshold_seconds
 
-  @doc "FFmpeg 이 설치돼 있는가. 없으면 전사 경로 전체가 실패한다."
+  @doc "Is FFmpeg installed? Without it the entire transcription path fails."
   def available? do
     not is_nil(System.find_executable("ffmpeg")) and
       not is_nil(System.find_executable("ffprobe"))
   end
 
-  @doc "오디오 길이(초). `duration_seconds` 를 못 믿을 때 실측한다."
+  @doc "Audio duration in seconds. Measured directly when `duration_seconds` cannot be trusted."
   @spec duration(String.t()) :: {:ok, integer()} | {:error, term()}
   def duration(path) do
     args = [
@@ -53,18 +53,18 @@ defmodule VR.Transcription.Audio do
         end
 
       {error, _} ->
-        Logger.error("[Audio] ffprobe 실패: #{error}")
+        Logger.error("[Audio] ffprobe failed: #{error}")
         {:error, {:ffprobe_failed, error}}
     end
   end
 
-  @doc "이 길이면 분할이 필요한가."
+  @doc "Does this duration require splitting?"
   def needs_splitting?(duration_seconds) when is_integer(duration_seconds),
     do: duration_seconds > @split_threshold_seconds
 
   def needs_splitting?(_), do: false
 
-  @doc "이미 MP3 인가. 맞으면 변환을 건너뛴다."
+  @doc "Is it already MP3? If so, conversion is skipped."
   def mp3?(mime_type) when is_binary(mime_type),
     do:
       String.starts_with?(mime_type, "audio/mpeg") or String.starts_with?(mime_type, "audio/mp3")
@@ -72,8 +72,8 @@ defmodule VR.Transcription.Audio do
   def mp3?(_), do: false
 
   @doc """
-  MP3 로 변환한다. **모노 · 48kHz** 로 맞춘다 —
-  화자 분리가 단일 채널만 지원하기 때문이다.
+  Converts to MP3. Normalized to **mono, 48kHz** —
+  because speaker diarization supports only a single channel.
   """
   @spec to_mp3(String.t(), String.t(), keyword()) :: {:ok, String.t()} | {:error, term()}
   def to_mp3(input, output, opts \\ []) do
@@ -81,7 +81,7 @@ defmodule VR.Transcription.Audio do
       "-y",
       "-i",
       input,
-      # 비디오 스트림이 섞여 있으면 버린다
+      # Drop any video stream mixed in
       "-vn",
       "-acodec",
       "libmp3lame",
@@ -99,16 +99,16 @@ defmodule VR.Transcription.Audio do
         {:ok, output}
 
       {error, code} ->
-        Logger.error("[Audio] MP3 변환 실패(#{code}): #{String.slice(error, -800, 800)}")
+        Logger.error("[Audio] MP3 conversion failed (#{code}): #{String.slice(error, -800, 800)}")
         {:error, {:transcode_failed, code}}
     end
   end
 
   @doc """
-  19분 단위로 자른다. `{시작초, 길이초, 경로}` 목록을 돌려준다.
+  Cuts into 19-minute chunks. Returns a list of `{start_seconds, duration_seconds, path}`.
 
-  **재인코딩하지 않는다** (`-c copy`). 자르기만 하는데 다시 인코딩하면
-  1시간짜리에서 몇 분씩 걸리고 음질도 떨어진다.
+  **No re-encoding** (`-c copy`). Re-encoding just to cut takes minutes on an
+  hour-long file and degrades audio quality.
   """
   @spec split(String.t(), String.t(), integer()) ::
           {:ok,
@@ -146,19 +146,19 @@ defmodule VR.Transcription.Audio do
         {:ok, chunks}
 
       {:error, reason} ->
-        # 하나라도 실패하면 전부 버린다. 반쪽짜리 분할은 더 나쁘다.
+        # If even one fails, discard them all. A half-done split is worse.
         cleanup(chunks)
         {:error, reason}
     end
   end
 
-  @doc "분할 파일을 지운다."
+  @doc "Deletes the split files."
   def cleanup(chunks) do
     Enum.each(chunks, fn chunk -> File.rm(chunk.path) end)
     :ok
   end
 
-  @doc "구간을 사람이 읽을 수 있는 라벨로. 세션 목록에 표시한다."
+  @doc "The range as a human-readable label. Shown in the session list."
   def range_label(start_seconds, duration_seconds) do
     "#{clock(start_seconds)}~#{clock(start_seconds + duration_seconds)}"
   end
@@ -177,10 +177,10 @@ defmodule VR.Transcription.Audio do
       to_string(start),
       "-t",
       to_string(duration),
-      # 재인코딩 없이 복사
+      # Copy without re-encoding
       "-c",
       "copy",
-      # 잘린 지점의 타임스탬프를 0부터 다시 센다
+      # Restart timestamps from 0 at the cut point
       "-avoid_negative_ts",
       "make_zero",
       output
@@ -191,7 +191,7 @@ defmodule VR.Transcription.Audio do
         :ok
 
       {error, code} ->
-        Logger.error("[Audio] 분할 실패(#{code}): #{String.slice(error, -800, 800)}")
+        Logger.error("[Audio] split failed (#{code}): #{String.slice(error, -800, 800)}")
         {:error, {:split_failed, code}}
     end
   end

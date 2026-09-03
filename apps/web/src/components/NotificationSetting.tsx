@@ -5,10 +5,11 @@ import type { PushState } from "@/lib/push";
 import { Notice } from "@/components/ui";
 
 /**
- * 알림 켜기/끄기.
+ * Notifications on/off.
  *
- * 전사·요약이 끝났을 때만 보낸다. 잠금화면에 회의 내용이 뜨지 않도록
- * 서버가 본문에 "끝났습니다" 까지만 담는다.
+ * Sent only when transcription or a summary finishes. So no meeting content
+ * appears on the lock screen, the server puts nothing beyond "finished" in
+ * the body.
  */
 export function NotificationSetting() {
   const { t } = useTranslation();
@@ -34,7 +35,7 @@ export function NotificationSetting() {
 
   return (
     <>
-      {/* 카드 안의 간격은 `mobile-section__body` 가 정한다 (8px). 여기서 따로 주지 않는다. */}
+      {/* Spacing inside the card is set by `mobile-section__body` (8px). None added here. */}
       <div className="vr-toggle-row">
         <div className="vr-toggle-row__main">
           <div className="vr-toggle-row__title">{t("notification.title")}</div>
@@ -73,7 +74,7 @@ export function NotificationSetting() {
       {state === "denied" && (
         <Notice kind="warn" icon="notifications_off">
           {t("notification.blocked")}
-          {/* 한 번 거절하면 JS 로 다시 물을 수 없다 */}
+          {/* Once denied, JS can never ask again */}
         </Notice>
       )}
 

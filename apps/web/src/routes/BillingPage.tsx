@@ -11,16 +11,17 @@ import type { BillingSummary, LedgerEntry } from "@core/api";
 import { Icon } from "@/ui";
 
 /**
- * 내 크레딧과 사용 내역.
+ * My credits and usage history.
  *
- * **출처: devkanban** 의 요금 화면 구성. 이 앱은 유료 플랜이 없으므로 결제·업그레이드
- * 동선은 두지 않고 **잔액과 근거**만 보여준다.
+ * **Source: devkanban** — its billing screen layout. This app has no paid
+ * plans, so there are no payment/upgrade paths; it shows **only the balance
+ * and its evidence**.
  *
- * ## 음수 잔액을 숨기지 않는다
+ * ## Negative balances aren't hidden
  *
- * 사용량 계량은 작업이 끝난 뒤에 일어나므로 잔액이 모자라도 기록된다
- * (오버드래프트). 그 상태를 0으로 반올림해 보여주면 다음 달 지급분이
- * 왜 줄었는지 설명할 수 없다.
+ * Usage metering happens after the work completes, so it's recorded even when
+ * the balance falls short (overdraft). Rounding that state up to 0 would make
+ * it impossible to explain why next month's grant shrank.
  */
 export function BillingPage() {
   const { t } = useTranslation();
@@ -221,7 +222,7 @@ function EntryRow({ entry }: { entry: LedgerEntry }) {
         )}
       </div>
 
-      {/* "왜 이만큼 나갔나" 를 확인할 유일한 근거다. 접어두되 없애지 않는다. */}
+      {/* The only evidence for "why did this much get spent". Folded away, but never removed. */}
       {open && (
         <dl className="vr-usage">
           {details.map(([term, value]) => (

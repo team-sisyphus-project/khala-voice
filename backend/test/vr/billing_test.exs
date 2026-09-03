@@ -10,7 +10,7 @@ defmodule VR.BillingTest do
     {:ok, plan} =
       Billing.create_plan(%{
         key: "free",
-        display_name: "무료",
+        display_name: "Free",
         status: "published",
         publicly_listed: true
       })
@@ -25,8 +25,8 @@ defmodule VR.BillingTest do
     {plan, revision}
   end
 
-  describe "플랜 · 리비전" do
-    test "리비전을 발행하면 이전 것은 구매 불가가 된다" do
+  describe "plans and revisions" do
+    test "publishing a revision makes the previous one unpurchasable" do
       {plan, first} = free_plan(100)
       {:ok, second} = Billing.publish_revision(plan, %{included_credits: 200})
 
@@ -37,46 +37,46 @@ defmodule VR.BillingTest do
       refute reloaded_first.purchasable
     end
 
-    test "현재 리비전은 구매 가능한 것이다" do
+    test "the current revision is the purchasable one" do
       {plan, _} = free_plan(100)
       {:ok, second} = Billing.publish_revision(plan, %{included_credits: 200})
 
       assert Billing.current_revision(Billing.get_plan(plan.id)).id == second.id
     end
 
-    test "지급량은 included_credits 다" do
+    test "the grant amount is included_credits" do
       {_plan, revision} = free_plan(300)
       assert PlanRevision.granted_credits(revision) == 300
     end
 
-    test "가격 형태가 깨지면 거부한다" do
+    test "rejects a malformed price shape" do
       {plan, _} = free_plan()
 
       assert {:error, changeset} =
-               Billing.publish_revision(plan, %{prices: %{"KRW" => "공짜"}})
+               Billing.publish_revision(plan, %{prices: %{"KRW" => "free"}})
 
       assert errors_on(changeset).prices
     end
   end
 
-  describe "구독" do
+  describe "subscriptions" do
     setup do
       {:ok, _} = Credits.put_conversion_setting(%{credit_value_usd: Decimal.new("0.0015")})
       {plan, revision} = free_plan(500)
       %{plan: plan, revision: revision}
     end
 
-    test "가입하면 무료 플랜에 자동 구독되고 크레딧을 받는다" do
+    test "signup auto-subscribes to the free plan and grants credits" do
       account = account_fixture()
 
       subscription = Billing.get_subscription(account.id)
       assert subscription
       assert subscription.state == "active"
-      # 플랜이 크레딧을 기본으로 준다
+      # The plan grants credits by default
       assert Credits.balance(account.id) == 500
     end
 
-    test "지급된 크레딧은 기간 말에 만료된다" do
+    test "granted credits expire at period end" do
       account = account_fixture()
       subscription = Billing.get_subscription(account.id)
 
@@ -84,12 +84,12 @@ defmodule VR.BillingTest do
       assert DateTime.compare(lot.expires_at, subscription.current_period_end) == :eq
     end
 
-    test "구독은 리비전을 핀 고정한다 (그랜드파더링)", %{plan: plan, revision: revision} do
+    test "subscriptions pin their revision (grandfathering)", %{plan: plan, revision: revision} do
       account = account_fixture()
       subscription = Billing.get_subscription(account.id)
       assert subscription.plan_revision_id == revision.id
 
-      # 새 리비전을 발행해도 기존 구독은 자기 것을 본다
+      # Even after a new revision is published, existing subscriptions see their own
       {:ok, _new} = Billing.publish_revision(plan, %{included_credits: 9999})
 
       reloaded = Billing.get_subscription(account.id)
@@ -97,12 +97,12 @@ defmodule VR.BillingTest do
       assert reloaded.plan_revision.included_credits == 500
     end
 
-    test "계정당 활성 구독은 하나뿐이다", %{revision: revision} do
+    test "only one active subscription per account", %{revision: revision} do
       account = account_fixture()
       assert {:error, _} = Billing.subscribe(account.id, revision)
     end
 
-    test "무료 플랜이 없어도 가입은 성립한다" do
+    test "signup still succeeds without a free plan" do
       VR.Repo.delete_all(Subscription)
       VR.Repo.delete_all(PlanRevision)
       VR.Repo.delete_all(VR.Billing.Plan)
@@ -113,14 +113,14 @@ defmodule VR.BillingTest do
     end
   end
 
-  describe "기간 갱신" do
+  describe "period renewal" do
     setup do
       {:ok, _} = Credits.put_conversion_setting(%{credit_value_usd: Decimal.new("0.0015")})
       {_plan, _revision} = free_plan(500)
       %{account: account_fixture()}
     end
 
-    test "기간이 끝나면 넘어가고 크레딧을 다시 받는다", %{account: account} do
+    test "rolls over at period end and grants credits again", %{account: account} do
       subscription = Billing.get_subscription(account.id)
       old_end = subscription.current_period_end
 
@@ -128,21 +128,21 @@ defmodule VR.BillingTest do
 
       assert DateTime.compare(advanced.current_period_start, old_end) == :eq
       assert DateTime.compare(advanced.current_period_end, old_end) == :gt
-      # 새 기간 크레딧이 더해진다
+      # New-period credits are added
       assert Credits.balance(account.id) == 1000
     end
 
-    test "같은 기간에 두 번 지급되지 않는다", %{account: account} do
+    test "not granted twice within the same period", %{account: account} do
       subscription = Billing.get_subscription(account.id)
 
-      # 같은 기간에 다시 지급을 시도한다
+      # Attempt to grant again within the same period
       {:ok, :already_granted} =
         Billing.grant_period_credits(subscription, subscription.plan_revision)
 
       assert Credits.balance(account.id) == 500
     end
 
-    test "기간이 끝난 구독만 갱신 대상이다", %{account: account} do
+    test "only subscriptions past period end are due for renewal", %{account: account} do
       assert Billing.list_due_subscriptions() == []
 
       subscription = Billing.get_subscription(account.id)
@@ -157,8 +157,8 @@ defmodule VR.BillingTest do
     end
   end
 
-  describe "요약" do
-    test "화면에 필요한 것을 한 묶음으로 준다" do
+  describe "summary" do
+    test "returns everything the screen needs in one bundle" do
       {:ok, _} = Credits.put_conversion_setting(%{credit_value_usd: Decimal.new("0.0015")})
       free_plan(500)
       account = account_fixture()
@@ -173,16 +173,16 @@ defmodule VR.BillingTest do
     end
   end
 
-  describe "사용량 계량 idempotency" do
+  describe "usage metering idempotency" do
     setup do
       {:ok, _} = Credits.put_conversion_setting(%{credit_value_usd: Decimal.new("0.0015")})
       %{account: account_fixture()}
     end
 
-    test "잔액이 있을 때 같은 열쇠로 두 번 계량하지 않는다", %{account: account} do
-      {:ok, _} = Credits.grant(account.id, 1000, source: "admin_grant", reason: "테스트")
+    test "with a balance, the same key is not metered twice", %{account: account} do
+      {:ok, _} = Credits.grant(account.id, 1000, source: "admin_grant", reason: "test")
 
-      opts = [charge_domain: "llm", idempotency_key: "llm:meet_1:model", reason: "요약"]
+      opts = [charge_domain: "llm", idempotency_key: "llm:meet_1:model", reason: "summary"]
 
       {:ok, first} = Credits.charge_usage(account.id, Decimal.new("0.15"), opts)
       {:ok, second} = Credits.charge_usage(account.id, Decimal.new("0.15"), opts)
@@ -193,11 +193,11 @@ defmodule VR.BillingTest do
       assert Credits.balance(account.id) == 1000 - first.charged_credits
     end
 
-    test "잔액이 없어 오버드래프트로 가도 두 번 계량하지 않는다", %{account: account} do
-      # 무료 플랜 + 어드민 키 구성에서는 잔액 0 이 기본 상태라 이 경로가 정상 경로다.
-      # 부족분을 기록할 때마다 새 묶음이 생기므로, 열쇠를 묶음 id 로 파생시키면
-      # 유니크 제약이 영영 걸리지 않고 재시도마다 다시 차감된다.
-      opts = [charge_domain: "llm", idempotency_key: "llm:meet_2:model", reason: "요약"]
+    test "even overdrafting with no balance, not metered twice", %{account: account} do
+      # With a free plan + admin keys, zero balance is the default state, so this path is the normal path.
+      # Recording the shortfall creates a new lot each time, so deriving the key from the
+      # lot id would mean the unique constraint never fires and every retry charges again.
+      opts = [charge_domain: "llm", idempotency_key: "llm:meet_2:model", reason: "summary"]
 
       {:ok, first} = Credits.charge_usage(account.id, Decimal.new("0.15"), opts)
       {:ok, second} = Credits.charge_usage(account.id, Decimal.new("0.15"), opts)
@@ -207,8 +207,8 @@ defmodule VR.BillingTest do
       assert Credits.balance(account.id) == -first.charged_credits
     end
 
-    test "열쇠가 다르면 각각 계량한다", %{account: account} do
-      base = [charge_domain: "llm", reason: "요약"]
+    test "different keys are metered separately", %{account: account} do
+      base = [charge_domain: "llm", reason: "summary"]
 
       {:ok, a} =
         Credits.charge_usage(account.id, Decimal.new("0.15"), base ++ [idempotency_key: "llm:a"])
@@ -220,9 +220,9 @@ defmodule VR.BillingTest do
       assert Credits.balance(account.id) == -(a.charged_credits + b.charged_credits)
     end
 
-    test "원장 합계와 묶음 잔량 합계가 어긋나지 않는다", %{account: account} do
-      # Σ delta == Σ lot.remaining 불변식. 오버드래프트가 이것을 지키려고 음수 묶음을 만든다.
-      {:ok, _} = Credits.grant(account.id, 10, source: "admin_grant", reason: "적은 잔액")
+    test "ledger total and lot remainders never diverge", %{account: account} do
+      # The Σ delta == Σ lot.remaining invariant. Overdraft creates negative lots to preserve it.
+      {:ok, _} = Credits.grant(account.id, 10, source: "admin_grant", reason: "small balance")
 
       {:ok, _} =
         Credits.charge_usage(account.id, Decimal.new("0.15"),

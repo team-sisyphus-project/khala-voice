@@ -1,8 +1,9 @@
 /**
- * **출처: devkanban** `mobile/src/components/StatusChip.tsx` — 그대로 가져왔다.
+ * **Source: devkanban** `mobile/src/components/StatusChip.tsx` — brought over verbatim.
  *
- * 버튼의 누름 반응 · 헤더 표현 · 인풋 · 모달의 표현 방식을 그대로 쓰기 위해
- * 마크업(클래스 이름)까지 원본과 같게 둔다. CSS 가 이 이름에 걸려 있다.
+ * To reuse the button press feedback, header treatment, inputs, and modal
+ * styling as-is, even the markup (class names) matches the original. The CSS
+ * is keyed to these names.
  */
 
 export type StatusTone =

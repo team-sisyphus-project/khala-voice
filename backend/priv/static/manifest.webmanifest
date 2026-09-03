@@ -1,8 +1,8 @@
 {
   "name": "KHALA VOICE",
   "short_name": "KHALA VOICE",
-  "description": "회의를 녹음하고 화자별로 전사한 뒤 AI로 요약합니다.",
-  "lang": "ko",
+  "description": "Record meetings, transcribe them per speaker, and summarize with AI.",
+  "lang": "en",
   "dir": "ltr",
   "start_url": "/app/meetings",
   "scope": "/",
@@ -37,8 +37,8 @@
   ],
   "shortcuts": [
     {
-      "name": "새 회의 녹음",
-      "short_name": "녹음",
+      "name": "Record a new meeting",
+      "short_name": "Record",
       "url": "/app/meetings?new=1",
       "icons": [
         {
@@ -48,8 +48,8 @@
       ]
     },
     {
-      "name": "아카이브 검색",
-      "short_name": "아카이브",
+      "name": "Search the archive",
+      "short_name": "Archive",
       "url": "/app/archive"
     }
   ]

@@ -1,11 +1,12 @@
 defmodule VR.Workers.MonthlyGrantWorker do
   @moduledoc """
-  기간이 끝난 구독을 다음 기간으로 넘기고 크레딧을 지급한다.
+  Advances subscriptions whose period has ended to the next period and grants
+  credits.
 
-  **출처: devkanban** `lib/manualsquad/billing/monthly_grant_worker.ex`.
+  **Source: devkanban** `lib/manualsquad/billing/monthly_grant_worker.ex`.
 
-  하루 한 번 돈다. 지급은 `idempotency_key` 로 막혀 있어
-  같은 기간에 두 번 실행돼도 크레딧이 두 번 들어가지 않는다.
+  Runs once a day. Grants are guarded by an `idempotency_key`, so running twice
+  within the same period does not grant credits twice.
   """
 
   use Oban.Worker, queue: :billing, max_attempts: 3
@@ -25,15 +26,15 @@ defmodule VR.Workers.MonthlyGrantWorker do
             {ok + 1, failed}
 
           {:error, reason} ->
-            # 하나가 실패해도 나머지는 처리한다. 다음 실행에서 다시 시도된다.
-            Logger.error("[MonthlyGrant] 기간 갱신 실패: #{subscription.id} — #{inspect(reason)}")
+            # One failure does not stop the rest. It is retried on the next run.
+            Logger.error("[MonthlyGrant] period advance failed: #{subscription.id} — #{inspect(reason)}")
 
             {ok, failed + 1}
         end
       end)
 
     if ok > 0 or failed > 0 do
-      Logger.info("[MonthlyGrant] 갱신 #{ok}건, 실패 #{failed}건")
+      Logger.info("[MonthlyGrant] advanced #{ok}, failed #{failed}")
     end
 
     :ok

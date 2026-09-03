@@ -1,22 +1,22 @@
 defmodule VR.Khala.MCPClient do
   @moduledoc """
-  칼라 MCP 를 부르는 쪽. JSON-RPC 2.0 over HTTP.
+  The client side of Khala MCP. JSON-RPC 2.0 over HTTP.
 
-  ## 응답이 두 가지로 온다
+  ## Responses come in two forms
 
-  MCP 스트리머블 HTTP 는 같은 엔드포인트에서 `application/json` 또는
-  `text/event-stream` 으로 답한다. 어느 쪽이 올지 서버가 정하므로 **둘 다 읽는다** —
-  한쪽만 다루면 서버가 바꾸는 날 조용히 실패한다.
+  MCP streamable HTTP answers on the same endpoint with either
+  `application/json` or `text/event-stream`. The server decides which, so
+  **we read both** — handling only one fails silently the day the server switches.
 
-  ## 오류를 구분한다
+  ## We distinguish errors
 
-  | 응답 | 뜻 | 우리가 할 일 |
+  | Response | Meaning | What we do |
   |---|---|---|
-  | 401 | 토큰이 죽었다 | 갱신하거나, 안 되면 **재시도하지 않는다** |
-  | `result.isError` | 도구가 거절했다 | 사용자에게 이유를 보여준다 |
-  | 그 밖 | 일시적 | 워커가 재시도한다 |
+  | 401 | Token is dead | Refresh, or if that fails, **do not retry** |
+  | `result.isError` | Tool refused | Show the reason to the user |
+  | Anything else | Transient | The worker retries |
 
-  401 을 일시적 오류로 다루면 워커가 죽은 토큰으로 영원히 재시도한다.
+  Treating a 401 as transient makes the worker retry a dead token forever.
   """
 
   require Logger
@@ -24,16 +24,16 @@ defmodule VR.Khala.MCPClient do
   @protocol "2025-06-18"
 
   @doc """
-  도구를 부른다.
+  Call a tool.
 
-  `initialize` 를 매번 하지 않는다 — 상태 없는 HTTP 호출이라 세션을 잇지 않는다.
-  칼라는 `tools/call` 을 바로 받는다.
+  We do not run `initialize` each time — these are stateless HTTP calls with no
+  session continuity. Khala accepts `tools/call` directly.
   """
   def call_tool(url, access_token, name, args) do
     request(url, access_token, "tools/call", %{"name" => name, "arguments" => args})
   end
 
-  @doc "쓸 수 있는 도구 목록. 진단용이다."
+  @doc "List the available tools. Diagnostic use."
   def list_tools(url, access_token), do: request(url, access_token, "tools/list", %{})
 
   defp request(url, access_token, method, params) do
@@ -65,7 +65,7 @@ defmodule VR.Khala.MCPClient do
     end
   end
 
-  # 스트림으로 오면 `data:` 줄을 모아 마지막 JSON 을 쓴다.
+  # For streamed responses, collect the `data:` lines and use the last JSON.
   defp decode(raw) when is_binary(raw) do
     raw
     |> String.split("\n")
@@ -96,10 +96,10 @@ defmodule VR.Khala.MCPClient do
   defp decode(_), do: {:error, :unparsable_response}
 
   @doc """
-  도구 응답에서 텍스트를 뽑는다.
+  Extract text from a tool response.
 
-  MCP 도구는 `content: [%{type: "text", text: ...}]` 로 답한다. 칼라는 그 안에
-  JSON 을 문자열로 담아 보내므로 한 겹 더 풀어야 한다.
+  MCP tools answer with `content: [%{type: "text", text: ...}]`. Khala puts
+  JSON as a string inside that, so one more layer needs unwrapping.
   """
   def text_of(%{"content" => content}) when is_list(content) do
     content
@@ -109,7 +109,7 @@ defmodule VR.Khala.MCPClient do
 
   def text_of(_), do: ""
 
-  @doc "도구 응답의 텍스트를 JSON 으로 푼다. JSON 이 아니면 그대로 돌려준다."
+  @doc "Decode the tool response text as JSON. If it is not JSON, return it as is."
   def json_of(result) do
     text = text_of(result)
 

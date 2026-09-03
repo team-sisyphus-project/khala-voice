@@ -1,19 +1,19 @@
 defmodule VR.Meetings.RecordingSession do
   @moduledoc """
-  녹음 1건. 독립적으로 업로드 → 전사 흐름을 탄다.
+  One recording. Rides the upload → transcription flow independently.
 
-  **출처: sisyphus** `lib/sisyphus/meetings/recording_session.ex` — 거의 그대로.
+  **Source: sisyphus** `lib/sisyphus/meetings/recording_session.ex` — nearly verbatim.
 
-  ## 상태
+  ## Status
 
       recording ─► uploaded ─┬─► transcribing ─► completed
                              │                └─► failed
-                             └─► splitting ──► (청크별 새 세션 생성, 원본 삭제)
+                             └─► splitting ──► (new session per chunk, original deleted)
 
-  ## 파일명
+  ## Filenames
 
-  `started_at_unix` 를 그대로 쓴다 — `{started_at_unix}.webm` / `.json`.
-  같은 회의 안에서 시간순 정렬이 파일명만으로 되고, 충돌하지 않는다.
+  `started_at_unix` is used directly — `{started_at_unix}.webm` / `.json`.
+  Within a meeting, chronological sorting works on the filename alone, without collisions.
   """
 
   use Ecto.Schema
@@ -34,7 +34,7 @@ defmodule VR.Meetings.RecordingSession do
     field :duration_seconds, :integer
 
     field :audio_url, :string
-    # 서버가 정한 업로드 대상 키. 재생·전사는 전부 이 키로만 접근한다.
+    # The upload target key the server chose. Playback and transcription access only through this key.
     field :storage_key, :string
     field :transcript_url, :string
     field :transcript, :map
@@ -62,10 +62,11 @@ defmodule VR.Meetings.RecordingSession do
   end
 
   @doc """
-  업로드 완료 등록. 클라이언트가 S3에 올린 뒤 호출한다.
+  Register upload completion. Called after the client has uploaded to S3.
 
-  **`audio_url` 을 클라이언트에서 받지 않는다.** 서버가 `storage_key` 로 만든다 —
-  클라이언트가 준 주소는 워커의 다운로드로 흘러들어가 SSRF 가 된다.
+  **`audio_url` is not accepted from the client.** The server builds it from
+  `storage_key` — a client-supplied URL would flow into the worker's download
+  and become SSRF.
   """
   def upload_changeset(session, attrs) do
     session
@@ -75,7 +76,7 @@ defmodule VR.Meetings.RecordingSession do
     |> validate_number(:file_size_bytes, greater_than: 0)
   end
 
-  @doc "presign 단계에서 서버가 정한 저장 키를 박는다."
+  @doc "Set the storage key the server chose during the presign step."
   def storage_key_changeset(session, key) when is_binary(key) do
     change(session, %{storage_key: key})
   end
@@ -92,7 +93,7 @@ defmodule VR.Meetings.RecordingSession do
     |> validate_transcript()
   end
 
-  @doc "화자 매핑만 갱신 (칩 변경)."
+  @doc "Update only the speaker mapping (chip changes)."
   def speaker_map_changeset(session, speaker_map) do
     change(session, %{speaker_map: speaker_map})
   end
@@ -112,7 +113,7 @@ defmodule VR.Meetings.RecordingSession do
     end
   end
 
-  # 세그먼트 구조가 깨지면 전사 화면 전체가 망가진다. 저장 전에 막는다.
+  # A broken segment structure wrecks the entire transcript view. Block it before saving.
   defp validate_transcript(changeset) do
     case get_change(changeset, :transcript) do
       nil ->
@@ -122,11 +123,11 @@ defmodule VR.Meetings.RecordingSession do
         if Enum.all?(segments, &valid_segment?/1) do
           changeset
         else
-          add_error(changeset, :transcript, "세그먼트 형식이 올바르지 않습니다")
+          add_error(changeset, :transcript, "contains segments with an invalid format")
         end
 
       _ ->
-        add_error(changeset, :transcript, "segments 배열이 필요합니다")
+        add_error(changeset, :transcript, "must include a segments array")
     end
   end
 

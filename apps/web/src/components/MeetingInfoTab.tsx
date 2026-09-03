@@ -8,10 +8,11 @@ import { EmptyState, Notice } from "@/components/ui";
 import type { CurrentAccount, Friend, Label, Meeting, Topic } from "@core/api";
 
 /**
- * 회의 정보 탭 — 분류(Contributor+)와 공개 범위(Reviewer).
+ * The meeting info tab — taxonomy (Contributor+) and visibility (Reviewer).
  *
- * 분류 목록은 **회의 owner 의 것**을 서버에서 받는다 (`GET /meetings/:id/taxonomy`).
- * 내 분류를 남의 회의에 붙이면 owner 의 아카이브 검색에 그 회의가 안 걸린다.
+ * The taxonomy list comes from the server as **the meeting owner's**
+ * (`GET /meetings/:id/taxonomy`). Attaching my taxonomy to someone else's
+ * meeting would keep it out of the owner's archive search.
  */
 export function MeetingInfoTab({
   meeting,
@@ -37,7 +38,7 @@ export function MeetingInfoTab({
 
   const canEdit = meeting.role !== "viewer";
 
-  // 다른 사람이 고쳤거나 다른 회의로 옮겨오면 입력칸도 따라간다
+  // If someone else edited it, or we moved to a different meeting, the input follows
   useEffect(() => {
     setTitle(meeting.title ?? "");
   }, [meeting.id, meeting.title]);
@@ -84,8 +85,8 @@ export function MeetingInfoTab({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {/* 제목을 고치는 자리는 **여기 하나뿐이다.** 상단바 캡슐이 늘 제목을
-          보여주고 있어서, 본문에 또 두면 같은 글자가 두 벌로 보인다. */}
+      {/* This is **the one place** to edit the title. The top-bar capsule
+          always shows it, so another copy in the body would show the same text twice. */}
       {canEdit && (
         <section>
           <h3 className="mobile-section__title">{t("meetingInfo.titleLabel")}</h3>
@@ -169,7 +170,7 @@ export function MeetingInfoTab({
         </section>
       )}
 
-      {/* 패널이 스스로 Reviewer 인지 검열한다 */}
+      {/* The panel checks for Reviewer on its own */}
       <VisibilityPanel
         meeting={meeting}
         friends={friends}

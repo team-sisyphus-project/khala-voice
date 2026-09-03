@@ -2,9 +2,9 @@ defmodule VR.Repo.Migrations.CreateAuthProviders do
   use Ecto.Migration
 
   @moduledoc """
-  소셜 로그인 제공자.
+  Social login providers.
 
-  `enabled`는 DB에만 존재한다. 환경변수로는 켤 수 없다.
+  `enabled` exists only in the DB. It cannot be turned on via environment variables.
   """
 
   def change do

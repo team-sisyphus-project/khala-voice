@@ -1,9 +1,9 @@
 defmodule VRWeb.API.TopicController do
   @moduledoc """
-  토픽 CRUD.
+  Topic CRUD.
 
-  **남의 토픽과 없는 토픽의 응답이 같다 (404).** 403 을 주면
-  "그 id 는 있는데 네 것이 아니다" 가 새어 나간다.
+  **Someone else's topic and a nonexistent topic get the same response (404).**
+  A 403 would leak "that id exists — it's just not yours."
   """
 
   use VRWeb, :controller
@@ -45,7 +45,7 @@ defmodule VRWeb.API.TopicController do
     end
   end
 
-  @doc "순서 변경. **전체 목록을 통째로** 받는다."
+  @doc "Reorder. Accepts **the entire list at once.**"
   def reorder(conn, %{"ids" => ids}) when is_list(ids) do
     account = conn.assigns.current_account
 

@@ -1,4 +1,4 @@
-/** 서버 API 의 응답 타입. `VRWeb.API.JSONView` 와 맞춘다. */
+/** Response types of the server API. Kept in sync with `VRWeb.API.JSONView`. */
 
 export type Role = "reviewer" | "contributor" | "viewer" | "none";
 export type MeetingStatus = "active" | "completed" | "archived";
@@ -35,12 +35,13 @@ export interface RecordingSession {
   status: SessionStatus;
   started_at_unix: number;
   duration_seconds: number | null;
-  /** Viewer 에게는 서버가 아예 내려주지 않는다 */
+  /** The server never sends this to viewers at all */
   /**
-   * 오디오를 받는 경로. 서버가 서명된 URL 로 리다이렉트한다.
+   * Path for fetching the audio. The server redirects to a signed URL.
    *
-   * Viewer 에게는 내려오지 않는다. 원본 URL 을 직접 주지 않는 이유는
-   * 저장 키가 결정적이라 서명 없는 주소는 곧 영구 공개 링크이기 때문이다.
+   * Not sent to viewers. We never hand out the raw URL directly because the
+   * storage key is deterministic — an unsigned address would be a permanent
+   * public link.
    */
   audio_href?: string;
   transcript: Transcript | null;
@@ -58,13 +59,13 @@ export interface SummarySource {
   speaker: string;
   time_label: string;
   quote: string;
-  /** 서버가 실제 전사와 대조해 붙인다. 이 값으로 바로 그 지점을 재생한다 */
+  /** Attached by the server after checking against the actual transcript. Used to jump playback right there */
   start_ms: number;
 }
 
 export interface SummaryData {
   one_liner: string;
-  /** `source` 는 전사와 대조해 확인된 것만 붙는다. 못 찾으면 null — 항목은 남는다 */
+  /** `source` is attached only when verified against the transcript. null if not found — the item stays */
   decisions: { text: string; source: SummarySource | null }[];
   action_items: { who: string; what: string; due: string; source: SummarySource | null }[];
   facts: string[];
@@ -78,9 +79,10 @@ export interface SummaryData {
   included_session_ids?: string[];
   skipped_session_ids?: string[];
   /**
-   * 몇 덩어리로 나눠 요약했는가. 1 이면 한 번에 들어갔다.
+   * How many chunks the summary was split into. 1 means it fit in one pass.
    *
-   * 긴 회의는 **자르지 않고 나눠서** 요약한다 — 자르면 뒷부분이 조용히 사라진다.
+   * Long meetings are summarized **in chunks, never truncated** — truncation
+   * silently drops the tail.
    */
   chunk_count?: number;
 }
@@ -89,18 +91,18 @@ export type ColorKey =
   | "red" | "orange" | "yellow" | "green" | "teal"
   | "blue" | "indigo" | "violet" | "purple" | "gray";
 
-/** 토픽 — 회의 하나에 **하나만** 붙는다 */
+/** Topic — a meeting gets **exactly one** */
 export interface Topic {
   id: string;
   name: string;
   color: ColorKey;
   sort_order: number;
-  /** 소프트 삭제됨. 목록에는 안 나오지만 아직 참조가 남은 회의에서는 이름이 필요하다 */
+  /** Soft-deleted. Hidden from lists, but meetings still referencing it need the name */
   deleted: boolean;
   meeting_count?: number;
 }
 
-/** 라벨 — 회의 하나에 **여러 개** 붙는다 */
+/** Label — a meeting can have **several** */
 export interface Label {
   id: string;
   name: string;
@@ -112,15 +114,16 @@ export interface Label {
 export type GrantedRole = "viewer" | "contributor";
 
 /**
- * 공유 링크.
+ * Shared link.
  *
- * **평문 토큰과 PIN 은 발급 · 재발급 · PIN 켜기 응답에만 실린다.**
- * 서버 DB 에도 해시만 있어서 잃어버리면 재발급뿐이다.
+ * **The plaintext token and PIN ride only on issue / rotate / PIN-enable
+ * responses.** The server DB holds only hashes, so a lost one can only be
+ * reissued.
  */
 export interface SharedLink {
   id: string;
   granted_role: GrantedRole;
-  /** 앞 12자. 목록에서 어느 링크인지 알아보기만 한다 */
+  /** First 12 chars. Only for telling links apart in lists */
   token_prefix: string;
   max_uses: number | null;
   use_count: number;
@@ -132,13 +135,13 @@ export interface SharedLink {
   pin_locked_until: string | null;
   last_used_at: string | null;
   inserted_at: string;
-  /** 발급·재발급 직후에만 */
+  /** Only right after issue/rotate */
   url?: string;
-  /** 발급·PIN 켜기 직후에만 */
+  /** Only right after issue/PIN enable */
   pincode?: string | null;
 }
 
-/** 게스트가 입장하기 전에 받는 안내. **회의 내용은 없다.** */
+/** What a guest receives before entering. **No meeting content.** */
 export interface ShareGate {
   granted_role: GrantedRole;
   require_name: boolean;
@@ -152,7 +155,7 @@ export interface ShareEntry {
   guest_token: string | null;
   granted_role?: GrantedRole;
   expires_at?: string;
-  /** 로그인 계정으로 들어왔을 때. 게스트 세션 없이 회의로 보낸다 */
+  /** When entered with a signed-in account. Sent to the meeting without a guest session */
   redirect?: string;
 }
 
@@ -174,23 +177,23 @@ export interface CreditLot {
 
 export interface LedgerEntry {
   id: string;
-  /** +지급 / -사용 */
+  /** + grant / - usage */
   delta: number;
   source: string;
   reason: string | null;
   charge_domain: string | null;
   usage_cost_usd: string | null;
-  /** "왜 이만큼 나갔나" 의 근거. 토큰 수·단가·길이가 들어 있다 */
+  /** Evidence for "why this much was charged". Holds token counts, rates, duration */
   pricing_snapshot: Record<string, unknown> | null;
   inserted_at: string;
 }
 
 export interface BillingSummary {
-  /** 오버드래프트로 **음수가 될 수 있다** */
+  /** **Can go negative** via overdraft */
   balance: number;
   plan: BillingPlan | null;
   subscription: {
-    /** `active` · `past_due` · `canceled` … 서버의 `state` */
+    /** `active` · `past_due` · `canceled` … the server's `state` */
     status: string;
     current_period_start: string;
     current_period_end: string;
@@ -210,23 +213,23 @@ export interface Meeting {
   contributor_ids: string[];
   topic_id: string | null;
   label_ids: string[];
-  /** 서버가 이름·색까지 풀어서 준다. 목록·상세 응답에만 들어 있다 */
+  /** The server expands name and color. Present only in list/detail responses */
   topic?: Topic | null;
   labels?: Label[];
   total_duration_seconds: number;
   total_credits_charged: number;
   summary: string | null;
   summary_data: SummaryData | null;
-  /** 마지막 요약 실패. 성공하면 지워진다 — 기존 summary_data 는 남는다 */
+  /** Last summary failure. Cleared on success — existing summary_data stays */
   last_summary_error: { reason?: string; at?: string } | null;
   guest_link_enabled: boolean;
   archived_at: string | null;
   inserted_at: string;
   updated_at: string;
-  /** 서버가 계산한 내 권한. UI 를 그릴 때만 쓴다 — 판정은 서버가 이미 끝냈다 */
+  /** My role as computed by the server. Used only to draw the UI — the server already decided */
   role: Role;
   view_level: "lv0" | "lv1" | "lv2" | "lv3";
-  /** Reviewer 에게만 내려온다 */
+  /** Sent to the reviewer only */
   permissions?: Record<string, unknown>;
   recording_sessions?: RecordingSession[];
 }
@@ -250,21 +253,22 @@ export interface CurrentAccount {
   id: string;
   email: string;
   name: string | null;
-  /** 앱 UI 의 언어 (ko · en · ja …). **전사 언어와 다른 값이다.** */
+  /** App UI language (ko · en · ja …). **Distinct from the transcription language.** */
   locale: string;
   theme: string;
   /**
-   * 기본 전사 언어 (BCP-47, 예: `ko-KR` · `cmn-Hans-CN`).
+   * Default transcription language (BCP-47, e.g. `ko-KR` · `cmn-Hans-CN`).
    *
-   * `null` 은 **자동** — 브라우저 언어를 따라간다. 한국어로 앱을 쓰면서
-   * 영어 회의를 녹음하는 것이 흔해서 `locale` 과 묶지 않는다.
+   * `null` means **auto** — follow the browser language. Using the app in one
+   * language while recording meetings in another is common, so this is not
+   * tied to `locale`.
    */
   transcribe_language: string | null;
   confirmed: boolean;
   /**
-   * 어드민 링크를 **보여줄지 말지에만** 쓴다.
-   * 접근 판정은 서버가 다시 하고, 권한이 없으면 404 를 준다.
-   * 이 값을 조작해도 어드민에 들어갈 수 없다.
+   * Used **only to decide whether to show** the admin link.
+   * The server re-checks access and returns 404 without permission.
+   * Tampering with this value cannot get you into the admin area.
    */
   is_admin: boolean;
 }
@@ -276,12 +280,12 @@ export interface Friend {
 }
 
 
-// ── 칼라 연동 · MCP ──────────────────────────────────────
+// ── Khala integration · MCP ──────────────────────────────
 //
-// 방향이 반대인 두 가지다 (`docs/15-mcp-khala.md`):
+// Two things pointing in opposite directions (`docs/15-mcp-khala.md`):
 //
-//   KhalaStatus  우리 → 칼라   우리가 남의 인박스로 보낸다
-//   MCPToken     남 → 우리     외부가 우리 아카이브를 읽는다
+//   KhalaStatus  us → Khala   we send to someone else's inbox
+//   MCPToken     them → us    outsiders read our archive
 
 export interface KhalaInbox {
   code: string | null;
@@ -290,24 +294,24 @@ export interface KhalaInbox {
 }
 
 export interface KhalaStatus {
-  /** 서버가 연동 기능을 켰는가. 끄면 화면에서 아예 사라진다 */
+  /** Has the server enabled the integration? When off, it vanishes from the UI entirely */
   enabled: boolean;
   connected: boolean;
-  /** 칼라에 만든 **우리** 인박스 — 보내는 쪽이다 */
+  /** **Our** inbox created on Khala — the sending side */
   inbox: KhalaInbox | null;
 }
 
 export interface MCPToken {
   id: string;
   name: string;
-  /** 앞자리만. 뒤는 복원할 수 없다 */
+  /** Prefix only. The rest cannot be recovered */
   token_prefix: string;
   last_used_at: string | null;
   expires_at: string | null;
   inserted_at: string;
 }
 
-/** 발급 응답에만 `token` 이 들어 있다. **이때만 볼 수 있다.** */
+/** Only the issue response carries `token`. **This is the only time it is visible.** */
 export interface MCPTokenIssued extends MCPToken {
   token: string;
 }

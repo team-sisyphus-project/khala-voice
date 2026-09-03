@@ -6,15 +6,15 @@ import { Icon } from "@/ui";
 const DISMISSED_KEY = "vr:install-dismissed";
 
 /**
- * 홈 화면에 추가 안내.
+ * The add-to-home-screen prompt.
  *
- * ## 한 번 닫으면 다시 묻지 않는다
+ * ## Once dismissed, never asks again
  *
- * 설치 배너는 쉽게 성가셔진다. 닫은 사실을 남겨 두고,
- * 사용자가 원하면 설정에서 다시 열 수 있게 한다.
+ * Install banners get annoying fast. Record the dismissal, and let the user
+ * reopen it from settings if they want.
  *
- * iOS Safari 는 `beforeinstallprompt` 를 지원하지 않아 이 배너가 뜨지 않는다.
- * 대신 설정 화면에 수동 안내를 둔다.
+ * iOS Safari doesn't support `beforeinstallprompt`, so this banner never
+ * shows there. The settings screen carries manual instructions instead.
  */
 export function InstallBanner() {
   const { t } = useTranslation();

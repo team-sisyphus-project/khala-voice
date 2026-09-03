@@ -1,12 +1,13 @@
 defmodule VR.Billing.Subscription do
   @moduledoc """
-  계정이 가진 계약. **특정 `PlanRevision` 을 핀 고정한다.**
+  An account's contract. **Pins a specific `PlanRevision`.**
 
-  **출처: devkanban** `lib/manualsquad/billing/subscription.ex`
-  — `organization_id` 를 `account_id` 로 바꾸고 결제 관련 필드를 축소했다.
+  **Source: devkanban** `lib/manualsquad/billing/subscription.ex`
+  — replaced `organization_id` with `account_id` and trimmed the payment fields.
 
-  핀 고정이 그랜드파더링을 자동으로 만든다. 새 리비전이 발행돼도
-  이 구독은 자기 리비전을 계속 본다. 옮기려면 **명시적 마이그레이션**이 필요하다.
+  Pinning makes grandfathering automatic. Even when a new revision is published,
+  this subscription keeps looking at its own revision. Moving it requires an
+  **explicit migration.**
   """
 
   use Ecto.Schema
@@ -16,7 +17,7 @@ defmodule VR.Billing.Subscription do
   alias VR.IdGenerator
 
   @states ~w(active past_due paused canceled)
-  # 이 상태들은 "살아있는" 구독으로 본다. 계정당 하나만 허용된다.
+  # These states count as a "live" subscription. Only one is allowed per account.
   @live_states ~w(active past_due paused)
 
   @primary_key {:id, :string, autogenerate: false}
@@ -65,7 +66,7 @@ defmodule VR.Billing.Subscription do
     |> foreign_key_constraint(:plan_revision_id)
   end
 
-  @doc "기간을 다음으로 넘긴다. 월 지급 워커가 쓴다."
+  @doc "Advances to the next period. Used by the monthly grant worker."
   def advance_period_changeset(%__MODULE__{} = subscription, interval) do
     start = subscription.current_period_end
 
@@ -75,7 +76,7 @@ defmodule VR.Billing.Subscription do
     })
   end
 
-  @doc "기간 끝을 계산한다. 월은 30일 고정 — devkanban 과 같은 규칙."
+  @doc "Computes the period end. A month is fixed at 30 days — same rule as devkanban."
   def add_interval(%DateTime{} = from, "year"), do: DateTime.add(from, 365, :day)
   def add_interval(%DateTime{} = from, _month), do: DateTime.add(from, 30, :day)
 
@@ -104,7 +105,7 @@ defmodule VR.Billing.Subscription do
     finish = get_field(changeset, :current_period_end)
 
     if start && finish && DateTime.compare(finish, start) != :gt do
-      add_error(changeset, :current_period_end, "기간 끝이 시작보다 뒤여야 합니다")
+      add_error(changeset, :current_period_end, "must be after the period start")
     else
       changeset
     end

@@ -1,15 +1,17 @@
 defmodule VRWeb.I18nSweepTest do
   @moduledoc """
-  전 화면 잔존 한국어 회귀 그물망 (LiveView).
+  Regression dragnet for residual Korean across all screens (LiveView).
 
-  개별 화면 테스트(`app/screens_i18n_test.exs`·`auth/screens_i18n_test.exs`)가
-  화면별 문안을 확인하는 반면, 이 스위트는 **로그인 후 앱 LiveView 전체**를
-  한 곳에서 훑어 `en` 렌더에 하드코딩 한국어가 새지 않는지, `ko` 렌더가 실제로
-  한국어로 나오는지(영어 폴백이 아닌지)를 회귀로 잡는다. React 쪽 i18n 테스트
-  (`apps/web/src/i18n/*.test.ts`)의 서버 짝이다.
+  While the per-screen tests (`app/screens_i18n_test.exs` and
+  `auth/screens_i18n_test.exs`) check individual screens' copy, this suite sweeps
+  **every post-login app LiveView** in one place, catching as regressions any
+  hard-coded Korean leaking into the `en` render and verifying the `ko` render is
+  actually Korean (not an English fallback). It is the server-side counterpart of
+  the React i18n tests (`apps/web/src/i18n/*.test.ts`).
 
-  검사 대상은 **렌더된 마크업**이다. UI 언어 선택기의 원어명(`한국어`)은
-  번역 대상이 아닌 엔도님이라(voice/base 엔도님 규칙) 검사 전에 제거한다.
+  The subject of inspection is **rendered markup**. The UI language picker's
+  native name (Korean, "\uD55C\uAD6D\uC5B4") is an endonym, not a translation
+  target (voice/base endonym rule), so it is stripped before checking.
   """
   use VRWeb.ConnCase, async: true
 
@@ -19,12 +21,12 @@ defmodule VRWeb.I18nSweepTest do
   alias VR.Accounts
   alias VR.Friends
 
-  # 한글 음절 블록. `u` 플래그로 코드포인트 단위 매칭(멀티바이트 문자를 바이트
-  # 범위로 오매칭하지 않는다 — em-dash 등).
-  @hangul ~r/[가-힣]/u
+  # The Hangul-syllables block (U+AC00-U+D7A3). The `u` flag matches by codepoint
+  # (no byte-range mismatches on multibyte characters — em-dashes and the like).
+  @hangul ~r/[\x{AC00}-\x{D7A3}]/u
 
-  # 설정 화면 UI 언어 선택기의 엔도님(원어명)은 번역 대상이 아니다.
-  @endonyms ["한국어"]
+  # The settings screen's UI language picker endonym (native name for Korean) is not a translation target.
+  @endonyms ["\uD55C\uAD6D\uC5B4"]
 
   defp log_in(conn, account) do
     {:ok, token, _} = Accounts.create_session(account)
@@ -39,53 +41,53 @@ defmodule VRWeb.I18nSweepTest do
     token
   end
 
-  describe "en 계정: 앱 LiveView 전 화면에 잔존 한국어가 없다" do
+  describe "en account: no residual Korean on any app LiveView screen" do
     setup do
       %{account: confirmed_account_fixture(%{locale: "en", name: "Ada"})}
     end
 
-    test "친구 화면", %{conn: conn, account: account} do
+    test "friends screen", %{conn: conn, account: account} do
       {:ok, lv, _} = conn |> log_in(account) |> live(~p"/friends")
       refute strip_endonyms(render(lv)) =~ @hangul
     end
 
-    test "설정 화면 (엔도님 제외)", %{conn: conn, account: account} do
+    test "settings screen (endonyms excluded)", %{conn: conn, account: account} do
       {:ok, lv, _} = conn |> log_in(account) |> live(~p"/settings")
       refute strip_endonyms(render(lv)) =~ @hangul
     end
 
-    test "초대 화면 (미로그인 폴백 en)", %{conn: conn} do
+    test "invite screen (unauthenticated falls back to en)", %{conn: conn} do
       {:ok, lv, _} = live(conn, ~p"/invite/#{invite_token()}")
       refute strip_endonyms(render(lv)) =~ @hangul
     end
   end
 
-  describe "ko 계정: 앱 LiveView 전 화면이 한국어로 렌더된다 (영어 폴백 아님)" do
+  describe "ko account: every app LiveView screen renders in Korean (not the English fallback)" do
     setup do
       %{account: confirmed_account_fixture(%{locale: "ko", name: "Ada"})}
     end
 
-    test "친구 화면", %{conn: conn, account: account} do
+    test "friends screen", %{conn: conn, account: account} do
       {:ok, lv, _} = conn |> log_in(account) |> live(~p"/friends")
       assert render(lv) =~ @hangul
     end
 
-    test "설정 화면", %{conn: conn, account: account} do
+    test "settings screen", %{conn: conn, account: account} do
       {:ok, lv, _} = conn |> log_in(account) |> live(~p"/settings")
       assert render(lv) =~ @hangul
     end
 
-    test "초대 화면", %{conn: conn, account: account} do
+    test "invite screen", %{conn: conn, account: account} do
       {:ok, lv, _} = conn |> log_in(account) |> live(~p"/invite/#{invite_token()}")
       assert render(lv) =~ @hangul
     end
   end
 
-  describe "미로그인 접근 차단 플래시" do
-    # `UserAuth.require_authenticated`(컨트롤러 플러그)와 `on_mount(:require_authenticated)`
-    # (LiveView)가 같은 msgid 를 쓴다. 미로그인 사용자는 항상 en(계정 없음 → 폴백)이라
-    # 플래시가 영어로 나와야 한다 — 종전에는 하드코딩 한국어가 로그인 화면에 남았다.
-    test "en(기본): 플러그 플래시가 영어이고 한국어가 없다", %{conn: conn} do
+  describe "unauthenticated access-blocked flash" do
+    # `UserAuth.require_authenticated` (controller plug) and `on_mount(:require_authenticated)`
+    # (LiveView) share the same msgid. Unauthenticated users are always en (no account → fallback),
+    # so the flash must come out in English — previously hard-coded Korean lingered on the login screen.
+    test "en (default): the plug flash is English with no Korean", %{conn: conn} do
       Gettext.put_locale(VRWeb.Gettext, "en")
 
       conn =
@@ -99,11 +101,11 @@ defmodule VRWeb.I18nSweepTest do
       refute flash =~ @hangul
     end
 
-    test "LiveView 마운트: 미로그인은 로그인으로 리다이렉트된다", %{conn: conn} do
+    test "LiveView mount: unauthenticated redirects to login", %{conn: conn} do
       assert {:error, {:redirect, %{to: "/login"}}} = live(conn, ~p"/friends")
     end
 
-    test "ko 카탈로그: 번역이 존재한다", %{conn: _conn} do
+    test "ko catalog: the translation exists", %{conn: _conn} do
       Gettext.put_locale(VRWeb.Gettext, "en")
 
       assert Gettext.gettext(VRWeb.Gettext, "You must sign in to continue") ==
@@ -111,8 +113,9 @@ defmodule VRWeb.I18nSweepTest do
 
       Gettext.put_locale(VRWeb.Gettext, "ko")
 
+      # Korean for "You must sign in": expected ko catalog msgstr
       assert Gettext.gettext(VRWeb.Gettext, "You must sign in to continue") ==
-               "로그인이 필요합니다"
+               "\uB85C\uADF8\uC778\uC774 \uD544\uC694\uD569\uB2C8\uB2E4"
     after
       Gettext.put_locale(VRWeb.Gettext, "en")
     end

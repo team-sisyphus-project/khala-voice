@@ -18,16 +18,16 @@ import { SpeakerBar } from "./SpeakerBar";
 import { EmptyState, Notice } from "./ui";
 
 /**
- * 전사 뷰 — 채팅 스타일.
+ * Transcript view — chat style.
  *
- * **출처: sisyphus** `assets/webapp/meeting-recorder.js` 3316~3470 (`buildTranscriptMessagesHtml`).
+ * **Source: sisyphus** `assets/webapp/meeting-recorder.js` 3316–3470 (`buildTranscriptMessagesHtml`).
  *
- * ## 두 가지 화자 변경
+ * ## Two kinds of speaker change
  *
- * - 위쪽 **칩**을 고치면 그 화자의 모든 발언에 반영
- * - 말풍선의 **이름**을 누르면 그 한 줄만
+ * - Editing the **chip** at the top applies to all of that speaker's utterances
+ * - Pressing the **name** on a bubble changes just that one line
  *
- * 두 번째는 STT 가 화자를 잘못 나눴을 때 쓴다.
+ * The second is for when STT split the speakers wrong.
  */
 export function TranscriptView({
   session,
@@ -40,7 +40,7 @@ export function TranscriptView({
   session: RecordingSession;
   friends: { id: string; name: string | null; email: string }[];
   canEdit: boolean;
-  /** 지금 재생 중인 위치(ms). 이 세션이 아니면 null */
+  /** The current playback position (ms). null if it isn't this session */
   playingMs: number | null;
   onPlaySegment: (startMs: number) => void;
   onSave: (patch: { transcript?: Transcript; speaker_map?: Record<string, SpeakerMapEntry> }) => void;
@@ -61,7 +61,7 @@ export function TranscriptView({
   const segments = transcript?.segments ?? [];
   const activeIndex = playingMs === null ? -1 : segmentAt(segments, playingMs);
 
-  // 재생이 진행되면 현재 발화를 화면 안으로 끌어온다
+  // As playback advances, pull the current utterance into view
   useEffect(() => {
     activeRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [activeIndex]);
@@ -274,7 +274,7 @@ export function TranscriptView({
   );
 }
 
-/** 나눌 지점을 글자 사이에서 고른다. */
+/** Pick the split point between characters. */
 function SplitEditor({
   text,
   onCancel,

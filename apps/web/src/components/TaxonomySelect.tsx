@@ -5,15 +5,16 @@ import { Button, Icon, Sheet } from "@/ui";
 import type { Label, Topic } from "@core/api";
 
 /**
- * 분류 고르기 — **드롭다운**이지 칩 나열이 아니다.
+ * Taxonomy picking — a **dropdown**, not a spread of chips.
  *
- * 칩을 전부 펼쳐 두면 토픽이 서른 개가 되는 순간 화면이 칩으로 뒤덮인다.
- * 트리거에는 **고른 것만** 보이고, 고를 때만 목록을 연다.
+ * With every chip laid out, the screen drowns in chips the moment there are
+ * thirty topics. The trigger shows **only what's picked**; the list opens only
+ * while picking.
  *
- * - **토픽은 하나만.** 회의 하나에 토픽 하나가 도메인 규칙이다
- *   (`docs/03-domain-model.md`). 그래서 고르면 바로 닫는다
- * - **라벨은 여럿.** 고르는 동안 열어 두고 [완료]로 닫는다
- * - 목록이 길어질 것을 전제로 **검색**을 늘 둔다
+ * - **One topic only.** One topic per meeting is the domain rule
+ *   (`docs/03-domain-model.md`), so picking closes immediately
+ * - **Labels are many.** Stays open while picking; [Done] closes it
+ * - **Search** is always present, assuming the list will grow long
  */
 
 type Item = Topic | Label;
@@ -26,7 +27,7 @@ function useSearch<T extends Item>(items: T[], query: string): T[] {
   }, [items, query]);
 }
 
-/** 고른 것을 보여주는 트리거. 입력칸처럼 생겨서 "여기서 고른다"가 읽힌다. */
+/** The trigger showing what's picked. Shaped like an input, so it reads as "pick here". */
 function Trigger({
   label,
   empty,
@@ -59,9 +60,9 @@ export function TopicSelect({
 }: {
   topics: Topic[];
   value: string | null;
-  /** null 이면 토픽 없음 */
+  /** null means no topic */
   onChange: (topicId: string | null) => void;
-  /** 새 토픽을 만들고 그 id 를 돌려준다. 없으면 만들기 줄을 숨긴다 */
+  /** Create a new topic and return its id. If absent, the create row is hidden */
   onCreate?: (name: string) => Promise<Topic | null>;
 }) {
   const { t } = useTranslation();
@@ -72,7 +73,7 @@ export function TopicSelect({
   const shown = useSearch(topics, query);
   const picked = topics.find((t) => t.id === value) ?? null;
 
-  // 같은 이름이 이미 있으면 만들기 줄을 띄우지 않는다 — 중복 토픽이 늘어난다
+  // If the same name already exists, don't show the create row — duplicate topics pile up
   const typed = query.trim();
   const canCreate =
     Boolean(onCreate) &&
@@ -135,7 +136,7 @@ export function TopicSelect({
                   className="vr-options__item"
                   data-active={value === topic.id}
                   onClick={() => {
-                    // 토픽은 하나뿐이라 고르는 즉시 끝난다
+                    // There's only one topic, so picking finishes immediately
                     onChange(topic.id);
                     setOpen(false);
                   }}
@@ -227,7 +228,7 @@ export function LabelSelect({
               )}
             </div>
 
-            {/* 라벨은 여러 개를 고르는 동안 열어 둔다 */}
+            {/* Labels stay open while picking multiple */}
             <Button full onClick={() => setOpen(false)}>
               {t("taxonomySelect.done")}
             </Button>

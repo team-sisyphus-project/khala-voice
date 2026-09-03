@@ -1,32 +1,33 @@
 defmodule VR.Storage.S3 do
   @moduledoc """
-  AWS S3 presigned URL 발급.
+  AWS S3 presigned URL issuance.
 
-  sisyphus는 이 발급을 n8n 웹훅에 위임했다. 이 앱은 직접 서명한다.
-  SigV4 구현은 `ExAws`가 한다 — 직접 짜지 않는다.
+  sisyphus delegated this issuance to an n8n webhook. This app signs directly.
+  The SigV4 implementation is `ExAws`'s — we do not hand-roll it.
 
-  자격증명은 `VR.Config`에서 요청 시점에 읽는다.
-  어드민에서 키를 바꾸면 재배포 없이 즉시 반영된다.
+  Credentials are read from `VR.Config` at request time.
+  Changing keys in the admin takes effect immediately without a redeploy.
   """
 
   alias VR.Config
 
   require Logger
 
-  # presign 만료. 업로드가 느린 회선에서도 끝날 만큼은 주되,
-  # 유출됐을 때의 창은 좁게.
+  # Presign expiry. Long enough for an upload to finish on a slow connection,
+  # but a narrow window if it leaks.
   @expires_in 1800
 
-  # 다운로드 서명 만료. 재생을 시작하기엔 충분하고 링크가 새어도 곧 죽는다.
+  # Download signature expiry. Enough to start playback, and the link dies soon
+  # even if it leaks.
   @download_expires_in 300
 
   @doc """
-  PUT 용 presigned URL.
+  Presigned URL for PUT.
 
-  ## 옵션
-  - `:key` — S3 오브젝트 키 (필수)
-  - `:content_type` — 업로드 시 보낼 Content-Type (서명에 포함된다)
-  - `:expires_in` — 초 (기본 1800)
+  ## Options
+  - `:key` — S3 object key (required)
+  - `:content_type` — the Content-Type to send on upload (included in the signature)
+  - `:expires_in` — seconds (default 1800)
   """
   def presign_upload(opts) do
     key = Keyword.fetch!(opts, :key)
@@ -35,7 +36,8 @@ defmodule VR.Storage.S3 do
 
     with {:ok, config} <- aws_config(),
          {:ok, bucket} <- fetch_required("storage.bucket") do
-      # Content-Type 을 서명에 넣는다. 클라이언트가 다른 타입으로 올리면 S3가 거부한다.
+      # Content-Type goes into the signature. If the client uploads with a
+      # different type, S3 rejects it.
       result =
         ExAws.Config.new(:s3, config)
         |> ExAws.S3.presigned_url(:put, bucket, key,
@@ -56,24 +58,26 @@ defmodule VR.Storage.S3 do
            }}
 
         {:error, reason} ->
-          Logger.error("[Storage] presign 실패: #{inspect(reason)}")
+          Logger.error("[Storage] presign failed: #{inspect(reason)}")
           {:error, :presign_failed}
       end
     end
   end
 
   @doc """
-  GET 용 presigned URL.
+  Presigned URL for GET.
 
-  ## 왜 서명 없는 URL 을 쓰지 않는가
+  ## Why we do not use unsigned URLs
 
-  `recording_key/4` 는 `meeting_id` · `session_id` · `started_at_unix` · 확장자로
-  **완전히 결정된다.** 이 값들은 회의를 볼 수 있는 사람이면 API 응답으로 다 받는다.
-  그래서 응답에서 `audio_url` 필드만 지우는 것으로는 Viewer 마스킹이 되지 않는다 —
-  키를 손으로 조립하면 그만이다. 서명을 붙이고 **버킷을 비공개로 두어야** 닫힌다.
+  `recording_key/4` is **fully determined** by `meeting_id`, `session_id`,
+  `started_at_unix`, and the extension. Anyone who can view the meeting receives
+  all of these in API responses. So merely removing the `audio_url` field from a
+  response does not mask it from Viewers — they can assemble the key by hand.
+  Only signing plus **keeping the bucket private** closes this.
 
-  ## 옵션
-  - `:expires_in` — 초. 없으면 `storage.download_url_ttl_seconds` 설정, 그것도 없으면 300
+  ## Options
+  - `:expires_in` — seconds. Falls back to the `storage.download_url_ttl_seconds`
+    setting, then to 300
   """
   def presign_download(key, opts \\ [])
 
@@ -81,7 +85,8 @@ defmodule VR.Storage.S3 do
   def presign_download("", _opts), do: {:error, :no_storage_key}
 
   def presign_download(key, opts) when is_binary(key) do
-    # 운영자가 설정한 값이 있으면 그것이 최종이다. 없을 때만 호출부 판단을 쓴다.
+    # An operator-configured value is final. The caller's choice is used only
+    # when there is none.
     expires_in =
       configured_download_ttl() || Keyword.get(opts, :expires_in) || @download_expires_in
 
@@ -94,7 +99,7 @@ defmodule VR.Storage.S3 do
           {:ok, url}
 
         {:error, reason} ->
-          Logger.error("[Storage] 다운로드 presign 실패: #{inspect(reason)}")
+          Logger.error("[Storage] download presign failed: #{inspect(reason)}")
           {:error, :presign_failed}
       end
     end
@@ -116,10 +121,10 @@ defmodule VR.Storage.S3 do
   end
 
   @doc """
-  우리 버킷이나 CDN 의 오브젝트를 가리키는 URL 인가.
+  Does this URL point to an object in our bucket or CDN?
 
-  워커가 오디오를 내려받기 전에 확인한다. 클라이언트가 준 주소를 그대로
-  따라가면 사설망·클라우드 메타데이터 엔드포인트로 서버를 보낼 수 있다.
+  Checked before a worker downloads audio. Following a client-supplied address
+  as-is can send the server to private networks or cloud metadata endpoints.
   """
   def own_object_url?(url) when is_binary(url) do
     case URI.parse(url) do
@@ -156,7 +161,7 @@ defmodule VR.Storage.S3 do
     end
   end
 
-  @doc "서버에서 직접 올린다. 분할 청크 등 서버가 만든 파일용."
+  @doc "Uploads directly from the server. For server-generated files such as split chunks."
   def put_object(key, body, content_type) do
     with {:ok, config} <- aws_config(),
          {:ok, bucket} <- fetch_required("storage.bucket") do
@@ -168,13 +173,13 @@ defmodule VR.Storage.S3 do
           {:ok, %{key: key, download_url: public_url(key)}}
 
         {:error, reason} ->
-          Logger.error("[Storage] 업로드 실패: #{inspect(reason)}")
+          Logger.error("[Storage] upload failed: #{inspect(reason)}")
           {:error, :upload_failed}
       end
     end
   end
 
-  @doc "다운로드 URL. CDN 도메인이 있으면 그쪽으로."
+  @doc "Download URL. Uses the CDN domain when one is set."
   def public_url(key) do
     case Config.fetch("storage.cdn_base_url") do
       nil -> s3_url(key)
@@ -189,7 +194,7 @@ defmodule VR.Storage.S3 do
     "https://#{bucket}.s3.#{region}.amazonaws.com/#{key}"
   end
 
-  @doc "필수 설정이 모두 있는가."
+  @doc "Are all required settings present?"
   def configured? do
     Enum.all?(
       ~w(storage.bucket storage.region storage.access_key_id storage.secret_access_key),
@@ -197,7 +202,7 @@ defmodule VR.Storage.S3 do
     )
   end
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
   defp aws_config do
     with {:ok, access_key_id} <- fetch_required("storage.access_key_id"),

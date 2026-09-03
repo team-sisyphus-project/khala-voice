@@ -23,15 +23,18 @@ const STATUS_TABS: { value: ArchiveStatus; labelKey: string }[] = [
 ];
 
 /**
- * 회의 목록 · 검색.
+ * Meeting list & search.
  *
- * 사용자 요구(2026-08-20): **"회의는 즉시 녹음, 아카이브는 회의의 목록."**
- * 그래서 이 화면이 목록의 집이다. 상태(진행 중 · 완료 · 보관)는 여기서 고른다.
+ * User requirement (2026-08-20): **"Meetings = record now; Archive = the list
+ * of meetings."** So this screen is the list's home. Status (active ·
+ * completed · archived) is chosen here.
  *
- * 검색 조건은 화면에 펼쳐 두지 않고 **우측 상단 아이콘 → 시트**로 접었다.
- * 목록이 주인공인데 조건이 첫 화면을 다 먹으면 안 된다.
+ * Search criteria aren't spread across the screen — they're folded behind the
+ * **top-right icon → sheet**. The list is the star; criteria must not eat the
+ * first screen.
  *
- * 필터 상태는 URL 에 있다 (`useArchiveFilters`) — 찾은 화면을 그대로 공유할 수 있어야 한다.
+ * Filter state lives in the URL (`useArchiveFilters`) — a found view must be
+ * shareable as-is.
  */
 export function ArchivePage() {
   const { t } = useTranslation();
@@ -48,8 +51,9 @@ export function ArchivePage() {
   const [sheet, setSheet] = useState(false);
 
   /**
-   * 접힌 토픽 그룹. **접힌 쪽을 기억한다** (펼친 쪽이 아니라) — 새 토픽이
-   * 생기면 기본이 "펼침"이어야 목록에서 사라지지 않는다.
+   * Collapsed topic groups. **Remember the collapsed ones** (not the expanded
+   * ones) — a new topic must default to "expanded" so it doesn't vanish from
+   * the list.
    */
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
@@ -62,7 +66,7 @@ export function ArchivePage() {
     });
   }, []);
 
-  // 입력 중에는 주소창만 바꾸고 요청은 멈춘 뒤에 보낸다
+  // While typing, only the address bar changes; the request goes out after a pause
   const [draft, setDraft] = useState(filters.q);
   const typing = useRef(false);
 
@@ -109,7 +113,7 @@ export function ArchivePage() {
     void search();
   }, [search]);
 
-  // 필터가 바뀌면 처음부터 다시 본다
+  // When filters change, start viewing from the top again
   useEffect(() => {
     setShown(PAGE_SIZE);
   }, [
@@ -125,7 +129,7 @@ export function ArchivePage() {
 
   const multipleLabels = filters.labelIds.length > 1;
 
-  // 상태 탭은 조건이 아니라 목록의 갈래다. 상단의 "필터 켜짐" 표시에서는 뺀다.
+  // Status tabs are branches of the list, not criteria. Excluded from the "filters on" indicator up top.
   const narrowed =
     filters.q !== "" ||
     filters.topicId !== null ||
@@ -147,7 +151,7 @@ export function ArchivePage() {
             active={narrowed}
             onClick={() => setSheet(true)}
           />
-          {/* 분류는 여기서 필터로 쓰는 것이라 관리 화면도 이 안쪽에 둔다 */}
+          {/* Taxonomy is used as a filter here, so its management screen also lives inside this one */}
           <Link
             className="mobile-top-app-bar__icon-button"
             to={routes.taxonomy}
@@ -276,8 +280,8 @@ export function ArchivePage() {
               <div className="vr-filter__group">
                 <span className="vr-filter__label">
                   {t("archive.label")}
-                  {/* 여러 개를 골랐을 때만 의미가 있다. 현재 모드가 늘 보여야
-                      0건일 때 "왜 안 나오는지"를 알 수 있다. */}
+                  {/* Only meaningful with multiple selections. The current mode
+                      must always show so a zero-result view explains "why nothing shows". */}
                   {multipleLabels && (
                     <>
                       {" · "}
@@ -330,8 +334,8 @@ export function ArchivePage() {
               </div>
             </div>
 
-            {/* 아이콘은 `icon` 프롭으로 준다. children 으로 넣으면 라벨 span
-                안으로 들어가 아이콘과 글자가 두 줄로 쌓인다. */}
+            {/* Pass the icon via the `icon` prop. Put it in children and it lands
+                inside the label span, stacking icon and text on two lines. */}
             <Button
               variant={filters.onlyMine ? "primary" : "secondary"}
               icon={filters.onlyMine ? "check" : "group"}
@@ -360,10 +364,11 @@ export function ArchivePage() {
 type Group = { key: string; topic: Topic | null; meetings: Meeting[] };
 
 /**
- * 토픽으로 묶는다.
+ * Group by topic.
  *
- * 순서는 토픽의 `sort_order` 를 따른다 — 분류 화면에서 정한 순서가 여기서도
- * 같아야 "위에 둔 것"이 의미를 갖는다. 토픽이 없는 회의는 **맨 아래** 한 덩어리로.
+ * Order follows the topics' `sort_order` — the order set on the taxonomy
+ * screen must match here for "what I put on top" to mean anything. Meetings
+ * with no topic go in one block at the **very bottom**.
  */
 function groupByTopic(meetings: Meeting[]): Group[] {
   const groups = new Map<string, Group>();
@@ -428,7 +433,7 @@ function TopicGroup({
                         ` · ${formatDuration(meeting.total_duration_seconds)}`}
                     </div>
 
-                    {/* 그룹 머리가 토픽을 이미 들고 있다. 라벨만 남긴다. */}
+                    {/* The group header already carries the topic. Keep only the labels. */}
                     <TagRow labels={meeting.labels} />
 
                     {meeting.summary && <p className="vr-result__summary">{meeting.summary}</p>}

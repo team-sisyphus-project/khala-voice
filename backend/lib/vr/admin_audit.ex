@@ -1,10 +1,11 @@
 defmodule VR.AdminAudit do
   @moduledoc """
-  관리자 계정 작업의 구조화 감사 저장소.
+  Structured audit store for admin account operations.
 
-  이벤트는 수정 API 없이 추가 전용으로 기록한다. 이메일 원문은 저장하지 않으며,
-  계정 ID와 제한된 분류 필드로만 검색한다. 온라인 보존 기간은 365일이고 매일
-  `VR.Workers.AdminAuditRetentionWorker`가 만료 이벤트를 영구 삭제한다.
+  Events are recorded append-only with no update API. Raw emails are never stored;
+  searches use only account IDs and a limited set of classification fields. Online
+  retention is 365 days, and `VR.Workers.AdminAuditRetentionWorker` permanently
+  deletes expired events daily.
   """
 
   import Ecto.Query, warn: false
@@ -17,7 +18,7 @@ defmodule VR.AdminAudit do
   @range_filters ~w(occurred_from occurred_until)a
   @search_filters @exact_filters ++ @range_filters
 
-  @doc "원문 이메일을 마스킹한 뒤 감사 이벤트를 추가한다."
+  @doc "Adds an audit event after masking the raw emails."
   def record(attrs) when is_map(attrs) do
     attrs
     |> changeset()
@@ -37,7 +38,7 @@ defmodule VR.AdminAudit do
     Event.changeset(%Event{}, attrs)
   end
 
-  @doc "허용된 정확 일치 및 발생시각 범위 조건으로 이벤트를 검색한다."
+  @doc "Searches events using the allowed exact-match and occurrence-time range filters."
   def search(filters \\ []) when is_list(filters) do
     unsupported = filters |> Keyword.keys() |> Enum.uniq() |> Kernel.--(@search_filters)
 
@@ -68,14 +69,14 @@ defmodule VR.AdminAudit do
     end
   end
 
-  @doc "365일이 지난 이벤트를 운영 저장소에서 영구 삭제한다."
+  @doc "Permanently deletes events older than 365 days from the operational store."
   def purge_expired(now \\ DateTime.utc_now(:second)) do
     cutoff = DateTime.add(now, -@retention_days, :day)
     {count, _} = Repo.delete_all(from event in Event, where: event.occurred_at <= ^cutoff)
     count
   end
 
-  @doc "정책에 따른 이메일 표시값을 만든다. 원문은 반환하거나 저장하지 않는다."
+  @doc "Builds the policy-compliant display value for an email. The raw value is never returned or stored."
   def mask_email(email) when is_binary(email) do
     normalized = email |> String.trim() |> String.downcase()
 

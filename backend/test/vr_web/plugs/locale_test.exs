@@ -4,7 +4,7 @@ defmodule VRWeb.Plugs.LocaleTest do
   alias VRWeb.Plugs.Locale
 
   setup do
-    # 각 테스트가 프로세스 로케일을 오염시키지 않도록 기본값으로 되돌린다.
+    # Restore the default so tests do not pollute the process locale.
     on_exit(fn -> Gettext.put_locale(VRWeb.Gettext, "en") end)
     :ok
   end
@@ -16,7 +16,7 @@ defmodule VRWeb.Plugs.LocaleTest do
     |> Locale.call(Locale.init([]))
   end
 
-  test "계정의 locale 로 Gettext 로케일을 맞춘다", %{conn: conn} do
+  test "sets the Gettext locale to the account locale", %{conn: conn} do
     conn = run(conn, %{locale: "ko"})
 
     assert Gettext.get_locale(VRWeb.Gettext) == "ko"
@@ -24,21 +24,21 @@ defmodule VRWeb.Plugs.LocaleTest do
     assert get_session(conn, :locale) == "ko"
   end
 
-  test "로그인하지 않았으면 영어로 떨어진다", %{conn: conn} do
+  test "falls back to English when not logged in", %{conn: conn} do
     conn = run(conn, nil)
 
     assert Gettext.get_locale(VRWeb.Gettext) == "en"
     assert conn.assigns.locale == "en"
   end
 
-  test "locale 이 비어 있으면 영어로 떨어진다", %{conn: conn} do
+  test "falls back to English when locale is empty", %{conn: conn} do
     conn = run(conn, %{locale: ""})
 
     assert Gettext.get_locale(VRWeb.Gettext) == "en"
     assert conn.assigns.locale == "en"
   end
 
-  test "resolve/1 는 플러그와 on_mount 가 공유하는 규칙이다" do
+  test "resolve/1 is the rule shared by the plug and on_mount" do
     assert Locale.resolve(%{locale: "ja"}) == "ja"
     assert Locale.resolve(%{locale: nil}) == "en"
     assert Locale.resolve(nil) == "en"

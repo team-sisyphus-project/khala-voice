@@ -2,14 +2,14 @@ import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router";
 
 /**
- * 아카이브 필터 상태를 **URL 에 둔다.**
+ * Archive filter state lives **in the URL.**
  *
- * 컴포넌트 state 에만 두면 필터를 걸어 찾은 화면을 공유할 수도, 새로고침 뒤에
- * 되찾을 수도, 뒤로가기로 돌아갈 수도 없다. 아카이브는 "찾아서 남에게 보내는"
- * 화면이라 이게 특히 아쉽다.
+ * Kept only in component state, a filtered view could not be shared, recovered
+ * after a refresh, or returned to with the back button. The archive is a
+ * "find it and send it to someone" screen, so that would hurt especially here.
  *
- * sisyphus 는 모바일에 URL 라우트가 아예 없어 이런 상태가 전부 휘발됐다
- * (`docs/10-porting-map.md` B6).
+ * sisyphus had no URL routes on mobile at all, so all of this state
+ * evaporated (`docs/10-porting-map.md` B6).
  */
 export type ArchiveStatus = "all" | "active" | "completed" | "archived";
 
@@ -25,8 +25,9 @@ export interface ArchiveFilters {
 }
 
 const EMPTY: ArchiveFilters = {
-  // 아카이브 탭이 회의 목록을 겸한다(2026-08-20). 기본은 **전부** 보여준다 —
-  // 예전처럼 보관본만 기본으로 잡으면 방금 만든 회의가 목록에서 사라진다.
+  // The archive tab doubles as the meeting list (2026-08-20). Default shows
+  // **everything** — defaulting to archived only, as before, made a just-created
+  // meeting vanish from the list.
   status: "all",
   q: "",
   topicId: null,
@@ -63,14 +64,14 @@ export function useArchiveFilters() {
       if (next.q) query.set("q", next.q);
       if (next.topicId) query.set("topic", next.topicId);
       if (next.labelIds.length) query.set("labels", next.labelIds.join(","));
-      // 기본값은 URL 에 쓰지 않는다 — 주소가 길어지기만 한다
+      // Defaults aren't written to the URL — they'd only lengthen the address
       if (next.labelMode === "or") query.set("mode", "or");
       if (next.from) query.set("from", next.from);
       if (next.to) query.set("to", next.to);
       if (next.onlyMine) query.set("mine", "1");
 
-      // 필터 조작은 히스토리를 쌓지 않는다. 뒤로가기가 필터 조작 이력으로
-      // 가득 차면 "아카이브 화면에서 나가기"가 불가능해진다.
+      // Filter changes don't stack history. With back-navigation full of filter
+      // tweaks, "leaving the archive screen" becomes impossible.
       setParams(query, { replace: true });
     },
     [filters, setParams],
@@ -101,8 +102,8 @@ export function useArchiveFilters() {
 }
 
 /**
- * 필터 → API 쿼리. **이 함수 한 곳에서만 변환한다** —
- * 호출부마다 매핑하면 화면과 서버가 다른 조건을 보게 된다.
+ * Filters → API query. **Converted in this one function only** —
+ * mapping at every call site lets the screen and the server see different criteria.
  */
 export function toApiParams(
   filters: ArchiveFilters,

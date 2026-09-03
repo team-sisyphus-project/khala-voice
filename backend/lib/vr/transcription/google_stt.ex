@@ -1,30 +1,32 @@
 defmodule VR.Transcription.GoogleSTT do
   @moduledoc """
-  Google Cloud Speech-to-Text v2 (Chirp) 클라이언트.
+  Google Cloud Speech-to-Text v2 (Chirp) client.
 
-  **출처: sisyphus** `lib/sisyphus/meetings/google_stt.ex` (997줄)
-  — 설정 소스를 `VR.Config` 로 바꾸고, Agora 화상 녹화 전용 경로
-  (HLS `.m3u8` 다운로드 · MPEG-TS 변환)를 제거했다. 나머지는 그대로다.
+  **Source: sisyphus** `lib/sisyphus/meetings/google_stt.ex` (997 lines)
+  — the configuration source was switched to `VR.Config`, and the Agora video
+  recording path (HLS `.m3u8` download, MPEG-TS conversion) was removed.
+  The rest is unchanged.
 
-  ## 왜 batchRecognize 인가
+  ## Why batchRecognize
 
-  동기 `recognize` 는 60초까지만 받는다. 회의는 그보다 길다.
-  batch 는 **GCS URI 만 받으므로** 오디오를 임시 버킷에 올렸다가 지우는 왕복이 생긴다.
-  이 왕복이 GCS 버킷 설정을 필수로 만드는 이유다.
+  The synchronous `recognize` accepts at most 60 seconds. Meetings run longer.
+  Batch **only accepts GCS URIs**, so there is a round trip of uploading the
+  audio to a temporary bucket and deleting it. That round trip is why a GCS
+  bucket setting is mandatory.
 
-  ## 흐름
+  ## Flow
 
-      1. 오디오 다운로드 (S3)
-      2. GCS 임시 버킷 업로드
-      3. batchRecognize 제출 → operation name
-      4. 5초 간격 폴링 (최대 30분)
-      5. 결과 GCS 파일 읽기 → 단어를 화자별로 묶기
-      6. 임시 파일 정리 (성공·실패 모두)
+      1. Download audio (S3)
+      2. Upload to temporary GCS bucket
+      3. Submit batchRecognize → operation name
+      4. Poll every 5 seconds (up to 30 minutes)
+      5. Read the result GCS file → group words by speaker
+      6. Clean up temporary files (on both success and failure)
 
-  ## 개발 모드
+  ## Dev mode
 
-  `stt.dev_mode` 를 켜면 실제 호출 없이 목 세그먼트를 준다.
-  GCP 자격증명 없이 전체 UI 흐름을 확인할 수 있다.
+  With `stt.dev_mode` on, mock segments are returned without any real calls.
+  The full UI flow can be verified without GCP credentials.
   """
 
   alias VR.Config
@@ -43,17 +45,17 @@ defmodule VR.Transcription.GoogleSTT do
         }
 
   @doc """
-  오디오 URL 을 전사한다.
+  Transcribes an audio URL.
 
-  ## 옵션
-  - `:language` — 언어 코드 (기본 `"en-US"`)
-  - `:mime_type` — 오디오 형식 (기본 `"audio/mpeg"`)
-  - `:min_speakers` / `:max_speakers` — 화자 분리 범위 (기본 1~6)
+  ## Options
+  - `:language` — language code (default `"en-US"`)
+  - `:mime_type` — audio format (default `"audio/mpeg"`)
+  - `:min_speakers` / `:max_speakers` — speaker diarization range (default 1–6)
   """
   @spec transcribe(String.t(), keyword()) :: {:ok, [segment()]} | {:error, term()}
   def transcribe(audio_url, opts \\ []) do
     if dev_mode?() do
-      Logger.info("[GoogleSTT] 개발 모드 — 목 전사 결과를 돌려줍니다: #{audio_url}")
+      Logger.info("[GoogleSTT] dev mode — returning mock transcription result: #{audio_url}")
       {:ok, mock_segments()}
     else
       with {:ok, config} <- fetch_config(),
@@ -64,14 +66,14 @@ defmodule VR.Transcription.GoogleSTT do
     end
   end
 
-  @doc "이 환경에서 전사를 실제로 할 수 있는가."
+  @doc "Can transcription actually run in this environment?"
   def ready? do
     dev_mode?() or match?({:ok, _}, fetch_config())
   end
 
   def dev_mode?, do: Config.fetch("stt.dev_mode") == true
 
-  # ── 설정 ─────────────────────────────────────────────────
+  # ── Configuration ────────────────────────────────────────
 
   defp fetch_config do
     credentials = Config.fetch("stt.credentials_json")
@@ -103,7 +105,7 @@ defmodule VR.Transcription.GoogleSTT do
   defp blank?(""), do: true
   defp blank?(_), do: false
 
-  # ── 인증: 서비스 계정 → 액세스 토큰 ─────────────────────
+  # ── Auth: service account → access token ─────────────────
 
   defp access_token(%{credentials_json: json}) do
     case Jason.decode(json) do
@@ -157,8 +159,8 @@ defmodule VR.Transcription.GoogleSTT do
         {:ok, token}
 
       {:ok, %{status: status}} ->
-        # 응답 본문에 토큰이 섞일 수 있으니 통째로 로그에 남기지 않는다
-        Logger.error("[GoogleSTT] 토큰 교환 실패: status=#{status}")
+        # The response body may contain a token, so never log it whole
+        Logger.error("[GoogleSTT] token exchange failed: status=#{status}")
         {:error, {:token_exchange_failed, status}}
 
       {:error, reason} ->
@@ -166,7 +168,7 @@ defmodule VR.Transcription.GoogleSTT do
     end
   end
 
-  # ── 오디오 다운로드 ──────────────────────────────────────
+  # ── Audio download ───────────────────────────────────────
 
   defp download_audio(url) do
     case Req.get(url, receive_timeout: 120_000, max_redirects: 5) do
@@ -181,7 +183,7 @@ defmodule VR.Transcription.GoogleSTT do
     end
   end
 
-  # ── 배치 전사 ────────────────────────────────────────────
+  # ── Batch transcription ──────────────────────────────────
 
   defp transcribe_batch(config, token, audio, opts) do
     bucket = config.gcs_bucket
@@ -194,7 +196,7 @@ defmodule VR.Transcription.GoogleSTT do
     gcs_uri = "gs://#{bucket}/#{object}"
     language = Keyword.get(opts, :language, "en-US")
 
-    Logger.info("[GoogleSTT] 배치 시작: #{gcs_uri} language=#{language} mime=#{mime_type}")
+    Logger.info("[GoogleSTT] batch started: #{gcs_uri} language=#{language} mime=#{mime_type}")
 
     result =
       with {:ok, _} <- upload_to_gcs(token, bucket, object, audio, content_type),
@@ -213,14 +215,15 @@ defmodule VR.Transcription.GoogleSTT do
         parse_batch_result(response, token, bucket, result_prefix)
       end
 
-    # 성공하든 실패하든 임시 파일은 지운다. 안 지우면 GCS 비용이 계속 쌓인다.
+    # Temporary files are deleted whether we succeed or fail. Otherwise GCS
+    # costs keep piling up.
     delete_gcs_object(token, bucket, object)
     cleanup_results(token, bucket, result_prefix)
 
     result
   end
 
-  # mime_type → 확장자 · content-type
+  # mime_type → extension, content-type
   defp file_info("audio/webm" <> _), do: {"webm", "audio/webm"}
   defp file_info("audio/mp4" <> _), do: {"mp4", "audio/mp4"}
   defp file_info("audio/m4a" <> _), do: {"m4a", "audio/mp4"}
@@ -231,8 +234,8 @@ defmodule VR.Transcription.GoogleSTT do
   defp file_info("audio/mp3" <> _), do: {"mp3", "audio/mpeg"}
   defp file_info(_), do: {"mp3", "audio/mpeg"}
 
-  # 디코딩 설정.
-  # autoDecodingConfig 가 실패하는 조합이 있어 아는 것은 명시한다.
+  # Decoding configuration.
+  # Some combinations fail with autoDecodingConfig, so known ones are explicit.
   # https://cloud.google.com/speech-to-text/v2/docs/encoding
   defp decoding_config("audio/webm;codecs=opus"),
     do: explicit("WEBM_OPUS", 48_000)
@@ -249,7 +252,7 @@ defmodule VR.Transcription.GoogleSTT do
       "explicitDecodingConfig" => %{
         "encoding" => encoding,
         "sampleRateHertz" => sample_rate,
-        # 모노 전제. 화자 분리가 단일 채널만 지원한다.
+        # Mono assumed. Speaker diarization supports only a single channel.
         "audioChannelCount" => 1
       }
     }
@@ -269,7 +272,7 @@ defmodule VR.Transcription.GoogleSTT do
         {:ok, :uploaded}
 
       {:ok, %{status: status, body: body}} ->
-        Logger.error("[GoogleSTT] GCS 업로드 실패: status=#{status} #{inspect(body)}")
+        Logger.error("[GoogleSTT] GCS upload failed: status=#{status} #{inspect(body)}")
         {:error, {:gcs_upload_failed, status}}
 
       {:error, reason} ->
@@ -307,11 +310,11 @@ defmodule VR.Transcription.GoogleSTT do
            receive_timeout: 30_000
          ) do
       {:ok, %{status: 200, body: %{"name" => operation}}} ->
-        Logger.info("[GoogleSTT] 배치 작업 시작: #{operation}")
+        Logger.info("[GoogleSTT] batch operation started: #{operation}")
         {:ok, operation}
 
       {:ok, %{status: status, body: body}} ->
-        Logger.error("[GoogleSTT] 배치 제출 실패: status=#{status} #{inspect(body)}")
+        Logger.error("[GoogleSTT] batch submit failed: status=#{status} #{inspect(body)}")
         {:error, {:batch_submit_failed, status, body}}
 
       {:error, reason} ->
@@ -319,7 +322,7 @@ defmodule VR.Transcription.GoogleSTT do
     end
   end
 
-  # 리전별 엔드포인트. global 만 접두사가 없다.
+  # Per-region endpoints. Only global has no prefix.
   defp speech_endpoint(%{location: "global"}), do: "https://speech.googleapis.com"
   defp speech_endpoint(%{location: region}), do: "https://#{region}-speech.googleapis.com"
 
@@ -342,21 +345,21 @@ defmodule VR.Transcription.GoogleSTT do
           else: {:ok, body}
 
       {:ok, %{status: 200}} ->
-        # 1분마다 한 번만 남긴다. 매번 찍으면 로그가 폴링으로 가득 찬다.
+        # Logged only once a minute. Logging every attempt fills the log with polling.
         if rem(attempt, 12) == 0 do
-          Logger.info("[GoogleSTT] 진행 중: #{attempt * 5}초 경과 #{operation}")
+          Logger.info("[GoogleSTT] in progress: #{attempt * 5}s elapsed #{operation}")
         end
 
         poll(config, token, operation, attempt + 1)
 
       {:ok, %{status: status, body: body}} ->
-        Logger.error("[GoogleSTT] 폴링 실패: status=#{status} #{inspect(body)}")
+        Logger.error("[GoogleSTT] polling failed: status=#{status} #{inspect(body)}")
         {:error, {:poll_failed, status}}
 
       {:error, reason} ->
-        # 일시적 네트워크 오류로 전체를 버리지 않는다
+        # A transient network error should not throw away the whole run
         if attempt < @max_poll_attempts - 1 do
-          Logger.warning("[GoogleSTT] 폴링 오류(재시도): #{inspect(reason)}")
+          Logger.warning("[GoogleSTT] polling error (retrying): #{inspect(reason)}")
           poll(config, token, operation, attempt + 1)
         else
           {:error, {:poll_request_failed, reason}}
@@ -364,7 +367,7 @@ defmodule VR.Transcription.GoogleSTT do
     end
   end
 
-  # ── 결과 파싱 ────────────────────────────────────────────
+  # ── Result parsing ───────────────────────────────────────
 
   defp parse_batch_result(response, token, bucket, prefix) do
     results = get_in(response, ["response", "results"]) || %{}
@@ -373,8 +376,8 @@ defmodule VR.Transcription.GoogleSTT do
       Enum.reduce(results, {[], []}, fn {file_uri, file_result}, {segs, errs} ->
         cond do
           error = file_result["error"] ->
-            message = error["message"] || "알 수 없는 오류"
-            Logger.error("[GoogleSTT] 전사 오류 #{file_uri}: #{message}")
+            message = error["message"] || "unknown error"
+            Logger.error("[GoogleSTT] transcription error #{file_uri}: #{message}")
             {segs, [{file_uri, message} | errs]}
 
           output_uri = get_in(file_result, ["cloudStorageResult", "uri"]) || file_result["uri"] ->
@@ -384,7 +387,7 @@ defmodule VR.Transcription.GoogleSTT do
             end
 
           true ->
-            # 인라인 결과가 올 때도 있다
+            # Sometimes an inline result arrives
             inline = file_result["inlineResult"] || file_result
             {segs ++ parse_result(inline), errs}
         end
@@ -396,7 +399,8 @@ defmodule VR.Transcription.GoogleSTT do
     cond do
       segments != [] -> {:ok, segments}
       errors != [] -> {:error, {:transcription_failed, errors}}
-      # 결과는 왔는데 세그먼트가 없다 = 무음이거나 인식 실패. 오류가 아니다.
+      # A result came back but with no segments = silence or recognition
+      # failure. Not an error.
       true -> {:ok, []}
     end
   end
@@ -420,7 +424,7 @@ defmodule VR.Transcription.GoogleSTT do
             {:error, _} -> {:error, :invalid_json}
           end
 
-        # 작업은 끝났는데 파일이 아직 안 쓰였을 수 있다
+        # The operation may be done while the file has not been written yet
         {:ok, %{status: 404}} when retries > 0 ->
           Process.sleep(2_000)
           read_gcs_json(token, gcs_uri, retries - 1)
@@ -472,7 +476,7 @@ defmodule VR.Transcription.GoogleSTT do
     _ -> :ok
   end
 
-  # ── 세그먼트 만들기 ──────────────────────────────────────
+  # ── Building segments ────────────────────────────────────
 
   defp parse_result(payload) do
     response = payload["response"] || payload["result"] || payload
@@ -488,8 +492,8 @@ defmodule VR.Transcription.GoogleSTT do
     |> merge_adjacent()
   end
 
-  # 단어 단위 결과를 화자별로 묶는다.
-  # 화자가 바뀔 때만 새 세그먼트를 연다.
+  # Groups word-level results by speaker.
+  # A new segment opens only when the speaker changes.
   defp group_by_speaker([]), do: []
 
   defp group_by_speaker(words) do
@@ -530,7 +534,8 @@ defmodule VR.Transcription.GoogleSTT do
     |> Enum.reverse()
   end
 
-  # 파일이 여러 개로 나뉘어 오면 경계에서 같은 화자가 갈라진다. 다시 붙인다.
+  # When a file arrives split into pieces, the same speaker is cut apart at the
+  # boundaries. Stitch them back together.
   defp merge_adjacent(segments) do
     segments
     |> Enum.reduce([], fn seg, acc ->
@@ -565,7 +570,7 @@ defmodule VR.Transcription.GoogleSTT do
   defp to_ms(value) when is_number(value), do: round(value * 1000)
   defp to_ms(_), do: 0
 
-  # ── 개발 모드 목 데이터 ──────────────────────────────────
+  # ── Dev-mode mock data ───────────────────────────────────
 
   defp mock_segments do
     [
@@ -574,35 +579,35 @@ defmodule VR.Transcription.GoogleSTT do
         start_ms: 0,
         end_ms: 5_200,
         confidence: 0.95,
-        text: "안녕하세요, 오늘 회의를 시작하겠습니다. 첫 번째 안건은 프로젝트 진행 상황입니다."
+        text: "Hello everyone, let's start today's meeting. The first item is the project status."
       },
       %{
         speaker: "speaker_2",
         start_ms: 5_400,
         end_ms: 12_800,
         confidence: 0.93,
-        text: "네, 지난주에 이야기한 녹음 기능은 이번 주에 마무리될 것 같습니다."
+        text: "Sure, the recording feature we discussed last week should be wrapped up this week."
       },
       %{
         speaker: "speaker_1",
         start_ms: 13_000,
         end_ms: 19_500,
         confidence: 0.94,
-        text: "좋습니다. 그러면 4월 30일까지 배포하는 걸로 정하겠습니다."
+        text: "Great. Then let's set the release for April 30th."
       },
       %{
         speaker: "speaker_3",
         start_ms: 19_800,
         end_ms: 26_100,
         confidence: 0.91,
-        text: "일정은 괜찮은데 QA 인원이 부족합니다. 세 명 정도 더 필요합니다."
+        text: "The schedule is fine, but we are short on QA staff. We need about three more people."
       },
       %{
         speaker: "speaker_2",
         start_ms: 26_400,
         end_ms: 31_000,
         confidence: 0.92,
-        text: "그 부분은 제가 다음 주 월요일까지 확인해서 공유하겠습니다."
+        text: "I will check on that and share an update by next Monday."
       }
     ]
   end

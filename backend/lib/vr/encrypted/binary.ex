@@ -1,6 +1,6 @@
 defmodule VR.Encrypted.Binary do
   @moduledoc """
-  Cloak으로 암호화되어 저장되는 바이너리 필드 타입.
+  Binary field type stored encrypted with Cloak.
 
       field :client_secret, VR.Encrypted.Binary, source: :client_secret_encrypted
   """

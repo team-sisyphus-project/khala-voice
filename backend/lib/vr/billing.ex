@@ -1,11 +1,11 @@
 defmodule VR.Billing do
   @moduledoc """
-  플랜 · 구독.
+  Plans and subscriptions.
 
-  **출처: devkanban** `lib/manualsquad/billing.ex` + `docs/billing-commerce-design.md`.
-  결제 · 팩 구매 · 오토충전 · 엔터프라이즈 계약은 이식하지 않았다.
+  **Source: devkanban** `lib/manualsquad/billing.ex` + `docs/billing-commerce-design.md`.
+  Payments, pack purchases, auto top-up, and enterprise contracts were not ported.
 
-  크레딧 자체는 `VR.Billing.Credits` 가 다룬다.
+  Credits themselves are handled by `VR.Billing.Credits`.
   """
 
   import Ecto.Query, warn: false
@@ -19,7 +19,7 @@ defmodule VR.Billing do
 
   def free_plan_key, do: @free_plan_key
 
-  # ── 플랜 ─────────────────────────────────────────────────
+  # ── Plans ────────────────────────────────────────────────
 
   def list_plans(opts \\ []) do
     query = from p in Plan, order_by: [asc: p.sort_order, asc: p.key]
@@ -48,17 +48,17 @@ defmodule VR.Billing do
     plan |> Plan.meta_changeset(attrs) |> Repo.update()
   end
 
-  @doc "현재 구매 가능한 리비전. 없으면 가장 최근 것."
+  @doc "The currently purchasable revision. Falls back to the most recent one."
   def current_revision(%Plan{} = plan) do
     plan = preload_revisions(plan)
     Enum.find(plan.revisions, & &1.purchasable) || List.first(plan.revisions)
   end
 
   @doc """
-  새 리비전을 발행한다.
+  Publishes a new revision.
 
-  **이전 리비전은 `purchasable = false` 가 된다** — 신규 가입은 새 것으로 가고,
-  기존 구독은 자기 리비전을 유지한다 (그랜드파더링).
+  **Previous revisions become `purchasable = false`** — new signups go to the new one,
+  while existing subscriptions keep their own revision (grandfathering).
   """
   def publish_revision(%Plan{} = plan, attrs) do
     next =
@@ -87,7 +87,7 @@ defmodule VR.Billing do
     end
   end
 
-  # ── 구독 ─────────────────────────────────────────────────
+  # ── Subscriptions ────────────────────────────────────────
 
   def get_subscription(account_id) do
     Repo.one(
@@ -98,10 +98,11 @@ defmodule VR.Billing do
   end
 
   @doc """
-  가입 직후 무료 플랜에 구독시킨다.
+  Subscribes an account to the free plan right after signup.
 
-  무료 플랜이 없거나 이미 구독이 있으면 아무것도 하지 않는다 —
-  **가입 자체를 막지 않는다.** 요금 설정이 덜 됐다고 사용자가 못 들어오면 안 된다.
+  Does nothing if there is no free plan or a subscription already exists —
+  **it never blocks signup itself.** Users must not be locked out just because
+  billing has not been fully configured.
   """
   def ensure_default_subscription(account_id) do
     cond do
@@ -111,7 +112,7 @@ defmodule VR.Billing do
       true ->
         case get_plan_by_key(@free_plan_key) do
           nil ->
-            Logger.warning("[Billing] 무료 플랜(#{@free_plan_key})이 없어 구독을 건너뜁니다")
+            Logger.warning("[Billing] free plan (#{@free_plan_key}) not found; skipping subscription")
             {:ok, :no_plan}
 
           plan ->
@@ -123,7 +124,7 @@ defmodule VR.Billing do
     end
   end
 
-  @doc "구독을 만들고 첫 기간 크레딧을 지급한다."
+  @doc "Creates a subscription and grants the first period's credits."
   def subscribe(account_id, %PlanRevision{} = revision) do
     Ecto.Multi.new()
     |> Ecto.Multi.insert(
@@ -144,10 +145,10 @@ defmodule VR.Billing do
   end
 
   @doc """
-  이 기간의 크레딧을 지급한다. 기간 말에 만료된다 (이월 없음).
+  Grants the credits for this period. They expire at the end of the period (no rollover).
 
-  `idempotency_key` 에 기간 끝을 넣어 **같은 기간에 두 번 지급되지 않게** 한다.
-  워커가 재시도돼도 안전하다.
+  The period end is baked into the `idempotency_key` so **the same period is never
+  granted twice.** Safe even when the worker retries.
   """
   def grant_period_credits(%Subscription{} = subscription, %PlanRevision{} = revision) do
     amount = PlanRevision.granted_credits(revision)
@@ -160,7 +161,7 @@ defmodule VR.Billing do
       case Credits.grant(subscription.account_id, amount,
              source: "plan_grant",
              expires_at: DateTime.truncate(subscription.current_period_end, :microsecond),
-             reason: "플랜 기간 지급",
+             reason: "Plan period grant",
              idempotency_key: key,
              origin: %{
                "subscription_id" => subscription.id,
@@ -174,7 +175,7 @@ defmodule VR.Billing do
     end
   end
 
-  @doc "구독을 다음 기간으로 넘기고 크레딧을 지급한다. 월 지급 워커가 쓴다."
+  @doc "Advances the subscription to the next period and grants credits. Used by the monthly grant worker."
   def advance_period(%Subscription{} = subscription) do
     subscription = Repo.preload(subscription, :plan_revision)
     revision = subscription.plan_revision
@@ -194,7 +195,7 @@ defmodule VR.Billing do
     end
   end
 
-  @doc "기간이 끝난 활성 구독. 월 지급 워커가 훑는다."
+  @doc "Active subscriptions whose period has ended. Scanned by the monthly grant worker."
   def list_due_subscriptions(now \\ nil) do
     now = now || DateTime.utc_now(:second)
 
@@ -205,7 +206,7 @@ defmodule VR.Billing do
     )
   end
 
-  @doc "계정의 요금 상태 한 묶음. 화면에 그대로 쓴다."
+  @doc "A bundle of the account's billing state. Used as-is by the UI."
   def account_summary(account_id) do
     subscription = get_subscription(account_id)
 

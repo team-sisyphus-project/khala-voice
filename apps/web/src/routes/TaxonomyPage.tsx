@@ -15,14 +15,15 @@ const COLORS: ColorKey[] = [
 ];
 
 /**
- * 분류 관리 — 토픽과 라벨. **아카이브 안쪽의 화면이다.**
+ * Taxonomy management — topics and labels. **A screen inside the archive.**
  *
- * 분류는 아카이브를 검색하려고 붙이는 것이라 주 메뉴에 둘 만큼 자주 열지 않는다.
- * 아카이브 필터 옆에서 들어온다.
+ * Taxonomy exists to search the archive, so it isn't opened often enough to
+ * live in the main menu. It's entered from beside the archive filters.
  *
- * 토픽은 회의당 하나, 라벨은 여러 개다. 아카이브 검색의 주 필터라
- * **지우면 쓰던 회의에서 떨어진다** — 참조만 남기면 그 회의는 어떤 필터로도
- * 걸리지 않는다. 그래서 삭제 확인에 "몇 개가 풀리는지" 를 보여준다.
+ * One topic per meeting; labels are many. As the archive search's main
+ * filters, **deleting detaches them from the meetings using them** — leaving
+ * dangling references would make those meetings unfindable by any filter. So
+ * the delete confirmation shows "how many will be detached".
  */
 export function TaxonomyPage() {
   const { t } = useTranslation();

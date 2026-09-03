@@ -1,9 +1,9 @@
 defmodule VRWeb.API.MCPTokenController do
   @moduledoc """
-  MCP 읽기 토큰 발급·조회·취소.
+  MCP read-token issuance, listing, and revocation.
 
-  **평문은 발급 응답에 한 번만 실린다.** 목록에는 앞자리만 나온다 —
-  공유 링크와 같은 방식이다 (`docs/05-auth-sharing.md`).
+  **The plaintext token appears exactly once, in the issuance response.** Listings
+  show only the prefix — the same scheme as share links (`docs/05-auth-sharing.md`).
   """
 
   use VRWeb, :controller
@@ -24,7 +24,7 @@ defmodule VRWeb.API.MCPTokenController do
     with {:ok, plain, token} <- MCP.issue_token(account.id, attrs) do
       conn
       |> put_status(:created)
-      # `token` 은 지금만 볼 수 있다. 다시 못 준다.
+      # `token` is visible only now. It cannot be shown again.
       |> json(Map.put(view(token), :token, plain))
     end
   end

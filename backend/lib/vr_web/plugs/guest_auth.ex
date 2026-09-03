@@ -1,17 +1,19 @@
 defmodule VRWeb.GuestAuth do
   @moduledoc """
-  게스트 세션을 `conn` 에 붙인다.
+  Attaches the guest session to the `conn`.
 
-  ## 왜 쿠키가 아니라 헤더인가
+  ## Why a header instead of a cookie
 
-  `:api` 파이프라인에는 `protect_from_forgery` 가 없다. 게스트 자격을 쿠키에 담으면
-  CSRF 표면이 생긴다. 쿠키는 도메인 전역이기도 해서 "회의 하나만"이라는 제약과 어긋난다.
-  그래서 `X-Guest-Token` 헤더로 받고, 프런트는 `sessionStorage` 에 둔다.
+  The `:api` pipeline has no `protect_from_forgery`. Putting guest credentials
+  in a cookie would open a CSRF surface. Cookies are also domain-wide, which
+  conflicts with the "one meeting only" constraint. So we take the credential
+  via the `X-Guest-Token` header, and the frontend keeps it in `sessionStorage`.
 
-  ## 이 플러그는 거절하지 않는다
+  ## This plug never rejects
 
-  세션이 없으면 `nil` 로 두고 지나간다. 거절은 각 액션이 `guest_authorize/2` 로 한다 —
-  "토큰이 없다"와 "권한이 없다"의 응답을 같게 만들기 위해서다.
+  When there is no session it assigns `nil` and moves on. Rejection is each
+  action's job via `guest_authorize/2` — so that "no token" and "no permission"
+  produce identical responses.
   """
 
   import Plug.Conn
@@ -20,8 +22,8 @@ defmodule VRWeb.GuestAuth do
 
   @header "x-guest-token"
 
-  # `VRWeb.UserAuth` 와 같은 방식 — 파이프라인이 액션 이름을 준다.
-  # `plug VRWeb.GuestAuth` 처럼 이름 없이 쓰면 기본 동작(붙이기만)이다.
+  # Same pattern as `VRWeb.UserAuth` — the pipeline supplies the action name.
+  # Used without a name, as in `plug VRWeb.GuestAuth`, it defaults to attach-only.
   def init([]), do: :fetch_current_guest
   def init(nil), do: :fetch_current_guest
   def init(action) when is_atom(action), do: action
@@ -31,7 +33,7 @@ defmodule VRWeb.GuestAuth do
 
   def call(conn, _opts), do: fetch_current_guest(conn, [])
 
-  @doc "게스트 세션이 있으면 붙인다. 없어도 지나간다."
+  @doc "Attaches the guest session when present. Passes through even without one."
   def fetch_current_guest(conn, _opts) do
     case get_req_header(conn, @header) do
       [token | _] ->
@@ -45,7 +47,7 @@ defmodule VRWeb.GuestAuth do
     end
   end
 
-  @doc "게스트 세션이 있어야 지나간다. 없으면 401."
+  @doc "Requires a guest session to pass. Responds 401 without one."
   def require_guest(conn, _opts) do
     conn =
       if Map.has_key?(conn.assigns, :current_guest), do: conn, else: fetch_current_guest(conn, [])
@@ -60,7 +62,7 @@ defmodule VRWeb.GuestAuth do
         Jason.encode!(%{
           status: "error",
           code: "guest_session_required",
-          message: "공유 링크로 다시 들어와 주세요"
+          message: "Please open the share link again"
         })
       )
       |> halt()

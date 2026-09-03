@@ -7,11 +7,12 @@ import { BillingPage } from "@/routes/BillingPage";
 import { AppSettingsPage } from "@/routes/AppSettingsPage";
 
 /**
- * 모바일 표면(`/m/*`).
+ * The mobile surface (`/m/*`).
  *
- * 한 화면씩 보여주고 하단 탭으로 옮겨 다닌다. 디자인은 devkanban 모바일 그대로다.
- * 데스크톱 표면은 [`DesktopApp`](./DesktopApp.tsx) 이 맡는다 — 정보 구조가 달라
- * 같은 컴포넌트를 폭으로 늘리지 않는다 (`lib/surface.ts` 참조).
+ * One screen at a time, moving via the bottom tabs. The design is devkanban
+ * mobile as-is. The desktop surface is [`DesktopApp`](./DesktopApp.tsx)'s job
+ * — its information architecture differs, so the same components aren't
+ * stretched by width (see `lib/surface.ts`).
  */
 export function MobileApp() {
   return (

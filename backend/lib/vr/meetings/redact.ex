@@ -1,21 +1,21 @@
 defmodule VR.Meetings.Redact do
   @moduledoc """
-  회의 응답에서 **밖으로 나가면 안 되는 것**을 지운다.
+  Removes from meeting responses **whatever must not leave the building**.
 
-  게스트 공유 뷰와 MCP 서버가 **같은 함수를 쓴다.** 두 벌로 두면 한쪽만 고쳐져
-  정보가 샌다 — 실제로 그런 일이 이 리포에서 이미 한 번 있었다
-  (`docs/10-porting-map.md`).
+  The guest share view and the MCP server **use the same functions.** Keeping
+  two copies means only one gets fixed and information leaks — that has already
+  happened once in this repo (`docs/10-porting-map.md`).
 
-  ## 무엇을 지우나
+  ## What gets removed
 
-  | 필드 | 왜 |
+  | Field | Why |
   |---|---|
-  | `owner_id` · `reviewer_id` · `contributor_ids` | 계정 ID 는 회의 내용이 아니다 |
-  | `permissions` | Reviewer 만 보는 값이다 |
-  | `last_summary_error` | 실패 원문에 내부 예외가 그대로 들어 있다 |
-  | `total_credits_charged` · `credits_charged` | 과금은 회의 소유자의 것이다 |
-  | `error_message` | 〃 |
-  | `speaker_map[].account_id` | 이름은 남기고 계정 id 만. 화면은 이름만 쓴다 |
+  | `owner_id` · `reviewer_id` · `contributor_ids` | Account IDs are not meeting content |
+  | `permissions` | A Reviewer-only value |
+  | `last_summary_error` | The raw failure carries internal exceptions verbatim |
+  | `total_credits_charged` · `credits_charged` | Billing belongs to the meeting owner |
+  | `error_message` | Ditto |
+  | `speaker_map[].account_id` | Keep the name, drop only the account id. The UI uses names only |
   """
 
   @meeting_fields [
@@ -30,12 +30,12 @@ defmodule VR.Meetings.Redact do
   @session_fields [:credits_charged, :error_message]
 
   @doc """
-  회의 응답을 다듬는다.
+  Trim a meeting response.
 
-  `audio_href` 는 `:audio` 옵션이 정한다.
+  `audio_href` is decided by the `:audio` option.
 
-    * `{:rewrite, fun}` — 세션 id 를 받아 새 경로를 만든다 (게스트 공유)
-    * `:drop` — 아예 뺀다 (MCP — 오디오를 주지 않는다)
+    * `{:rewrite, fun}` — takes a session id and builds a new path (guest share)
+    * `:drop` — remove it entirely (MCP — we never hand out audio)
   """
   def meeting(payload, opts \\ []) do
     payload
@@ -56,14 +56,14 @@ defmodule VR.Meetings.Redact do
 
   defp sessions(other, _opts), do: other
 
-  # 계정 전용 경로를 그대로 주면 게스트가 눌러도 401 만 난다
+  # Handing out the account-only path unchanged means a guest just gets a 401 when clicking it
   defp audio(%{audio_href: _} = session, {:rewrite, fun}) when is_function(fun, 1),
     do: Map.put(session, :audio_href, fun.(session.id))
 
   defp audio(session, :drop), do: Map.drop(session, [:audio_href])
   defp audio(session, _), do: session
 
-  @doc "이름은 남기고 계정 id 만 지운다."
+  @doc "Keep the name and remove only the account id."
   def speaker_map(map) when is_map(map) do
     Map.new(map, fn
       {key, %{} = entry} -> {key, Map.drop(entry, ["account_id", :account_id])}

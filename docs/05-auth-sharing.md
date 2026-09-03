@@ -1,82 +1,90 @@
-# 05. 인증 · 친구 · 공유 · 권한
+# 05. Authentication, Friends, Sharing, Permissions
 
-## 인증 수단
+## Authentication methods
 
-| 수단 | 상태 | 비고 |
+| Method | Status | Notes |
 |---|---|---|
-| 이메일 + 비밀번호 | **항상 활성. 끌 수 없음** | 최후의 로그인 경로 |
-| 소셜 로그인 | **어드민에서 제공자별 ON/OFF** | 키가 있고 ON일 때만 노출 |
-| MFA (TOTP) | **시스템 어드민은 의무** | 일반 사용자에게는 요구하지 않는다 |
+| Email + password | **Always enabled. Cannot be turned off** | The login path of last resort |
+| Social login | **Per-provider ON/OFF in admin** | Shown only when keys exist and it is ON |
+| MFA (TOTP) | **Mandatory for system admins** | Not required for regular users |
 
-### 어드민 2단계 인증은 의무다
+### Admin two-factor authentication is mandatory
 
-어드민 계정은 TOTP 를 켜야 `/_admin` 에 들어갈 수 있다. 안 켠 상태로 접근하면
-설정 화면으로 돌려보낸다 (`MFA.satisfied?/1`).
+An admin account must have TOTP enabled to enter `/_admin`. Accessing it without TOTP
+redirects to the setup screen (`MFA.satisfied?/1`).
 
-### 켜는 화면은 어드민 구역 **밖**에 있다
+### The enrollment screen lives **outside** the admin area
 
-`/login/mfa/enroll` — 로그인 흐름의 일부다. 비밀번호는 통과했고 세션은 아직 없는
-상태에서, 등록을 마쳐야 로그인이 끝난다.
+`/login/mfa/enroll` — it is part of the login flow. The password has been verified, no
+session exists yet, and login only completes once enrollment is finished.
 
-어드민 구역 안에 두면 **켜야 들어갈 수 있는 문을 켜기 위해 들어가야 하는** 데드락이
-된다. 신규 어드민은 DB 를 직접 건드리지 않는 한 영원히 못 들어간다.
-devkanban 이 같은 문제를 같은 방법으로 풀었다 ([14-provenance.md](14-provenance.md)).
+Putting it inside the admin area creates a deadlock: **you must enter through the very
+door you have to enable in order to enter.** A new admin could never get in without
+touching the DB directly.
+devkanban solved the same problem the same way ([14-provenance.md](14-provenance.md)).
 
-| 계정 | 로그인 뒤 어디로 |
+| Account | Where login sends you |
 |---|---|
-| 어드민 · MFA 켬 | `/login/mfa` (코드 확인) |
-| 어드민 · MFA 안 켬 | `/login/mfa/enroll` (**등록부터**) |
-| 일반 사용자 | 바로 로그인 |
+| Admin, MFA enabled | `/login/mfa` (code verification) |
+| Admin, MFA not enabled | `/login/mfa/enroll` (**enroll first**) |
+| Regular user | Logged straight in |
 
-`MFA.verify/2` 는 **켜지 않은 계정을 통과시키지 않는다.** 확인할 수단이 없으면
-통과가 아니라 거절이다 — 예전에는 `:ok` 를 돌려줘서, 로그인이 어드민을 무조건
-코드 화면으로 보내는 탓에 **MFA 를 안 켠 어드민이 아무 숫자나 넣어도 통과했다.**
+`MFA.verify/2` **does not pass accounts that haven't enabled MFA.** With nothing to
+verify against, the answer is rejection, not a pass — it used to return `:ok`, and since
+login unconditionally sent admins to the code screen, **an admin without MFA could enter
+any digits and get through.**
 
-어드민 하나가 뚫리면 전체 시스템의 설정 · API 키 · 모든 계정이 함께 넘어간다.
-비밀번호 하나로 그것을 지킬 수 없다.
+If one admin is compromised, the entire system's settings, API keys, and every account
+fall with it. A single password cannot protect that.
 
-일반 사용자에게는 요구하지 않는다 — 회의록을 보려고 인증기 앱을 깔라고 하면
-대부분 떠난다.
+Regular users are not required to enroll — ask people to install an authenticator app
+just to read meeting notes and most of them leave.
 
-### 고위험 어드민 작업은 최근 MFA가 필요하다
+### High-risk admin operations require recent MFA
 
-어드민 승격, 어드민 권한 회수, 어드민에 의한 계정 즉시 삭제는 실행 시점 기준
-**최근 10분 안에 성공한 MFA 확인**이 있어야 한다. 로그인할 때 통과한 MFA도 같은
-세션에서 10분 이내라면 인정한다. 성공 시각이 없거나 10분을 넘겼으면 작업을
-실행하지 않고 MFA를 다시 확인하며, 확인에 성공한 뒤에만 원래 작업을 다시
-시도할 수 있다. 세 작업 모두 같은 조건을 적용하고 실패 시에는 안전하게 거부한다.
+Admin promotion, admin privilege revocation, and immediate account deletion by an admin
+require **a successful MFA verification within the last 10 minutes** at execution time.
+MFA passed at login also counts if it happened within 10 minutes in the same session. If
+there is no success timestamp or it is older than 10 minutes, the operation is not
+executed; MFA is re-verified, and only after a successful verification can the original
+operation be attempted again. All three operations apply the same condition and fail
+safely on failure.
 
-별도의 비밀번호 재입력은 요구하지 않는다. 어드민은 이미 TOTP MFA가 의무이고,
-비밀번호 재입력은 탈취된 비밀번호에 대한 독립적인 추가 증명이 되지 않으며 소셜
-로그인 계정에도 일관되게 적용하기 어렵다. 최근 MFA는 세션 탈취와 오래 열린
-세션의 위험을 줄이면서 인증 방식과 무관한 동일한 승격 인증을 제공한다.
+We do not require a separate password re-entry. Admins already have mandatory TOTP MFA;
+re-entering a password is not an independent additional proof against a stolen password,
+and it is hard to apply consistently to social-login accounts. Recent MFA reduces the
+risks of session hijacking and long-lived sessions while providing the same step-up
+authentication regardless of login method.
 
-유효시간은 서버가 기록한 MFA 성공 시각으로 판정한다. 클라이언트가 보낸 시각은
-신뢰하지 않으며, MFA 성공 기록은 해당 로그인 세션에만 유효하고 로그아웃이나
-세션 무효화 시 함께 폐기한다. 백업 코드를 사용한 성공도 MFA 성공으로 인정하되,
-일회용 코드의 기존 소진 규칙을 그대로 적용한다.
+Validity is judged by the MFA success timestamp recorded by the server. Timestamps sent
+by the client are not trusted, and the MFA success record is valid only for that login
+session — it is discarded on logout or session invalidation. A success using a backup
+code also counts as MFA success, with the existing one-time-use consumption rules applied
+unchanged.
 
-구현상 성공 시각은 `AccountSession.mfa_verified_at`에 저장한다. 세 관리 서비스는
-actor와 세션의 소유자가 같은지, 세션이 활성·미만료 상태인지, 성공 시각이 서버
-현재 시각 기준 최근 10분인지 DB에서 다시 확인한다. 조건을 만족하지 않으면
-`/_admin/accounts/verify-mfa`에서 확인하고 계정 목록으로 돌아와 작업을 다시
-선택한다. 확인만으로 이전 작업을 자동 실행하지 않는다.
+In the implementation, the success timestamp is stored in
+`AccountSession.mfa_verified_at`. The three admin services re-verify in the DB that the
+actor owns the session, that the session is active and unexpired, and that the success
+timestamp is within the last 10 minutes of the server's current time. If the conditions
+are not met, the admin verifies at `/_admin/accounts/verify-mfa` and returns to the
+account list to select the operation again. Verification alone never auto-executes the
+previous operation.
 
-이 정책은 작업을 수행하는 **actor의 추가 인증**만 다룬다. actor의 관리자 권한
-검사와 작업 감사 기록은 각각 별도 정책으로 다룬다.
+This policy covers only the **actor's step-up authentication**. The actor's admin
+permission check and operation audit logging are each handled by separate policies.
 
-> 개발·스테이징에서는 아무 6자리 숫자나 통과한다. 이 우회는 **컴파일 시점에 박혀**
-> 운영 빌드에서는 환경변수로도 켤 수 없다.
+> In dev and staging, any six digits pass. This bypass is **baked in at compile time**
+> and cannot be enabled in production builds, not even via environment variables.
 
-### 소셜 로그인 ON/OFF
+### Social login ON/OFF
 
 ```elixir
 # AuthProvider
 id              :string
 provider        :string    # google | github | kakao | naver | apple | ...
-display_name    :string    # 버튼 라벨
+display_name    :string    # button label
 client_id       :string
-client_secret   VR.Encrypted.Binary   # Cloak 암호화
+client_secret   VR.Encrypted.Binary   # Cloak encrypted
 redirect_uri    :string
 scopes          {:array, :string}
 enabled         :boolean, default: false
@@ -84,7 +92,7 @@ sort_order      :integer
 updated_by_id   :string
 ```
 
-**활성화 판정**
+**Activation check**
 
 ```elixir
 def active?(provider) do
@@ -93,110 +101,114 @@ def active?(provider) do
 end
 ```
 
-| 상태 | 로그인 화면 | OAuth 라우트 |
+| State | Login screen | OAuth routes |
 |---|---|---|
-| `enabled = true` + 키 있음 | 버튼 노출 | 동작 |
-| `enabled = true` + 키 없음 | **노출 안 함** + 어드민에 경고 배지 | 404 |
-| `enabled = false` | 노출 안 함 | 404 |
+| `enabled = true` + keys present | Button shown | Working |
+| `enabled = true` + keys missing | **Not shown** + warning badge in admin | 404 |
+| `enabled = false` | Not shown | 404 |
 
-콜백 라우트도 같은 판정을 거친다. 꺼진 제공자로 들어오는 콜백은 거부한다.
+Callback routes go through the same check. Callbacks arriving for a disabled provider
+are rejected.
 
-**환경변수 폴백**: DB에 값이 없으면 `GOOGLE_OAUTH_CLIENT_ID` 같은 환경변수를 읽는다.
-단 `enabled` 스위치는 **DB만** 본다. 환경변수만으로는 켜지지 않는다.
+**Environment variable fallback**: if the DB has no value, environment variables like
+`GOOGLE_OAUTH_CLIENT_ID` are read. But the `enabled` switch comes from the **DB only**.
+Environment variables alone cannot turn a provider on.
 → [07-config-admin.md](07-config-admin.md)
 
-**끄기 전 안전장치**
+**Safety checks before disabling**
 
-소셜로만 가입한 계정이 있는 제공자를 끄면 그 계정들이 로그인 불가가 된다.
-어드민 UI는 끄기 전에 다음을 수행한다.
+Disabling a provider that has social-only accounts locks those accounts out of login.
+Before disabling, the admin UI:
 
-1. 해당 제공자로만 로그인 가능한 계정 수를 표시
-2. 0이 아니면 확인 문구 요구
-3. 끄기 실행 시 해당 계정들에 비밀번호 설정 안내 메일 발송
+1. Shows the number of accounts that can only log in via that provider
+2. Requires a confirmation phrase if the count is nonzero
+3. On disable, sends those accounts an email guiding them to set a password
 
-### 세션
+### Sessions
 
-- `AccountSession`에 기기별 행을 만든다 (토큰 · UA · IP · 마지막 활동 · 만료)
-- 설정 화면에서 기기 목록 확인 + 개별/전체 로그아웃
-- 비밀번호 변경 시 다른 세션 전체 무효화
+- One `AccountSession` row per device (token, UA, IP, last activity, expiry)
+- The settings screen shows the device list with individual/global logout
+- Changing the password invalidates all other sessions
 
-### 계정 삭제
+### Account deletion
 
-즉시 삭제하지 않고 `scheduled_deletion_at`을 세팅한다.
-유예 기간 동안 로그인하면 취소할 수 있고, 지나면 `DeletionWorker`가 처리한다.
-회의 · 오디오 · 전사본 · 크레딧 원장 처리 정책을 함께 정의한다.
+Accounts are not deleted immediately; `scheduled_deletion_at` is set instead.
+Logging in during the grace period cancels it; once it passes, `DeletionWorker` handles
+it. The handling policy for meetings, audio, transcripts, and the credit ledger is
+defined alongside.
 
 ---
 
-## 친구
+## Friends
 
-### 초대 방식
+### Invitation methods
 
-| 방식 | 흐름 |
+| Method | Flow |
 |---|---|
-| **이메일 초대** | 이메일 입력 → 초대 메일 발송 → 링크 클릭 → (미가입이면 가입) → 자동 수락 |
-| **링크 초대** | 링크 생성 → 아무 경로로 전달 → 링크 연 사람이 수락 |
+| **Email invite** | Enter an email → invitation mail sent → link clicked → (sign up if needed) → auto-accepted |
+| **Link invite** | Create a link → deliver it any way you like → whoever opens the link accepts |
 
 ```
 FriendInvitation
-  invited_by_id, email(nil 가능), token, status, expires_at, message
+  invited_by_id, email(may be nil), token, status, expires_at, message
 ```
 
-**상태 전이**
+**State transitions**
 ```
-pending ─┬─► accepted    → Friendship 생성
+pending ─┬─► accepted    → Friendship created
          ├─► declined
-         ├─► expired     (expires_at 경과)
-         └─► cancelled   (초대자가 취소)
+         ├─► expired     (expires_at passed)
+         └─► cancelled   (inviter cancelled)
 ```
 
-### 관계
+### Relationship
 
 ```
-Friendship(account_a_id, account_b_id)   # 항상 정렬된 쌍, 1행
+Friendship(account_a_id, account_b_id)   # always a sorted pair, one row
 ```
-- `unique_index(a, b)`로 중복 방지
-- 조회는 `where a = me or b = me`
-- 차단은 `status = blocked` + `blocked_by_id`
+- Duplicates prevented via `unique_index(a, b)`
+- Lookups use `where a = me or b = me`
+- Blocking is `status = blocked` + `blocked_by_id`
 
-### 친구가 하는 일
+### What friends are for
 
-친구 목록은 sisyphus의 "프로젝트 멤버" 자리를 대체한다.
+The friends list replaces sisyphus's "project members".
 
-- 회의의 Reviewer / Contributor 지정 대상
-- 화자 매핑(`speaker_map.account_id`) 대상
-- `view_scope = all_friends`일 때의 공개 대상
+- Candidates for a meeting's Reviewer / Contributor assignment
+- Targets for speaker mapping (`speaker_map.account_id`)
+- The audience when `view_scope = all_friends`
 
 ---
 
-## 권한
+## Permissions
 
-### 역할 (명칭 통일)
+### Roles (unified naming)
 
-한국어 UI에서도 이 명칭을 그대로 쓴다. "검토자 / 참여자 / 조회자"로 번역하지 않는다.
+The Korean UI uses these names verbatim too. They are not translated into Korean equivalents.
 
-| 역할 | 내부 코드 | 권한 |
+| Role | Internal code | Permissions |
 |---|---|---|
-| **Reviewer** | `lv0` | 전권 — 녹음 · 편집 · 삭제 · 아카이브 · 권한 변경 · 공유 링크 발급 |
-| **Contributor** | `lv1` | 녹음 · 재생 · 화자/전사 편집 · 요약 생성. 삭제 · 아카이브 · 권한 변경 불가 |
-| **Viewer** | `lv2` | 읽기 전용. 오디오 URL 마스킹, 편집 UI 비활성 |
-| — | `lv3` | 접근 불가. **404로 응답** (존재 여부도 노출하지 않음) |
+| **Reviewer** | `lv0` | Full control — recording, editing, deletion, archiving, permission changes, share-link issuance |
+| **Contributor** | `lv1` | Recording, playback, speaker/transcript editing, summary generation. No deletion, archiving, or permission changes |
+| **Viewer** | `lv2` | Read-only. Audio URLs masked, editing UI disabled |
+| — | `lv3` | No access. **Responds 404** (existence is not revealed either) |
 
-### View Scope → 역할 계산
+### View Scope → role resolution
 
-`view_scope`는 사용자가 회의 설정에서 고르는 공개 범위다. 역할은 여기서 자동 계산된다.
+`view_scope` is the visibility level the user picks in the meeting settings. Roles are
+computed from it automatically.
 
-| view_scope | 뜻 |
+| view_scope | Meaning |
 |---|---|
-| `me_only` | Reviewer 본인만 |
-| `assignees_only` | Reviewer + Contributor만 (기본값) |
-| `selected_friends` | 지정한 친구만 (Viewer로) |
-| `all_friends` | 내 친구 전체 (Viewer로). **기준은 `reviewer_id` 의 친구 목록이다** — 양도하면 공개 대상이 통째로 바뀐다 |
+| `me_only` | The Reviewer only |
+| `assignees_only` | Reviewer + Contributors only (default) |
+| `selected_friends` | Only designated friends (as Viewers) |
+| `all_friends` | All of my friends (as Viewers). **Based on the `reviewer_id`'s friends list** — handing the meeting over swaps the entire audience |
 
 ```elixir
 def resolve(meeting, account_id, opts) do
   cond do
-    opts[:is_admin]                          -> :lv0   # 시스템 어드민
+    opts[:is_admin]                          -> :lv0   # system admin
     account_id == meeting.reviewer_id        -> :lv0   # Reviewer
     account_id in meeting.contributor_ids    -> :lv1   # Contributor
     scope == "me_only"                       -> :lv3
@@ -210,76 +222,81 @@ def resolve(meeting, account_id, opts) do
 end
 ```
 
-> **`me_only` 로 바꿔도 Contributor 는 계속 본다.** 위 `cond` 가 Contributor 검사를
-> 공개 범위보다 먼저 하기 때문이다. 사용자는 "비공개로 만들었다" 고 믿으므로
-> 화면에서 이 사실을 알리고 "Contributor 모두 해제" 를 함께 제공한다.
+> **Switching to `me_only` does not hide the meeting from Contributors.** The `cond`
+> above checks Contributor status before the visibility scope. Users believe they "made
+> it private", so the UI announces this fact and offers "remove all Contributors"
+> alongside.
 
-저장 형태:
+Storage format:
 ```jsonc
 meeting.permissions = {
   "view": { "mode": "selected_friends", "accountIds": ["acct_x", "acct_y"] }
 }
 ```
 
-### 게스트 (공유 링크)
+### Guests (share links)
 
-게스트는 계정이 없어도 링크로 접근한다. **기존 권한 체계를 그대로 쓴다** —
-게스트에게도 Reviewer/Contributor/Viewer 중 하나가 부여되고, 그 역할의 권한이 그대로 적용된다.
+Guests access via a link without needing an account. **The existing permission model is
+used unchanged** — a guest is also granted one of Reviewer/Contributor/Viewer, and that
+role's permissions apply as-is.
 
 ```elixir
 SharedLink.granted_role   # "viewer" | "contributor"
 ```
 
-| 상황 | 결과 |
+| Situation | Result |
 |---|---|
-| 링크 유효 + **그 회의 권한이 있는** 계정 | **계정 권한 우선.** 링크를 쓰지 않는다 — PIN 도 안 묻고 사용 횟수도 안 탄다 |
-| 링크 유효 + **권한 없는** 계정 | **익명 방문자와 똑같이 취급한다.** 회의 스위치도 보고 PIN 도 묻는다 |
-| 링크 유효 + 비로그인 게스트 | `granted_role` 로 접근. `guest_link_enabled` 가 켜져 있어야 함 |
-| PIN 설정됨 | PIN 일치해야 통과. **로그인 여부와 무관하다** |
-| PIN 불일치 | 401. 링크별 5회 → 15분 잠금, IP 별 15분 20회 → 잠금 (429) |
-| `guest_link_enabled` 꺼짐 | **404** — 링크가 유효했다는 사실도 숨긴다 |
-| `max_uses` 소진 / 만료 / 비활성 / 폐기 | 410 Gone. **넷을 구분하지 않는다** |
-| 토큰 없음 · 형식 오류 | 404 |
+| Valid link + account **with permission on that meeting** | **Account permission wins.** The link is not used — no PIN prompt, no use count consumed |
+| Valid link + account **without permission** | **Treated exactly like an anonymous visitor.** Subject to the meeting toggle and the PIN prompt |
+| Valid link + logged-out guest | Access via `granted_role`. Requires `guest_link_enabled` to be on |
+| PIN set | Must match the PIN. **Regardless of login state** |
+| PIN mismatch | 401. Per-link: 5 tries → 15-min lock; per-IP: 20 tries per 15 min → lock (429) |
+| `guest_link_enabled` off | **404** — even the fact that the link was valid is hidden |
+| `max_uses` exhausted / expired / inactive / revoked | 410 Gone. **The four are not distinguished** |
+| Missing / malformed token | 404 |
 
-> **"로그인했으면 PIN 면제" 는 권한이 있는 계정에만 해당한다.**
-> 권한 없는 계정까지 면제하면 아무나 가입해서 게스트 차단과 PIN 을 동시에 우회한다.
-> sisyphus 가 `params["member_id"]` 를 신뢰해 정확히 이 구멍을 갖고 있었다.
+> **"Logged in means no PIN" applies only to accounts that have permission.**
+> Exempting permission-less accounts too would let anyone sign up to bypass both the
+> guest toggle and the PIN at once. sisyphus trusted `params["member_id"]` and had
+> exactly this hole.
 
-**1회성 초대** = `max_uses: 1` + `expires_at` 설정.
+**One-time invitation** = `max_uses: 1` + an `expires_at`.
 
-### 폐기와 소진은 다르게 동작한다
+### Revocation and exhaustion behave differently
 
-| | 이미 들어와 있는 게스트 |
+| | Guests already inside |
 |---|---|
-| **폐기**(`DELETE`) · **비활성**(`is_active: false`) · **만료** | **즉시 끊긴다** |
-| **소진**(`max_uses` 도달) | 그대로 남는다 |
+| **Revoked** (`DELETE`) · **inactive** (`is_active: false`) · **expired** | **Cut off immediately** |
+| **Exhausted** (`max_uses` reached) | They stay |
 
-소진은 "더 못 들어온다"는 뜻이지 "들어온 사람을 내보낸다"는 뜻이 아니다.
-1회성 링크로 회의록을 받은 사람이 두 번째 요청에서 쫓겨나면 링크가 쓸모없어진다.
-폐기는 반대로 지금 보고 있는 사람까지 끊어야 의미가 있다.
+Exhaustion means "no one else gets in", not "kick out whoever is in". If someone who
+received the meeting notes via a one-time link got ejected on their second request, the
+link would be useless. Revocation is the opposite — it is only meaningful if it also cuts
+off whoever is viewing right now.
 
-**재발급**(`rotate`)은 주소만 바꾼다 — 이미 들어온 게스트는 유지된다.
-"링크를 잃어버렸다"와 "쫓아내겠다"는 다른 일이다.
+**Rotation** (`rotate`) only changes the address — guests already inside are kept.
+"I lost the link" and "I want to kick people out" are different things.
 
-게스트 세션은 별도 토큰으로 관리하며, 해당 회의 하나에만 접근할 수 있다.
-게스트가 나중에 계정을 만들어도 그 회의의 권한은 링크가 부여한 범위를 넘지 않는다.
+Guest sessions are managed with their own token and can only access that one meeting.
+Even if the guest later creates an account, their permission on that meeting never
+exceeds what the link granted.
 
-### 권한이 UI에 반영되는 지점
+### Where permissions surface in the UI
 
-| 항목 | Reviewer | Contributor | Viewer |
+| Item | Reviewer | Contributor | Viewer |
 |---|---|---|---|
-| 제목 · 설명 편집 | ✅ | ✅ | — |
-| 녹음 | ✅ | ✅ | — |
-| 재생 | ✅ | ✅ | ✅ |
-| 화자 · 전사 편집 | ✅ | ✅ | — |
-| 요약 생성 · 재요약 | ✅ | ✅ | — |
-| 토픽 · 라벨 변경 | ✅ | ✅ | — |
-| 공개 범위 변경 | ✅ | — | — |
-| 공유 링크 발급 | ✅ | — | — |
-| 아카이브 | ✅ | — | — |
-| 삭제 | ✅ | — | — |
-| 오디오 다운로드 | ✅ | ✅ | 설정에 따름 |
-| 마크다운 내보내기 | ✅ | ✅ | ✅ |
+| Edit title / description | ✅ | ✅ | — |
+| Record | ✅ | ✅ | — |
+| Playback | ✅ | ✅ | ✅ |
+| Edit speakers / transcript | ✅ | ✅ | — |
+| Generate / regenerate summary | ✅ | ✅ | — |
+| Change topic / labels | ✅ | ✅ | — |
+| Change visibility scope | ✅ | — | — |
+| Issue share links | ✅ | — | — |
+| Archive | ✅ | — | — |
+| Delete | ✅ | — | — |
+| Download audio | ✅ | ✅ | Per settings |
+| Markdown export | ✅ | ✅ | ✅ |
 
-**서버가 최종 판정한다.** 프론트의 비활성화는 편의일 뿐이고, 모든 변경 API는
-서버에서 역할을 다시 계산해 검증한다.
+**The server has the final say.** Frontend disabling is a convenience only; every
+mutating API recomputes and validates the role on the server.

@@ -1,54 +1,54 @@
-# 03. 도메인 모델
+# 03. Domain Model
 
-## 도메인 트리
+## Domain tree
 
 ```
-계정 (Accounts)
-├─ 계정            Account
-├─ 세션            AccountSession          다기기 로그인 관리
-├─ 토큰            AccountToken            이메일 확인 · 비밀번호 재설정
-├─ 로그인 시도     LoginAttempt            무차별 대입 방어
-└─ 가입 초대코드   InviteCode              (선택) 가입 제한
+Accounts
+├─ Account          Account
+├─ Session          AccountSession          multi-device login management
+├─ Token            AccountToken            email confirmation · password reset
+├─ Login attempt    LoginAttempt            brute-force defense
+└─ Signup invite    InviteCode              (optional) signup restriction
 
-친구 (Friends)
-├─ 친구 초대       FriendInvitation        이메일 또는 링크 · 만료 · 수락/거절
-└─ 친구 관계       Friendship              양방향 1행
+Friends
+├─ Friend invite    FriendInvitation        email or link · expiry · accept/decline
+└─ Friendship       Friendship              one row per bidirectional pair
 
-미팅 (Meetings)
-├─ 회의            Meeting
-│   ├─ 녹음        RecordingSession        녹음 1건 = 세션 1개
-│   │   ├─ 전사    transcript.segments[]   화자 · 텍스트 · 시각
-│   │   └─ 화자맵  speaker_map             화자키 → 이름 · 계정
-│   ├─ 요약        summary_data            LLM 결과 (출처 인용 포함)
-│   └─ 분류        topic_id, label_ids[]
-└─ 분류 체계 (Taxonomy)
-    ├─ 토픽        Topic
-    └─ 라벨        Label
+Meetings
+├─ Meeting          Meeting
+│   ├─ Recording    RecordingSession        one recording = one session
+│   │   ├─ Transcript  transcript.segments[]   speaker · text · timestamps
+│   │   └─ Speaker map speaker_map             speaker key → name · account
+│   ├─ Summary      summary_data            LLM output (with source citations)
+│   └─ Classification  topic_id, label_ids[]
+└─ Taxonomy
+    ├─ Topic        Topic
+    └─ Label        Label
 
-공유 (Sharing)
-├─ 공유 링크       SharedLink              토큰 · 만료 · 사용횟수 · PIN
-└─ 권한            Access                  Reviewer / Contributor / Viewer
+Sharing
+├─ Share link       SharedLink              token · expiry · use count · PIN
+└─ Access           Access                  Reviewer / Contributor / Viewer
 
-구독·크레딧 (Billing)
-├─ 플랜            Plan → PlanRevision     불변 리비전 핀 고정
-├─ 구독            Subscription
-├─ 크레딧 묶음     CreditLot               FIFO 소비 단위
-├─ 원장            CreditLedgerEntry       append-only
-├─ 가격표          ServicePricing, ModelPricing
-└─ 감사 로그       BillingAuditLog
+Billing
+├─ Plan             Plan → PlanRevision     immutable revision pinning
+├─ Subscription     Subscription
+├─ Credit lot       CreditLot               FIFO consumption unit
+├─ Ledger           CreditLedgerEntry       append-only
+├─ Pricing          ServicePricing, ModelPricing
+└─ Audit log        BillingAuditLog
 
-시스템 (Admin)
-├─ 시스템 설정     SystemConfig            암호화 key-value
-├─ 인증 제공자     AuthProvider            소셜 로그인 ON/OFF + 키
-├─ LLM 제공자      LlmProvider             브랜드별 키 · 모델 · 우선순위
-└─ 상거래 설정     CommerceSettings        크레딧 대외 명칭
+Admin
+├─ System config    SystemConfig            encrypted key-value
+├─ Auth provider    AuthProvider            social login ON/OFF + keys
+├─ LLM provider     LlmProvider             per-brand keys · models · priority
+└─ Commerce config  CommerceSettings        public-facing credit naming
 ```
 
-## ID 규칙
+## ID conventions
 
-sisyphus 방식(접두사 + 랜덤)을 따른다. 순차 정수 노출 없음.
+Follows the sisyphus style (prefix + random). No sequential integers are exposed.
 
-| 엔티티 | 접두사 | 예 |
+| Entity | Prefix | Example |
 |---|---|---|
 | Account | `acct` | `acct_a1b2c3…` |
 | AccountSession | `sess` | |
@@ -101,7 +101,7 @@ locale                :string   # en es zh_CN zh_TW ja ko
 country               :string
 time_zone             :string
 
-# 소셜 로그인
+# social login
 is_social             :boolean, default: false
 social_provider       :string   # google | github | ...
 social_id             :string
@@ -109,11 +109,11 @@ social_id             :string
 is_admin              :boolean, default: false
 onboarding_progress   :map, default: %{}
 
-# 탈퇴
+# account deletion
 deleted_at            :utc_datetime
 scheduled_deletion_at :utc_datetime
 ```
-> MFA 관련 필드는 두지 않는다. (D-비범위)
+> No MFA-related fields. (Out of scope by decision)
 
 ### AccountSession
 ```elixir
@@ -125,13 +125,13 @@ last_activity_at  :utc_datetime
 expires_at        :utc_datetime
 is_active         :boolean, default: true
 ```
-기기 목록 표시와 원격 로그아웃에 쓴다.
+Used for the device list display and remote logout.
 
 ### AccountToken
-`account_id`, `token`, `context`(`confirm` | `reset_password` | `change_email`), `sent_to`, `expires_at`
+`account_id`, `token`, `context` (`confirm` | `reset_password` | `change_email`), `sent_to`, `expires_at`
 
 ### LoginAttempt
-`email`, `ip_address`, `success`, `attempted_at` — 계정/IP 단위 잠금 판단용.
+`email`, `ip_address`, `success`, `attempted_at` — used for per-account/per-IP lockout decisions.
 
 ---
 
@@ -141,25 +141,25 @@ is_active         :boolean, default: true
 ```elixir
 id                :string   # finv_*
 invited_by_id     :string   # → Account
-email             :string   # nil이면 링크형 초대
+email             :string   # nil means a link-style invitation
 token             :string   # unique
 status            :string   # pending | accepted | declined | expired | cancelled
 expires_at        :utc_datetime
-accepted_by_id    :string   # 수락한 계정
-message           :string   # 초대 메시지 (선택)
+accepted_by_id    :string   # the account that accepted
+message           :string   # invitation message (optional)
 ```
 
 ### Friendship
 ```elixir
 id                :string   # frnd_*
-account_a_id      :string   # 항상 작은 쪽 ID
-account_b_id      :string   # 항상 큰 쪽 ID
+account_a_id      :string   # always the smaller ID
+account_b_id      :string   # always the larger ID
 status            :string   # active | blocked
-blocked_by_id     :string   # blocked인 경우 누가 차단했는지
+blocked_by_id     :string   # if blocked, who blocked
 became_at         :utc_datetime
 ```
-**정렬쌍 1행** 저장. `unique_index(:account_a_id, :account_b_id)`로 중복 방지.
-조회는 `where a = me or b = me`.
+Stored as **one row per sorted pair**. Duplicates prevented via `unique_index(:account_a_id, :account_b_id)`.
+Lookups use `where a = me or b = me`.
 
 ---
 
@@ -173,40 +173,40 @@ description             :string
 status                  :string   # active | completed | archived
 started_at              :utc_datetime
 
-# 사람
-owner_id                :string   # 생성자
-reviewer_id             :string   # Reviewer (전권)
-contributor_ids         {:array, :string}   # Contributor
+# people
+owner_id                :string   # creator
+reviewer_id             :string   # Reviewer (full control)
+contributor_ids         {:array, :string}   # Contributors
 permissions             :map      # %{"view" => %{"mode" => ..., "accountIds" => [...]}}
 guest_link_enabled      :boolean, default: false
 
-# 분류
+# classification
 topic_id                :string
 label_ids               {:array, :string}
 
-# 집계 캐시 (세션에서 합산)
+# aggregate cache (summed from sessions)
 total_duration_seconds  :integer, default: 0
 total_credits_charged   :integer, default: 0
 
-# 요약
+# summary
 summary                 :string
 decisions               {:array, :string}
-summary_data            :map      # 04-pipeline.md 참조
+summary_data            :map      # see 04-pipeline.md
 last_summary_error      :map
 
 archived_at             :utc_datetime
 deleted_at              :utc_datetime
 ```
 
-**상태 전이**
+**State transitions**
 ```
 active ──────► completed ──────► archived
    ▲               │
-   └───────────────┘   (Reviewer가 되돌릴 수 있음)
+   └───────────────┘   (the Reviewer can revert)
 ```
-- `active` — 녹음 가능
-- `completed` — 녹음 종료. 전사/요약은 계속될 수 있음
-- `archived` — 보관됨. 목록에서 기본 숨김, 필터로 검색
+- `active` — recording allowed
+- `completed` — recording finished. Transcription/summary may still be in progress
+- `archived` — archived. Hidden from lists by default, discoverable via filters
 
 ### RecordingSession
 ```elixir
@@ -214,7 +214,7 @@ id                :string   # mrss_*
 meeting_id        :string
 session_index     :integer, default: 1
 status            :string   # recording | uploaded | splitting | transcribing | completed | failed
-started_at_unix   :integer  # 파일명으로도 사용
+started_at_unix   :integer  # also used as the file name
 duration_seconds  :integer
 audio_url         :string
 transcript_url    :string
@@ -228,33 +228,33 @@ error_message     :text
 deleted_at        :utc_datetime
 ```
 
-**상태 전이**
+**State transitions**
 ```
 recording ─► uploaded ─┬─► transcribing ─► completed
                        │                └─► failed
-                       └─► splitting ──► (청크별 새 세션 생성, 원본 삭제)
+                       └─► splitting ──► (new sessions created per chunk, original deleted)
 ```
 
-### 전사 세그먼트 구조
+### Transcript segment structure
 ```jsonc
 transcript = {
   "segments": [
-    { "speaker": "speaker_1", "text": "안녕하세요",
+    { "speaker": "speaker_1", "text": "Hello",
       "start_ms": 0, "end_ms": 1500, "confidence": 0.94 }
   ],
-  "original_segments": [ /* 편집 전 원본 — 복원용 */ ]
+  "original_segments": [ /* pre-edit originals — for restore */ ]
 }
 ```
 
-### 화자 매핑
+### Speaker mapping
 ```jsonc
 speaker_map = {
-  "speaker_1": { "name": "홍길동", "account_id": "acct_xxx" },
-  "speaker_2": { "name": "외부 참석자", "account_id": null }
+  "speaker_1": { "name": "Jane Doe", "account_id": "acct_xxx" },
+  "speaker_2": { "name": "External attendee", "account_id": null }
 }
 ```
-- **화자 칩 변경** → `speaker_map[key]` 수정 → 그 화자의 **모든** 발언에 반영
-- **세그먼트 변경** → `segments[i].speaker` 수정 → **그 한 줄만** 반영
+- **Speaker chip change** → edits `speaker_map[key]` → applies to **all** utterances by that speaker
+- **Segment change** → edits `segments[i].speaker` → applies to **that one line only**
 
 ---
 
@@ -263,7 +263,7 @@ speaker_map = {
 ### Topic
 ```elixir
 id          :string   # topc_*
-owner_id    :string   # 계정 소유
+owner_id    :string   # owned by an account
 name        :string
 color       :string
 sort_order  :integer
@@ -279,8 +279,8 @@ color       :string
 deleted_at  :utc_datetime
 ```
 
-토픽은 1:N(회의당 하나), 라벨은 N:M(회의당 여러 개).
-아카이브 검색의 주 필터가 된다. → [08-frontend.md](08-frontend.md#아카이브-검색)
+Topics are 1:N (one per meeting); labels are N:M (many per meeting).
+They are the primary filters for archive search. → [08-frontend.md](08-frontend.md)
 
 ---
 
@@ -289,26 +289,26 @@ deleted_at  :utc_datetime
 ### SharedLink
 ```elixir
 id              :string   # slnk_*
-meeting_id      :string   # 단일 FK. sisyphus 의 resource_type/resource_id 다형 참조를 걷어냈다
+meeting_id      :string   # single FK. We removed sisyphus's polymorphic resource_type/resource_id reference
 created_by_id   :string
 
-# 토큰은 **해시만** 저장한다. 원본은 발급 응답에서 한 번만 나간다.
+# Only the **hash** of the token is stored. The plaintext leaves once, in the issuance response.
 token_hash      :binary   # unique. sha256
-token_prefix    :string   # 앞 12자. 목록에서 식별만 한다 — 이것만으로는 못 들어온다
+token_prefix    :string   # first 12 chars. Identification in lists only — cannot grant entry by itself
 
-granted_role    :string   # "viewer" | "contributor". **발급 후 변경 불가**
-pin_hash        :string   # Bcrypt. nil = PIN 없음
+granted_role    :string   # "viewer" | "contributor". **Immutable after issuance**
+pin_hash        :string   # Bcrypt. nil = no PIN
 
-max_uses        :integer  # nil = 무제한. 1 = 1회성
+max_uses        :integer  # nil = unlimited. 1 = one-time
 use_count       :integer, default: 0
-expires_at      :utc_datetime   # nil = 만료 없음
+expires_at      :utc_datetime   # nil = never expires
 is_active       :boolean, default: true
 revoked_at      :utc_datetime
 
 require_name    :boolean, default: true
 require_email   :boolean, default: false
 
-# PIN 대입 방어
+# PIN brute-force defense
 failed_pin_attempts :integer, default: 0
 pin_locked_until    :utc_datetime
 
@@ -317,29 +317,30 @@ metadata        :map
 deleted_at      :utc_datetime
 ```
 
-**왜 해시인가.** 공유 토큰은 추가 인증 없이 즉시 통하는 자격증명이다. DB 백업 ·
-리플리카 · 덤프 어디에서든 본 사람이 곧바로 그 회의에 들어온다. `AccountSession`
-과 같은 규칙을 쓴다.
+**Why a hash.** A share token is a credential that works immediately with no further
+authentication. Anyone who sees it — in a DB backup, a replica, a dump — walks straight
+into that meeting. We apply the same rule as `AccountSession`.
 
-**왜 PIN 은 Bcrypt 인가.** 6자리는 10^6 이라 sha256 해시는 유출 시 몇 초 만에 역산된다.
+**Why Bcrypt for the PIN.** Six digits is 10^6, so a sha256 hash can be reversed in
+seconds after a leak.
 
-**Cloak 은 쓸 수 없다.** IV 가 매번 달라 `WHERE token_hash = ?` 조회가 불가능하고,
-`CLOAK_KEY` 는 DB 자격증명 옆에 살아 함께 유출된다.
+**Cloak cannot be used here.** The IV differs every time, making `WHERE token_hash = ?`
+lookups impossible, and `CLOAK_KEY` lives next to the DB credentials, so they leak together.
 
-**`granted_role` 을 바꿀 수 없는 이유.** 배포된 `viewer` 링크를 `contributor` 로
-올리면 그 링크를 받은 **모든 사람의 권한이 소급 상승**한다. changeset · 컨트롤러 ·
-DB check 세 겹으로 막는다. `"reviewer"` 는 어떤 경로로도 들어갈 수 없다.
+**Why `granted_role` cannot be changed.** Upgrading a distributed `viewer` link to
+`contributor` **retroactively escalates everyone** who received that link. We block it in
+three layers: changeset, controller, and DB check. `"reviewer"` can never enter by any path.
 
-### GuestSession — 신규 (sisyphus 에 없던 개념)
+### GuestSession — new (a concept sisyphus did not have)
 
 ```elixir
 id              :string   # gses_*
 shared_link_id  :string
-meeting_id      :string   # **회의 하나에만 묶인다.** 요청이 아니라 이 값이 회의를 정한다
-account_id      :string   # 로그인은 했지만 그 회의 권한이 없는 경우
+meeting_id      :string   # **bound to exactly one meeting.** This value, not the request, determines the meeting
+account_id      :string   # a logged-in account that lacks permission on this meeting
 
-token_hash      :binary   # unique. sha256. 헤더 X-Guest-Token 으로 온다
-granted_role    :string   # 링크에서 **복사해 굳힌다** (사후 승격 방지)
+token_hash      :binary   # unique. sha256. Arrives via the X-Guest-Token header
+granted_role    :string   # **copied and frozen** from the link (prevents post-hoc escalation)
 display_name    :string
 email           :string
 user_agent      :string
@@ -350,13 +351,16 @@ expires_at       :utc_datetime  # min(now + 12h, link.expires_at)
 revoked_at       :utc_datetime
 ```
 
-sisyphus 에는 게스트 세션이 없었다 — 게스트 API 가 매번 공유 토큰을 URL 로 받아
-다시 조회했고, 게스트 신원은 브라우저 JS 메모리 변수였다. 그래서 서버가 "지금
-들어와 있는 게스트"를 알지 못했고 링크를 폐기해도 이미 들어온 사람을 끊을 수 없었다.
+sisyphus had no guest sessions — the guest API took the share token in the URL on every
+request and re-checked it, and guest identity lived in a browser JS memory variable. The
+server therefore never knew "which guests are inside right now", and revoking a link could
+not disconnect anyone who was already in.
 
-**살아 있는지 판정할 때 링크 상태를 매번 다시 본다.** 세션만 보면 Reviewer 가
-링크를 끄거나 만료를 당겨도 이미 들어온 사람이 계속 읽는다.
-단 `max_uses` 소진은 예외다 — 소진은 "더 못 들어온다"이지 "들어온 사람을 내보낸다"가 아니다.
+**Liveness checks re-read the link state every time.** If we only checked the session, a
+Reviewer disabling the link or moving its expiry up would leave already-admitted guests
+reading indefinitely.
+The one exception is `max_uses` exhaustion — exhaustion means "no one else gets in", not
+"kick out whoever is in".
 
 ### ShareAttempt
 
@@ -368,36 +372,36 @@ success       :boolean
 attempted_at  :utc_datetime
 ```
 
-PIN 대입 방어용. 링크별 잠금(5회 → 15분)만 두면 공격자가 여러 링크를 번갈아
-때리는 것을 못 막으므로 IP 별(15분 20회)도 함께 본다.
-`login_attempts` 를 재사용하지 않는다 — 그 테이블의 `email` 컬럼 의미가 흐려진다.
+For PIN brute-force defense. Per-link lockout alone (5 tries → 15 min) cannot stop an
+attacker alternating between multiple links, so we also track per-IP (20 tries per 15 min).
+We do not reuse `login_attempts` — that table's `email` column would lose its meaning.
 
 ---
 
 ## Billing
 
-스키마 상세는 [06-billing.md](06-billing.md) 참조. 요약하면:
+Schema details in [06-billing.md](06-billing.md). In brief:
 
-| 스키마 | 역할 |
+| Schema | Role |
 |---|---|
-| `Plan` | 가변 메타 (이름 · 설명 · 노출 여부 · 상태) |
-| `PlanRevision` | **불변** 상업 스냅샷 (가격 · 포함 크레딧 · 한도) |
-| `Subscription` | 계정이 가진 계약. `PlanRevision`을 핀 고정 |
-| `CreditLot` | 지급된 크레딧 묶음. 자체 잔량 · 만료 |
-| `CreditLedgerEntry` | append-only 증감 기록 |
-| `ServicePricing` | 외부 API 단가 → 크레딧 환산 (STT 등) |
-| `ModelPricing` | LLM 모델별 단가 → 크레딧 환산 |
-| `BillingAuditLog` | 모든 상업 변경 감사 |
+| `Plan` | Mutable metadata (name, description, visibility, status) |
+| `PlanRevision` | **Immutable** commercial snapshot (price, included credits, limits) |
+| `Subscription` | The contract an account holds. Pins a `PlanRevision` |
+| `CreditLot` | A granted bundle of credits. Own balance and expiry |
+| `CreditLedgerEntry` | Append-only record of changes |
+| `ServicePricing` | External API unit cost → credit conversion (STT etc.) |
+| `ModelPricing` | Per-LLM-model unit cost → credit conversion |
+| `BillingAuditLog` | Audit of all commercial changes |
 
 ---
 
 ## Admin
 
-| 스키마 | 역할 |
+| Schema | Role |
 |---|---|
-| `SystemConfig` | 암호화 key-value 설정 |
-| `AuthProvider` | 소셜 로그인 제공자 (ON/OFF + 키) |
-| `LlmProvider` | LLM 제공자 (키 · 모델 · 우선순위) |
-| `CommerceSettings` | 크레딧 대외 명칭 등 |
+| `SystemConfig` | Encrypted key-value configuration |
+| `AuthProvider` | Social login providers (ON/OFF + keys) |
+| `LlmProvider` | LLM providers (keys, models, priority) |
+| `CommerceSettings` | Public-facing credit naming, etc. |
 
-상세는 [07-config-admin.md](07-config-admin.md).
+Details in [07-config-admin.md](07-config-admin.md).

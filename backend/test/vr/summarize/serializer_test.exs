@@ -16,61 +16,61 @@ defmodule VR.Summarize.SerializerTest do
   defp seg(speaker, text, start_ms),
     do: %{"speaker" => speaker, "text" => text, "start_ms" => start_ms}
 
-  describe "직렬화 규약" do
-    test "[session_id|speaker|HH:MM:SS] 형식으로 만든다" do
+  describe "serialization contract" do
+    test "produces the [session_id|speaker|HH:MM:SS] format" do
       s =
-        session("mrss_a", [seg("speaker_1", "안녕하세요", 0)], %{
-          "speaker_1" => %{"name" => "홍길동"}
+        session("mrss_a", [seg("speaker_1", "Hello everyone", 0)], %{
+          "speaker_1" => %{"name" => "Jane Doe"}
         })
 
-      assert Serializer.session_lines(s) == ["[mrss_a|홍길동|00:00:00] 안녕하세요"]
+      assert Serializer.session_lines(s) == ["[mrss_a|Jane Doe|00:00:00] Hello everyone"]
     end
 
-    test "시각은 항상 시간 자리까지 쓴다" do
-      # 프롬프트가 토막을 세 개로 기대한다. mm:ss 로 줄이면 파싱이 어긋난다.
+    test "timestamps always include the hours place" do
+      # The prompt expects three parts. Shortening to mm:ss breaks parsing.
       assert Serializer.time_label(0) == "00:00:00"
       assert Serializer.time_label(65_000) == "00:01:05"
       assert Serializer.time_label(3_725_000) == "01:02:05"
     end
 
-    test "맵에 없는 화자는 화자 N 으로 부른다" do
-      s = session("mrss_a", [seg("speaker_2", "네", 1000)])
-      assert Serializer.session_lines(s) == ["[mrss_a|화자 2|00:00:01] 네"]
+    test "speakers missing from the map are called Speaker N" do
+      s = session("mrss_a", [seg("speaker_2", "Yes", 1000)])
+      assert Serializer.session_lines(s) == ["[mrss_a|Speaker 2|00:00:01] Yes"]
     end
 
-    test "화자 이름의 구분자를 지운다" do
-      # `|` 가 이름에 남으면 프롬프트가 라벨을 잘못 자른다
+    test "strips delimiters from speaker names" do
+      # A `|` left in the name makes the prompt cut the label wrong
       s =
-        session("mrss_a", [seg("speaker_1", "네", 0)], %{
-          "speaker_1" => %{"name" => "김|철][수"}
+        session("mrss_a", [seg("speaker_1", "Yes", 0)], %{
+          "speaker_1" => %{"name" => "Jo|hn][Doe"}
         })
 
-      assert Serializer.session_lines(s) == ["[mrss_a|김 철  수|00:00:00] 네"]
+      assert Serializer.session_lines(s) == ["[mrss_a|Jo hn  Doe|00:00:00] Yes"]
     end
 
-    test "이름이 구분자뿐이면 화자 N 으로 되돌린다" do
-      s = session("mrss_a", [seg("speaker_1", "네", 0)], %{"speaker_1" => %{"name" => "||"}})
-      assert Serializer.session_lines(s) == ["[mrss_a|화자 1|00:00:00] 네"]
+    test "names made only of delimiters fall back to Speaker N" do
+      s = session("mrss_a", [seg("speaker_1", "Yes", 0)], %{"speaker_1" => %{"name" => "||"}})
+      assert Serializer.session_lines(s) == ["[mrss_a|Speaker 1|00:00:00] Yes"]
     end
 
-    test "빈 발화는 버린다" do
-      s = session("mrss_a", [seg("speaker_1", "  ", 0), seg("speaker_1", "네", 1000)])
+    test "drops empty utterances" do
+      s = session("mrss_a", [seg("speaker_1", "  ", 0), seg("speaker_1", "Yes", 1000)])
       assert length(Serializer.session_lines(s)) == 1
     end
   end
 
   describe "serialize/1" do
-    test "세션 순서대로 잇는다" do
-      a = session("mrss_a", [seg("speaker_1", "먼저", 0)], %{}, 1)
-      b = session("mrss_b", [seg("speaker_1", "나중", 0)], %{}, 2)
+    test "joins in session order" do
+      a = session("mrss_a", [seg("speaker_1", "first", 0)], %{}, 1)
+      b = session("mrss_b", [seg("speaker_1", "later", 0)], %{}, 2)
 
       %{text: text} = Serializer.serialize([b, a])
 
-      assert text == "[mrss_a|화자 1|00:00:00] 먼저\n[mrss_b|화자 1|00:00:00] 나중"
+      assert text == "[mrss_a|Speaker 1|00:00:00] first\n[mrss_b|Speaker 1|00:00:00] later"
     end
 
-    test "전사 없는 세션은 제외 목록에 남긴다" do
-      a = session("mrss_a", [seg("speaker_1", "있음", 0)])
+    test "sessions without transcripts land in the skipped list" do
+      a = session("mrss_a", [seg("speaker_1", "present", 0)])
       b = %RecordingSession{id: "mrss_b", session_index: 2, transcript: nil, speaker_map: %{}}
 
       result = Serializer.serialize([a, b])
@@ -79,42 +79,42 @@ defmodule VR.Summarize.SerializerTest do
       assert result.skipped_session_ids == ["mrss_b"]
     end
 
-    test "전부 비면 빈 문자열" do
+    test "empty input yields an empty string" do
       assert %{text: ""} = Serializer.serialize([])
     end
 
-    test "짧으면 덩어리가 하나다" do
-      s = session("mrss_a", [seg("speaker_1", "짧다", 0)])
+    test "short input is a single chunk" do
+      s = session("mrss_a", [seg("speaker_1", "short", 0)])
       assert %{chunks: [_one]} = Serializer.serialize([s])
     end
 
-    test "상한을 넘으면 **자르지 않고** 나눈다" do
-      # 자르면 뒷부분이 요약에서 조용히 사라진다. 회의록에서 이건 최악이다 —
-      # 요약은 멀쩡해 보이는데 마지막 30분의 결정사항이 통째로 없다.
-      # (sisyphus 는 여기서 60,000자에 잘랐다: `meetings.ex:710`)
-      long = String.duplicate("가", 300)
+    test "over the cap it splits — it does NOT truncate" do
+      # Truncating silently drops the tail from the summary. For meeting notes that is the worst case —
+      # the summary looks fine while every decision from the last 30 minutes is simply gone.
+      # (sisyphus truncated at 60,000 chars here: `meetings.ex:710`)
+      long = String.duplicate("a", 300)
       segments = for i <- 0..600, do: seg("speaker_1", long, i * 1000)
       s = session("mrss_a", segments)
 
       assert %{text: text, chunks: chunks} = Serializer.serialize([s])
-      assert length(chunks) > 1, "상한을 넘었으면 나뉘어야 한다"
+      assert length(chunks) > 1, "over the cap it must split"
 
-      # **아무것도 잃지 않는다** — 덩어리를 도로 이으면 원본과 같다
+      # **Nothing is lost** — rejoining the chunks reproduces the original
       assert Enum.join(chunks, "\n") == text
 
-      # 덩어리마다 상한 안에 든다
+      # Each chunk fits within the cap
       for c <- chunks, do: assert(String.length(c) <= Serializer.chunk_chars())
 
-      # 줄 한가운데를 자르면 라벨이 깨진 발화가 남아 출처가 틀린 요약이 나온다
+      # Splitting mid-line leaves an utterance with a broken label, yielding wrongly-attributed summaries
       for c <- chunks, line <- String.split(c, "\n") do
         assert String.starts_with?(line, "[mrss_a|")
       end
     end
 
-    test "혼자서 상한을 넘는 발화는 그 줄만 담는다" do
-      # 자르는 것보다 모델이 알아서 줄이게 두는 편이 낫다
-      huge = String.duplicate("나", Serializer.chunk_chars() + 100)
-      s = session("mrss_a", [seg("speaker_1", "짧다", 0), seg("speaker_1", huge, 1000)])
+    test "an utterance exceeding the cap on its own gets its own chunk" do
+      # Better to let the model condense it than to truncate
+      huge = String.duplicate("b", Serializer.chunk_chars() + 100)
+      s = session("mrss_a", [seg("speaker_1", "short", 0), seg("speaker_1", huge, 1000)])
 
       assert %{chunks: chunks} = Serializer.serialize([s])
       assert length(chunks) == 2
@@ -123,18 +123,18 @@ defmodule VR.Summarize.SerializerTest do
   end
 
   describe "parse_time_label/1" do
-    test "왕복한다" do
+    test "round-trips" do
       for ms <- [0, 1000, 65_000, 3_725_000] do
         assert Serializer.parse_time_label(Serializer.time_label(ms)) == ms
       end
     end
 
-    test "mm:ss 도 받는다" do
+    test "accepts mm:ss too" do
       assert Serializer.parse_time_label("01:05") == 65_000
     end
 
-    test "이상한 값은 nil" do
-      assert Serializer.parse_time_label("어제") == nil
+    test "weird values are nil" do
+      assert Serializer.parse_time_label("yesterday") == nil
       assert Serializer.parse_time_label(nil) == nil
       assert Serializer.parse_time_label("1:2:3:4") == nil
     end

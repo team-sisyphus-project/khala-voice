@@ -15,7 +15,8 @@ import * as apiMock from "./__testsupport/apiMock.ts";
  * `i18n.test.ts` proves `setUiLanguage`/`resolveUiLocale` in isolation, and
  * `locale-switch.test.ts` proves the picker→i18n glue — but through a
  * `makePicker` stand-in that *re-implements* `useAccount`'s side effects. This
- * file closes that gap (risks.md: "언어 전환 배선이 실물 훅으로 검증되지 않음"):
+ * file closes that gap (risks.md: "language-switch wiring not verified against
+ * the real hook"):
  * it imports the genuine `useAccount` and drives the paths the runtime walks —
  *
  *   • boot: `api.me()` → `setUiLanguage(me.locale)`

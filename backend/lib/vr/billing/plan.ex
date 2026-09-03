@@ -1,12 +1,13 @@
 defmodule VR.Billing.Plan do
   @moduledoc """
-  판매 가능한 구독 상품의 정체성과 **가변** 메타.
+  The identity and **mutable** metadata of a sellable subscription product.
 
-  **출처: devkanban** `lib/manualsquad/billing/plan.ex`
-  — 워크스페이스 · 엔터프라이즈 계약 필드를 제거했다.
+  **Source: devkanban** `lib/manualsquad/billing/plan.ex`
+  — removed the workspace and enterprise-contract fields.
 
-  가격·포함 크레딧 같은 **상업 조건은 여기 없다.** 그건 `PlanRevision` 이다.
-  이 구분이 그랜드파더링을 자동으로 만든다 — 메타를 고쳐도 계약이 흔들리지 않는다.
+  **Commercial terms** like price and included credits **do not live here.**
+  That is `PlanRevision`. This split makes grandfathering automatic — editing
+  metadata never disturbs existing contracts.
   """
 
   use Ecto.Schema
@@ -54,14 +55,15 @@ defmodule VR.Billing.Plan do
     |> put_id()
     |> validate_required([:id, :key, :display_name])
     |> validate_inclusion(:status, @statuses)
-    |> validate_format(:key, ~r/^[a-z0-9_]+$/, message: "소문자·숫자·밑줄만 씁니다")
+    |> validate_format(:key, ~r/^[a-z0-9_]+$/, message: "must contain only lowercase letters, digits, and underscores")
     |> unique_constraint(:key)
   end
 
   @doc """
-  메타만 바꾼다. **즉시 전원에게 반영된다.**
+  Changes metadata only. **Takes effect for everyone immediately.**
 
-  상업 조건(가격·크레딧·한도)은 여기서 못 바꾼다 — 새 리비전을 발행해야 한다.
+  Commercial terms (price, credits, limits) cannot be changed here — a new
+  revision must be published.
   """
   def meta_changeset(plan, attrs) do
     plan

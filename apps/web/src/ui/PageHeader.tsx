@@ -1,13 +1,15 @@
 /**
- * 본문 큰 제목.
+ * The body's large title.
  *
- * **출처: devkanban** `mobile-page-header` 마크업.
+ * **Source: devkanban** — the `mobile-page-header` markup.
  *
- * ## 제목은 왜 본문에 있나
+ * ## Why the title lives in the body
  *
- * 탭 화면의 상단바는 스크롤하기 전까지 제목을 숨긴다 (`mobile-top-app-bar--tabs`).
- * 큰 제목은 본문 맨 위에 있고, 스크롤해서 그것이 사라질 때 상단바가 이어받는다.
- * **그래서 제목을 두 곳에 그리면 안 된다** — 같은 글자가 위아래로 겹쳐 보인다.
+ * On tab screens the top bar hides its title until scrolled
+ * (`mobile-top-app-bar--tabs`). The large title sits at the top of the body,
+ * and when it scrolls away the top bar takes over.
+ * **So the title must never be drawn in two places** — the same text would
+ * appear stacked above and below.
  */
 import type { ReactNode } from "react"
 

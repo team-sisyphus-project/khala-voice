@@ -22,7 +22,7 @@ defmodule VRWeb.Admin.MFAStepUpLiveTest do
     %{conn: conn, admin: admin, session: session}
   end
 
-  test "성공한 MFA를 현재 세션에 기록하고 작업을 자동 실행하지 않은 채 돌아간다", %{
+  test "records successful MFA on the current session and returns without auto-running the action", %{
     conn: conn,
     session: session
   } do
@@ -34,10 +34,10 @@ defmodule VRWeb.Admin.MFAStepUpLiveTest do
     assert Repo.reload!(session).mfa_verified_at > session.mfa_verified_at
   end
 
-  test "틀린 코드는 세션을 갱신하지 않는다", %{conn: conn, session: session} do
+  test "a wrong code does not refresh the session", %{conn: conn, session: session} do
     {:ok, view, _html} = live(conn, ~p"/_admin/accounts/verify-mfa")
 
-    assert view |> form("form", %{code: "wrong"}) |> render_submit() =~ "코드가 맞지 않습니다"
+    assert view |> form("form", %{code: "wrong"}) |> render_submit() =~ "The code is incorrect."
     assert Repo.reload!(session).mfa_verified_at == session.mfa_verified_at
   end
 end

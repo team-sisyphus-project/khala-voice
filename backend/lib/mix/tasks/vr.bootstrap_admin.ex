@@ -1,26 +1,28 @@
 defmodule Mix.Tasks.Vr.BootstrapAdmin do
   @moduledoc """
-  초기 어드민 계정을 만든다.
+  Creates the initial admin account.
 
       mix vr.bootstrap_admin
       mix vr.bootstrap_admin --email you@example.com
 
-  설치 직후에는 어드민이 없어 `/_admin` 에 들어갈 수 없다.
-  이 명령이 입구를 여는 임시 열쇠를 만든다.
+  Right after installation there is no admin, so `/_admin` is unreachable.
+  This command creates a temporary key that opens that door.
 
-  **이미 어드민이 있으면 아무것도 하지 않는다.** 여러 번 실행해도 안전하다.
+  **If an admin already exists, it does nothing.** Safe to run multiple times.
 
-  ## 비밀번호
+  ## Password
 
-  `BOOTSTRAP_ADMIN_PASSWORD` 환경변수를 쓰고, 없으면 무작위로 만들어
-  **화면에 한 번만** 보여준다. 해시로만 저장하므로 나중에 조회할 수 없다.
+  Uses the `BOOTSTRAP_ADMIN_PASSWORD` environment variable; without it, a
+  random password is generated and shown **on screen exactly once**. Only the
+  hash is stored, so it cannot be looked up later.
 
-  ## 다 쓰고 나서
+  ## When you are done
 
-  실사용자로 가입한 뒤 어드민 화면에서 그 계정을 승격하고,
-  **이 임시 계정을 삭제해 입구를 닫는다.** 남겨두면 영구 백도어가 된다.
+  Sign up as a real user, promote that account from the admin screens, and
+  **delete this temporary account to close the door.** Leaving it behind
+  creates a permanent backdoor.
   """
-  @shortdoc "초기 어드민 계정을 만든다"
+  @shortdoc "Creates the initial admin account"
 
   use Mix.Task
 
@@ -38,22 +40,22 @@ defmodule Mix.Tasks.Vr.BootstrapAdmin do
         Mix.shell().info("""
 
         ┌──────────────────────────────────────────────────────────┐
-          초기 어드민 계정을 만들었습니다
+          Initial admin account created
 
-            이메일    #{account.email}
-            비밀번호  #{password}
+            Email     #{account.email}
+            Password  #{password}
 
-          이 비밀번호는 지금만 볼 수 있습니다. 저장해 두세요.
+          This password is shown only now. Save it somewhere safe.
         └──────────────────────────────────────────────────────────┘
 
-        다음 순서로 진행하세요.
+        Next steps:
 
-          1. 이 계정으로 로그인 → /_admin 접속
-          2. 본인 계정으로 따로 가입
-          3. 어드민 → 계정 에서 본인 계정을 어드민으로 승격
-          4. **이 임시 계정을 삭제** — 입구를 닫습니다
+          1. Sign in with this account → open /_admin
+          2. Sign up separately with your own account
+          3. Promote your account to admin under Admin → Accounts
+          4. **Delete this temporary account** — this closes the door
 
-        4번을 하지 않으면 영구 백도어가 남습니다.
+        Skipping step 4 leaves a permanent backdoor.
         """)
 
       {:error, :admin_exists} ->
@@ -61,21 +63,21 @@ defmodule Mix.Tasks.Vr.BootstrapAdmin do
 
         Mix.shell().info("""
 
-        이미 어드민이 있습니다. 새로 만들지 않았습니다.
+        An admin already exists. Nothing was created.
 
-        #{Enum.map_join(admins, "\n", fn a -> "  · #{a.email}#{if a.is_bootstrap, do: "  (임시 계정 — 삭제 권장)", else: ""}" end)}
+        #{Enum.map_join(admins, "\n", fn a -> "  · #{a.email}#{if a.is_bootstrap, do: "  (temporary account — deletion recommended)", else: ""}" end)}
 
-        권한을 더 주려면:  mix vr.make_admin <이메일>
+        To grant admin to more accounts:  mix vr.make_admin <email>
         """)
 
       {:error, :email_required} ->
         Mix.raise("""
-        이메일이 필요합니다. 기본 주소를 두지 않습니다 —
-        모든 배포본이 같은 주소를 쓰면 그 자체가 공격 대상이 됩니다.
+        An email is required. There is no default address —
+        if every deployment used the same one, it would itself become a target.
 
             mix vr.bootstrap_admin --email you@example.com
 
-        또는 BOOTSTRAP_ADMIN_EMAIL 환경변수를 설정하세요.
+        Or set the BOOTSTRAP_ADMIN_EMAIL environment variable.
         """)
 
       {:error, changeset} ->
@@ -84,7 +86,7 @@ defmodule Mix.Tasks.Vr.BootstrapAdmin do
           |> Ecto.Changeset.traverse_errors(fn {msg, _} -> msg end)
           |> Enum.map_join("; ", fn {k, v} -> "#{k}: #{Enum.join(v, ", ")}" end)
 
-        Mix.raise("계정을 만들지 못했습니다 — #{errors}")
+        Mix.raise("Failed to create account — #{errors}")
     end
   end
 end

@@ -1,25 +1,27 @@
 defmodule VR.Billing.Credits do
   @moduledoc """
-  크레딧 잔액 · 지급 · 소비.
+  Credit balance, grants, and consumption.
 
-  **출처: devkanban** `lib/manualsquad/billing/credits.ex`
-  — 보류(hold) · 오토충전 · 워크스페이스 계량을 제거하고 FIFO 소비만 남겼다.
+  **Source: devkanban** `lib/manualsquad/billing/credits.ex`
+  — removed holds, auto top-up, and workspace metering; only FIFO consumption remains.
 
-  ## 불변식
+  ## Invariant
 
-      잔액 = Σ ledger.delta = Σ lot.remaining
+      balance = Σ ledger.delta = Σ lot.remaining
 
-  잔액을 캐시하지 않는다. 캐시와 원장이 어긋나면 어느 쪽이 맞는지 알 수 없다.
+  The balance is never cached. If a cache and the ledger disagree, there is no way
+  to know which one is right.
 
-  ## 소비 순서
+  ## Consumption order
 
-  **만료 임박 순 → 만료 없는 것 → 삽입순.**
-  사라질 크레딧을 먼저 써야 사용자가 손해를 보지 않는다.
+  **Soonest-expiring first → no expiry → insertion order.**
+  Credits about to vanish must be spent first so users never lose out.
 
-  ## 동시성
+  ## Concurrency
 
-  소비는 트랜잭션 안에서 `FOR UPDATE` 로 묶음을 잠근다.
-  잠그지 않으면 동시 요청 둘이 같은 잔액을 보고 각각 차감해 이중 지출이 난다.
+  Consumption locks lots with `FOR UPDATE` inside a transaction.
+  Without the lock, two concurrent requests would see the same balance and each
+  deduct from it, causing double spending.
   """
 
   import Ecto.Query, warn: false
@@ -29,12 +31,12 @@ defmodule VR.Billing.Credits do
 
   require Logger
 
-  # ── 잔액 ─────────────────────────────────────────────────
+  # ── Balance ──────────────────────────────────────────────
 
   @doc """
-  쓸 수 있는 잔액. 만료되지 않은 묶음의 `remaining` 합.
+  The spendable balance: the sum of `remaining` across unexpired lots.
 
-  오버드래프트로 **음수가 될 수 있다.**
+  **Can be negative** due to overdraft.
   """
   def balance(account_id) do
     now = DateTime.utc_now(:microsecond)
@@ -48,7 +50,7 @@ defmodule VR.Billing.Credits do
     ) || 0
   end
 
-  @doc "원장 합계. 불변식 검증에 쓴다 — 잔액과 같아야 한다."
+  @doc "Ledger total. Used to verify the invariant — must equal the balance."
   def ledger_total(account_id) do
     Repo.one(
       from e in CreditLedgerEntry,
@@ -57,7 +59,7 @@ defmodule VR.Billing.Credits do
     ) || 0
   end
 
-  @doc "만료 예정 묶음 목록. 사용자 화면에 '언제 사라지는지' 보여줄 때 쓴다."
+  @doc "Lots pending expiry. Used on the user-facing screen to show when credits will disappear."
   def list_lots(account_id) do
     now = DateTime.utc_now(:microsecond)
 
@@ -70,7 +72,7 @@ defmodule VR.Billing.Credits do
     )
   end
 
-  @doc "사용 내역."
+  @doc "Usage history."
   def list_ledger(account_id, opts \\ []) do
     Repo.all(
       from e in CreditLedgerEntry,
@@ -80,16 +82,16 @@ defmodule VR.Billing.Credits do
     )
   end
 
-  # ── 지급 ─────────────────────────────────────────────────
+  # ── Grants ───────────────────────────────────────────────
 
   @doc """
-  크레딧을 지급한다.
+  Grants credits.
 
-  ## 옵션
-  - `:source` — `plan_grant` | `admin_grant` (기본 `admin_grant`)
-  - `:expires_at` — 없으면 무기한
-  - `:reason` · `:actor_id` — 감사용
-  - `:idempotency_key` — 같은 지급을 두 번 하지 않기 위한 열쇠
+  ## Options
+  - `:source` — `plan_grant` | `admin_grant` (default `admin_grant`)
+  - `:expires_at` — indefinite when absent
+  - `:reason` and `:actor_id` — for auditing
+  - `:idempotency_key` — key that prevents the same grant from happening twice
   """
   def grant(account_id, amount, opts \\ []) when is_integer(amount) and amount > 0 do
     source = opts[:source] || "admin_grant"
@@ -122,7 +124,7 @@ defmodule VR.Billing.Credits do
           lot
 
         {:error, %{errors: errors}} ->
-          # idempotency_key 충돌 = 이미 지급된 것. 롤백해 중복 지급을 막는다.
+          # An idempotency_key conflict means it was already granted. Roll back to prevent a duplicate grant.
           if Keyword.has_key?(errors, :idempotency_key) do
             Repo.rollback(:already_granted)
           else
@@ -133,9 +135,9 @@ defmodule VR.Billing.Credits do
   end
 
   @doc """
-  관리자 회수. **잔액을 음수로 만들 수 없다** — 있는 만큼만 회수한다.
+  Admin revocation. **Cannot drive the balance negative** — only takes what is there.
 
-  devkanban 확정 결정 §2-6.
+  devkanban confirmed decision §2-6.
   """
   def revoke(account_id, amount, opts \\ []) when is_integer(amount) and amount > 0 do
     Repo.transaction(fn ->
@@ -151,12 +153,12 @@ defmodule VR.Billing.Credits do
     end)
   end
 
-  # ── 소비 ─────────────────────────────────────────────────
+  # ── Consumption ──────────────────────────────────────────
 
   @doc """
-  크레딧을 쓴다. **잔액이 모자라면 거부한다.**
+  Consumes credits. **Refuses when the balance is insufficient.**
 
-  선불 성격의 작업(아직 시작하지 않은 것)에 쓴다.
+  Use for prepaid-style operations (work that has not started yet).
   """
   def consume(account_id, amount, opts \\ []) when is_integer(amount) and amount > 0 do
     Repo.transaction(fn ->
@@ -173,18 +175,19 @@ defmodule VR.Billing.Credits do
   end
 
   @doc """
-  크레딧을 쓰되 **잔액이 음수가 되는 것을 허용한다.**
+  Consumes credits but **allows the balance to go negative.**
 
-  전사·요약처럼 **작업이 이미 끝난 뒤에 계량되는** 것에 쓴다.
-  이미 비용이 발생했으므로 막을 수 없고, 막으면 원장만 틀어진다.
+  Use for work that is **metered only after it has already finished**, like
+  transcription and summary. The cost has already been incurred, so it cannot be
+  blocked — blocking would only corrupt the ledger.
 
-  부족분은 `remaining` 이 음수인 오버드래프트 묶음으로 기록한다 —
-  그래야 `Σ delta == Σ remaining` 이 유지된다.
+  The shortfall is recorded as an overdraft lot with a negative `remaining` —
+  that keeps `Σ delta == Σ remaining`.
   """
   def consume_allow_overdraft(account_id, amount, opts \\ [])
       when is_integer(amount) and amount > 0 do
-    # 기본은 adjustment 다. "usage" 는 원가 근거를 요구하므로
-    # `charge_usage/3` 가 근거를 채워 넣을 때만 쓴다.
+    # Defaults to adjustment. "usage" requires cost evidence, so it is only
+    # used when `charge_usage/3` fills that evidence in.
     source = opts[:source] || "adjustment"
 
     Repo.transaction(fn ->
@@ -205,12 +208,13 @@ defmodule VR.Billing.Credits do
     end)
   end
 
-  # ── 만료 ─────────────────────────────────────────────────
+  # ── Expiry ───────────────────────────────────────────────
 
   @doc """
-  만료된 묶음을 정리한다. 남은 잔량만큼 음수 원장을 남겨 불변식을 지킨다.
+  Cleans up expired lots. Writes a negative ledger entry for the remaining amount
+  to preserve the invariant.
 
-  잔량이 0 이면 원장을 만들지 않는다 — 아무 일도 없었기 때문이다.
+  No ledger entry is created when the remaining amount is 0 — nothing happened.
   """
   def expire_due_lots(now \\ nil) do
     now = now || DateTime.utc_now(:microsecond)
@@ -230,7 +234,7 @@ defmodule VR.Billing.Credits do
               credit_lot_id: lot.id,
               delta: -lot.remaining,
               source: "expiry",
-              reason: "기간 만료"
+              reason: "Period expired"
             })
           )
         end
@@ -245,9 +249,9 @@ defmodule VR.Billing.Credits do
     end)
   end
 
-  # ── 환산 ─────────────────────────────────────────────────
+  # ── Conversion ───────────────────────────────────────────
 
-  @doc "현재 환산 정책. 없으면 nil — 그러면 사용량을 크레딧으로 바꿀 수 없다."
+  @doc "The current conversion policy. nil when absent — usage then cannot be converted to credits."
   def conversion_setting do
     Repo.one(
       from s in CreditConversionSetting,
@@ -255,7 +259,7 @@ defmodule VR.Billing.Credits do
     )
   end
 
-  @doc "환산 정책을 저장한다. 싱글턴이라 항상 같은 행을 고친다."
+  @doc "Saves the conversion policy. It is a singleton, so the same row is always updated."
   def put_conversion_setting(attrs, actor_id \\ nil) do
     setting = conversion_setting() || %CreditConversionSetting{}
     attrs = Map.put(attrs, :updated_by_id, actor_id)
@@ -264,9 +268,9 @@ defmodule VR.Billing.Credits do
   end
 
   @doc """
-  사용 원가(USD)를 크레딧으로 바꾼다.
+  Converts usage cost (USD) into credits.
 
-  **출처: devkanban** `credit_conversions.ex` `convert_usage_cost/2`.
+  **Source: devkanban** `credit_conversions.ex` `convert_usage_cost/2`.
 
       computed_credits = usage_cost_usd / credit_value_usd
       charged_credits  = ceil(computed_credits)
@@ -294,7 +298,7 @@ defmodule VR.Billing.Credits do
      }}
   end
 
-  @doc "환산 규칙에 따라 정수로 만든다."
+  @doc "Rounds to an integer according to the conversion rule."
   def apply_rounding(%Decimal{} = credits, "floor"),
     do: credits |> Decimal.round(0, :floor) |> Decimal.to_integer()
 
@@ -305,17 +309,17 @@ defmodule VR.Billing.Credits do
     do: credits |> Decimal.round(0, :ceiling) |> Decimal.to_integer()
 
   @doc """
-  사용량을 계량해 크레딧을 차감한다. 전사·요약 워커가 부른다.
+  Meters usage and deducts credits. Called by the transcription and summary workers.
 
-  ## 옵션
-  - `:charge_domain` — `"stt"` | `"llm"` (필수)
-  - `:idempotency_key` — 재시도로 두 번 기록되는 것을 막는다
-  - `:pricing_snapshot` — 나중에 재계산할 수 있게 남기는 근거
+  ## Options
+  - `:charge_domain` — `"stt"` | `"llm"` (required)
+  - `:idempotency_key` — prevents double recording on retries
+  - `:pricing_snapshot` — evidence kept so the charge can be recomputed later
   """
   def charge_usage(account_id, usage_cost_usd, opts \\ []) do
     with {:ok, conversion} <- convert_usage_cost(usage_cost_usd) do
       if conversion.charged_credits <= 0 do
-        # 0원이거나 반올림해서 0이면 원장을 더럽히지 않는다
+        # Don't pollute the ledger when the cost is zero or rounds to zero
         {:ok, %{charged_credits: 0, conversion: conversion}}
       else
         opts =
@@ -331,7 +335,7 @@ defmodule VR.Billing.Credits do
           {:ok, _} ->
             {:ok, %{charged_credits: conversion.charged_credits, conversion: conversion}}
 
-          # 같은 열쇠로 이미 계량된 건이다. 워커 재시도에서 정상적으로 일어난다.
+          # Already metered under the same key. Happens normally on worker retries.
           {:error, :already_charged} ->
             {:ok, %{charged_credits: 0, conversion: conversion, already_charged: true}}
 
@@ -342,9 +346,9 @@ defmodule VR.Billing.Credits do
     end
   end
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
-  # 만료 임박 순 → 만료 없는 것 → 삽입순. 트랜잭션 안에서 잠근다.
+  # Soonest-expiring first → no expiry → insertion order. Locked inside the transaction.
   defp lock_available_lots(account_id) do
     now = DateTime.utc_now(:microsecond)
 
@@ -361,7 +365,7 @@ defmodule VR.Billing.Credits do
   defp take_from_lots(_lots, 0, _account_id, _source, _opts), do: :ok
 
   defp take_from_lots([], remaining, _account_id, _source, _opts) when remaining > 0 do
-    # 호출부가 미리 확인하므로 여기 오면 안 된다. 오면 깨끗하게 되돌린다.
+    # Callers check beforehand, so this should never be reached. If it is, roll back cleanly.
     Repo.rollback(:insufficient_credits)
   end
 
@@ -375,11 +379,11 @@ defmodule VR.Billing.Credits do
     take_from_lots(rest, remaining - take, account_id, source, opts)
   end
 
-  # 원장 항목을 넣는다.
+  # Inserts a ledger entry.
   #
-  # `idempotency_key` 충돌은 **오류가 아니라 "이미 처리됨"** 이다.
-  # 워커가 재시도되면 같은 열쇠로 다시 들어오는데, 그때 예외를 던지면
-  # 이미 끝난 일 때문에 잡이 실패로 남는다. 조용히 되돌린다.
+  # An `idempotency_key` conflict is **"already processed", not an error.**
+  # A retried worker comes back in with the same key; throwing an exception then
+  # would leave the job marked failed over work that already finished. Roll back quietly.
   defp insert_entry!(account_id, lot_id, delta, source, opts) do
     attrs = ledger_attrs(account_id, lot_id, delta, source, opts)
 
@@ -396,7 +400,7 @@ defmodule VR.Billing.Credits do
     end
   end
 
-  # 잔액이 모자란 만큼을 음수 묶음으로 남긴다. Σ delta == Σ remaining 을 지키기 위함.
+  # Records the shortfall as a negative lot. Preserves Σ delta == Σ remaining.
   defp record_overdraft(account_id, shortfall, source, opts) do
     lot =
       %CreditLot{}
@@ -405,7 +409,7 @@ defmodule VR.Billing.Credits do
         source: "overdraft",
         amount: 0,
         remaining: -shortfall,
-        origin: %{"reason" => "잔액 부족분"}
+        origin: %{"reason" => "balance shortfall"}
       })
       |> Repo.insert!()
 
@@ -417,7 +421,7 @@ defmodule VR.Billing.Credits do
       Keyword.put(opts, :key_part, :overdraft)
     )
 
-    Logger.info("[Credits] 오버드래프트 #{shortfall} — account=#{account_id}")
+    Logger.info("[Credits] overdraft #{shortfall} — account=#{account_id}")
   end
 
   defp ledger_attrs(account_id, lot_id, delta, source, opts) do
@@ -439,14 +443,16 @@ defmodule VR.Billing.Credits do
     }
   end
 
-  # 한 번의 사용이 여러 묶음에 걸치면 원장 항목도 여러 개가 된다.
-  # 같은 열쇠를 그대로 쓰면 유니크 제약에 걸리므로 묶음별로 파생시킨다.
-  # **출처: devkanban** `usage_idempotency_key/2`.
+  # One usage spanning multiple lots produces multiple ledger entries.
+  # Reusing the same key verbatim would trip the unique constraint, so it is
+  # derived per lot.
+  # **Source: devkanban** `usage_idempotency_key/2`.
   #
-  # 오버드래프트는 묶음 id 로 파생시키면 안 된다. 부족분을 기록할 때마다
-  # **새 묶음이 생기므로** 열쇠가 매번 달라지고, 유니크 제약이 영영 걸리지 않는다.
-  # 잔액이 0 이하인 계정(무료 플랜의 기본 상태다)에서 워커가 재시도되면
-  # 같은 사용이 몇 번이고 다시 차감된다. devkanban 이 여기에 고정 접미사를 쓰는 이유다.
+  # Overdraft must NOT be derived from the lot id. Each recorded shortfall
+  # **creates a new lot**, so the key would differ every time and the unique
+  # constraint would never fire. On an account with a balance at or below zero
+  # (the default state on the free plan), a retried worker would deduct the same
+  # usage over and over. That is why devkanban uses a fixed suffix here.
   defp scoped_key(nil, _part), do: nil
   defp scoped_key(key, {:lot, lot_id}), do: "#{key}:lot:#{lot_id}"
   defp scoped_key(key, :overdraft), do: "#{key}:overdraft"

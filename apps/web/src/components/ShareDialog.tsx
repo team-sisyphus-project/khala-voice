@@ -7,17 +7,19 @@ import type { GrantedRole, Meeting, SharedLink } from "@core/api";
 import { Sheet } from "@/ui";
 
 /**
- * 공유 링크 관리. **Reviewer 에게만 보인다.**
+ * Share link management. **Visible to Reviewers only.**
  *
- * ## 평문은 한 번만 보여준다
+ * ## The plaintext is shown exactly once
  *
- * 서버 DB 에도 해시만 있어서 이 화면을 닫으면 다시 볼 수 없다.
- * 그 사실을 화면에 적어 둔다 — 모르고 닫으면 재발급밖에 방법이 없다.
+ * The server DB stores only the hash, so once this screen closes it can never
+ * be seen again. That fact is written on the screen — close it unawares and
+ * reissuing is the only recourse.
  *
- * ## 링크만 만들면 게스트가 못 들어온다
+ * ## A link alone doesn't let guests in
  *
- * 회의의 `guest_link_enabled` 스위치가 꺼져 있으면 비로그인 방문자는 404 를 받는다.
- * 링크를 발급해 놓고 스위치를 안 켜면 "왜 안 되지" 가 되므로 여기서 함께 다룬다.
+ * With the meeting's `guest_link_enabled` switch off, signed-out visitors get
+ * a 404. Issuing a link without flipping the switch becomes "why doesn't it
+ * work", so both are handled here together.
  */
 export function ShareDialog({
   meeting,
@@ -33,7 +35,7 @@ export function ShareDialog({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  /** 발급 직후에만 채워진다. 목록을 새로 불러오면 사라진다. */
+  /** Populated only right after issuing. Gone once the list reloads. */
   const [issued, setIssued] = useState<SharedLink | null>(null);
 
   const [role, setRole] = useState<GrantedRole>("viewer");
@@ -114,7 +116,7 @@ export function ShareDialog({
                 aria-pressed={role === value}
                 onClick={() => setRole(value)}
               >
-                {/* 한국어 UI 에서도 영문 명칭 그대로 쓴다 */}
+                {/* The English role names are used verbatim even in the Korean UI */}
                 {value === "viewer" ? "Viewer" : "Contributor"}
               </button>
             ))}
@@ -156,7 +158,7 @@ export function ShareDialog({
                   granted_role: role,
                   max_uses: oneTime ? 1 : null,
                   with_pincode: withPincode,
-                  // 그날 끝까지 유효하게 한다
+                  // Keep it valid through the end of that day
                   expires_at: expiresAt ? `${expiresAt}T23:59:59Z` : null,
                 });
 
@@ -265,9 +267,9 @@ function CopyRow({ label, value, mono }: { label: string; value: string; mono?: 
   const inputRef = useRef<HTMLInputElement>(null);
 
   /**
-   * `navigator.clipboard` 는 보안 컨텍스트에서만 동작한다.
-   * 막혀 있으면 **조용히 실패하지 않고** 텍스트를 선택해 준다 —
-   * 사용자가 Ctrl+C 로 끝낼 수 있다. 아무 일도 안 일어나는 것이 최악이다.
+   * `navigator.clipboard` only works in secure contexts.
+   * When blocked, it doesn't **fail silently** — it selects the text so the
+   * user can finish with Ctrl+C. Nothing happening at all is the worst outcome.
    */
   async function copy() {
     inputRef.current?.select();

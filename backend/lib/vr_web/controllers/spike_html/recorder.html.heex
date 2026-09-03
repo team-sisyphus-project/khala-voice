@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#ffffff" />
-    <title>녹음 스파이크</title>
+    <title>Recording Spike</title>
     <link rel="stylesheet" href={~p"/assets/css/app.css"} />
     <style>
       body { font-family: var(--font-sans); background: #f7f8fa; margin: 0; padding: 16px; }
@@ -37,14 +37,15 @@
   </head>
   <body>
     <div class="wrap">
-      <h1>녹음 스파이크</h1>
+      <h1>Recording Spike</h1>
       <p class="sub">
-        모바일 백그라운드 녹음 검증용. 녹음을 시작한 뒤 <b>화면을 끄거나</b>
-        <b>다른 앱으로 전환</b>하고 몇 분 뒤 돌아와 로그를 확인하세요.
+        For verifying mobile background recording. Start a recording, then
+        <b>turn off the screen</b> or <b>switch to another app</b>, come back
+        a few minutes later, and check the log.
       </p>
 
       <div class="panel">
-        <h2>환경</h2>
+        <h2>Environment</h2>
         <div id="env"></div>
       </div>
 
@@ -54,23 +55,23 @@
         <canvas id="wave"></canvas>
 
         <div class="controls">
-          <button class="btn-sec" id="pause" hidden>일시정지</button>
+          <button class="btn-sec" id="pause" hidden>Pause</button>
           <button class="btn-rec" id="record">●</button>
-          <button class="btn-sec" id="stop" hidden>정지</button>
+          <button class="btn-sec" id="stop" hidden>Stop</button>
         </div>
 
         <label class="opt">
-          <input type="checkbox" id="wakelock" checked /> 화면 꺼짐 방지 (WakeLock)
+          <input type="checkbox" id="wakelock" checked /> Keep screen on (WakeLock)
         </label>
       </div>
 
       <div class="panel" id="result-panel">
-        <h2>결과</h2>
-        <div id="result"><span class="sub">아직 녹음이 없습니다.</span></div>
+        <h2>Result</h2>
+        <div id="result"><span class="sub">No recording yet.</span></div>
       </div>
 
       <div class="panel">
-        <h2>로그 (최신순)</h2>
+        <h2>Log (newest first)</h2>
         <div id="log"></div>
       </div>
     </div>

@@ -8,7 +8,7 @@ defmodule VR.PreviewAuthTest do
 
   @password "preview-test-password"
 
-  test "관리자 1명과 일반 사용자 2명, 최근 MFA 세션을 만든다" do
+  test "creates 1 admin, 2 regular users, and a recent MFA session" do
     assert {:ok, result} = PreviewAuth.ensure(password: @password)
 
     assert Enum.sort(Map.keys(result.accounts)) == [:admin, :user1, :user2]
@@ -32,7 +32,7 @@ defmodule VR.PreviewAuthTest do
              Admin.promote(result.accounts.user1, result.accounts.admin, result.mfa_session)
   end
 
-  test "재실행하면 계정과 MFA 세션을 중복 생성하지 않고 요구 상태를 복구한다" do
+  test "re-running restores the required state without duplicating accounts or MFA sessions" do
     assert {:ok, first} = PreviewAuth.ensure(password: @password)
 
     first.accounts.admin
@@ -53,7 +53,7 @@ defmodule VR.PreviewAuthTest do
     assert Repo.aggregate(VR.Accounts.AccountSession, :count) == 1
   end
 
-  test "관리자의 기존 활성 세션에도 최근 MFA 확인 시각을 강제 주입한다" do
+  test "force-injects a recent MFA verification time into the admin's existing active sessions" do
     assert {:ok, initial} = PreviewAuth.ensure(password: @password)
     old = DateTime.add(DateTime.utc_now(:second), -601, :second)
 
@@ -70,7 +70,7 @@ defmodule VR.PreviewAuthTest do
     assert DateTime.diff(DateTime.utc_now(:second), refreshed.mfa_verified_at, :second) in 0..1
   end
 
-  test "비밀번호가 없거나 짧으면 아무 데이터도 만들지 않는다" do
+  test "creates no data when the password is missing or too short" do
     assert {:error, :password_required} = PreviewAuth.ensure(password: "")
     assert {:error, :password_too_short} = PreviewAuth.ensure(password: "short")
     assert Repo.aggregate(VR.Accounts.Account, :count) == 0

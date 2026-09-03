@@ -14,20 +14,20 @@ import { Icon } from "@/ui";
 
 const guest = new GuestApiClient();
 
-/** 탭을 닫으면 사라진다. 공유 링크로 잠깐 보는 화면에 맞는 수명이다. */
+/** Gone when the tab closes. The right lifetime for a screen viewed briefly via a share link. */
 function storageKey(token: string) {
   return `vr.guest.${token.slice(0, 16)}`;
 }
 
 /**
- * 공유 링크로 들어온 게스트 화면.
+ * The guest screen entered via a share link.
  *
- * **출처: 신규.** sisyphus 는 서버가 정적 HTML 을 문자열 치환해
- * `window.__GUEST_LINK_DATA__` 를 심는 방식이었고 오류 메시지를 HTML 에 그대로
- * 보간했다. 그 방식은 이식하지 않았다.
+ * **Source: new.** sisyphus had the server string-substitute static HTML to
+ * plant `window.__GUEST_LINK_DATA__`, interpolating error messages straight
+ * into HTML. That approach was not ported.
  *
- * 전사·요약 화면은 로그인 화면과 **같은 컴포넌트를 그대로 쓴다** —
- * 게스트 전용 뷰를 따로 만들면 두 벌이 갈라진다.
+ * The transcript/summary views use **the exact same components** as the
+ * signed-in screens — a separate guest-only view would fork into two copies.
  */
 export function SharePage() {
   const { t } = useTranslation();
@@ -48,7 +48,7 @@ export function SharePage() {
       setError(null);
       return true;
     } catch (e) {
-      // 세션이 끊겼다. 다시 입장 화면으로.
+      // The session dropped. Back to the entry screen.
       guest.token = null;
       sessionStorage.removeItem(storageKey(token));
       setMeeting(null);
@@ -84,7 +84,7 @@ export function SharePage() {
     try {
       const result = await guest.enter(token, form);
 
-      // 로그인한 계정은 게스트 세션을 만들지 않는다. 계정 권한이 우선이다.
+      // Signed-in accounts don't create guest sessions. Account permissions take precedence.
       if (result.mode === "account" && result.redirect) {
         navigate(result.redirect, { replace: true });
         return;
@@ -268,7 +268,7 @@ function MeetingView({
   const canEdit = meeting.role === "contributor";
 
   function play(session: RecordingSession, startMs = 0) {
-    // Viewer 에게는 서버가 audio_href 를 주지 않는다
+    // The server doesn't give Viewers an audio_href
     if (session.audio_href) player.play(session.id, session.audio_href, startMs);
   }
 
@@ -319,7 +319,7 @@ function MeetingView({
             <SummaryView
               meeting={meeting}
               sessions={sessions}
-              // 게스트는 요약을 만들 수 없다. 서버에도 그 경로가 없다.
+              // Guests can't create summaries. The server has no such route either.
               canEdit={false}
               busy={false}
               onSummarize={() => {}}

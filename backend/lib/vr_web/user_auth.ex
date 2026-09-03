@@ -1,15 +1,15 @@
 defmodule VRWeb.UserAuth do
   @moduledoc """
-  세션 쿠키로 로그인 상태를 관리한다.
+  Manages sign-in state via a session cookie.
 
-  ## 쿠키 정책
+  ## Cookie policy
 
-  - `http_only` — JS가 읽을 수 없다. XSS로 세션이 새지 않는다
-  - `same_site: "Lax"` — 외부 사이트에서 온 POST에 쿠키가 실리지 않는다 (CSRF 완화)
-  - `secure` — 운영에서는 HTTPS에서만 전송
-  - 서명(signed) — 변조를 감지한다
+  - `http_only` — unreadable from JS, so XSS cannot leak the session
+  - `same_site: "Lax"` — the cookie is not sent on POSTs from external sites (CSRF mitigation)
+  - `secure` — sent only over HTTPS in production
+  - signed — tampering is detected
 
-  쿠키에는 **원본 토큰**이, DB에는 **그 해시**가 들어간다.
+  The cookie holds the **original token**; the DB holds **its hash**.
   """
 
   use VRWeb, :verified_routes
@@ -21,14 +21,14 @@ defmodule VRWeb.UserAuth do
 
   alias VR.Accounts
 
-  # 파이프라인에서 `plug VRWeb.UserAuth, :fetch_current_account` 형태로 쓴다
+  # Used in pipelines as `plug VRWeb.UserAuth, :fetch_current_account`
   def init(action) when is_atom(action), do: action
   def call(conn, action), do: apply(__MODULE__, action, [conn, []])
 
   @remember_cookie "_vr_session"
   @max_age 60 * 60 * 24 * 60
 
-  @doc "로그인 처리. 세션을 만들고 쿠키를 심는다."
+  @doc "Handles sign-in. Creates a session and sets the cookie."
   def log_in_account(conn, account, params \\ %{}, opts \\ []) do
     {:ok, token, _session} =
       Accounts.create_session(account, %{
@@ -37,7 +37,7 @@ defmodule VRWeb.UserAuth do
         mfa_verified_at: opts[:mfa_verified_at]
       })
 
-    # 삭제 예약 상태였다면 로그인으로 취소된다
+    # If the account was scheduled for deletion, signing in cancels it
     if account.scheduled_deletion_at, do: Accounts.cancel_deletion(account)
 
     Accounts.clear_failures(account.email)
@@ -49,7 +49,7 @@ defmodule VRWeb.UserAuth do
     |> redirect(to: signed_in_path(conn))
   end
 
-  @doc "로그아웃. 서버 세션을 무효화하고 쿠키를 지운다."
+  @doc "Signs out. Invalidates the server session and clears the cookie."
   def log_out_account(conn) do
     if token = get_session(conn, :account_token), do: Accounts.revoke_session(token)
 
@@ -60,14 +60,15 @@ defmodule VRWeb.UserAuth do
   end
 
   @doc """
-  "로그인 상태 유지" 쿠키를 지운다.
+  Clears the "remember me" cookie.
 
-  세션만 끊고 이걸 남기면 다음 요청에서 **다시 로그인된다.**
-  API 로그아웃(`API.MeController.logout/2`)도 같은 것을 지워야 한다.
+  Cutting only the session and leaving this behind means the next request
+  **signs the user back in.** The API logout (`API.MeController.logout/2`)
+  must clear the same cookie.
   """
   def delete_remember_cookie(conn), do: delete_resp_cookie(conn, @remember_cookie)
 
-  @doc "요청마다 현재 계정을 붙인다."
+  @doc "Attaches the current account on every request."
   def fetch_current_account(conn, _opts) do
     {token, conn} = ensure_token(conn)
 
@@ -84,7 +85,7 @@ defmodule VRWeb.UserAuth do
     end
   end
 
-  @doc "로그인해야 지나갈 수 있다."
+  @doc "Requires sign-in to pass."
   def require_authenticated(conn, _opts) do
     if conn.assigns[:current_account] do
       conn
@@ -98,9 +99,10 @@ defmodule VRWeb.UserAuth do
   end
 
   @doc """
-  API용 인증. 리다이렉트 대신 401 JSON 을 준다.
+  Authentication for the API. Responds with 401 JSON instead of a redirect.
 
-  API 클라이언트에게 302를 주면 로그인 HTML 을 파싱하려다 이상한 오류가 난다.
+  Giving an API client a 302 leads to confusing errors as it tries to parse
+  the sign-in HTML.
   """
   def require_authenticated_api(conn, _opts) do
     if conn.assigns[:current_account] do
@@ -110,13 +112,13 @@ defmodule VRWeb.UserAuth do
       |> put_resp_content_type("application/json")
       |> send_resp(
         401,
-        Jason.encode!(%{status: "error", code: "unauthorized", message: "로그인이 필요합니다"})
+        Jason.encode!(%{status: "error", code: "unauthorized", message: "Sign in required"})
       )
       |> halt()
     end
   end
 
-  @doc "이미 로그인했으면 앱으로 보낸다 (로그인·가입 페이지용)."
+  @doc "Sends already signed-in users to the app (for the sign-in and sign-up pages)."
   def redirect_if_authenticated(conn, _opts) do
     if conn.assigns[:current_account] do
       conn |> redirect(to: signed_in_path(conn)) |> halt()
@@ -125,23 +127,24 @@ defmodule VRWeb.UserAuth do
     end
   end
 
-  @doc "시스템 어드민만."
+  @doc "System admins only."
   def require_admin(conn, _opts) do
     case conn.assigns[:current_account] do
       %{is_admin: true} = account ->
-        # 어드민은 2단계 인증이 **의무**다. 아직 안 켰으면 설정부터 시킨다.
-        # 어드민 계정 하나가 뚫리면 전체 시스템의 설정과 키가 함께 넘어간다.
+        # Two-factor authentication is **mandatory** for admins. If it is not
+        # enabled yet, send them to settings first. One breached admin account
+        # takes the whole system's settings and keys with it.
         if VR.Accounts.MFA.satisfied?(account) do
           conn
         else
           conn
-          |> put_flash(:error, "어드민 계정은 2단계 인증을 켜야 들어갈 수 있습니다.")
+          |> put_flash(:error, "Admin accounts must enable two-factor authentication to enter.")
           |> redirect(to: ~p"/settings")
           |> halt()
         end
 
       %{} ->
-        # 어드민이 아닌 사람에게는 존재 자체를 숨긴다
+        # Hide even the existence of this area from non-admins
         conn |> send_resp(404, "Not Found") |> halt()
 
       _ ->
@@ -155,7 +158,7 @@ defmodule VRWeb.UserAuth do
   # ── LiveView ─────────────────────────────────────────────
 
   @doc """
-  LiveView 마운트 훅.
+  LiveView mount hooks.
 
       on_mount {VRWeb.UserAuth, :require_authenticated}
       on_mount {VRWeb.UserAuth, :require_admin}
@@ -166,10 +169,11 @@ defmodule VRWeb.UserAuth do
     {:cont, assign_current_account(socket, session)}
   end
 
-  # 현재 계정의 `locale` 로 이 LiveView 프로세스의 Gettext 로케일을 맞춘다.
-  # `VRWeb.Plugs.Locale` 의 LiveView 짝이다 — 컨트롤러는 플러그가, LiveView 는
-  # 이 훅이 같은 규칙(계정 `locale`, 없으면 영어)을 적용한다. 계정을 읽는 훅
-  # (`:mount_current_account`·`:require_authenticated`) **뒤에** 둔다.
+  # Sets this LiveView process's Gettext locale from the current account's
+  # `locale`. The LiveView counterpart of `VRWeb.Plugs.Locale` — controllers
+  # get the rule from the plug, LiveViews from this hook (account `locale`,
+  # falling back to English). Place it **after** the hooks that read the
+  # account (`:mount_current_account` and `:require_authenticated`).
   def on_mount(:set_locale, _params, _session, socket) do
     locale = VRWeb.Plugs.Locale.resolve(socket.assigns[:current_account])
     Gettext.put_locale(VRWeb.Gettext, locale)
@@ -193,8 +197,9 @@ defmodule VRWeb.UserAuth do
     socket = assign_current_account(socket, session)
 
     case socket.assigns.current_account do
-      # 플러그와 같은 규칙 — 어드민이라도 2단계 인증을 켜야 들어간다.
-      # LiveView 는 플러그를 거치지 않으므로 여기서도 막아야 한다.
+      # Same rule as the plug — even admins must enable two-factor
+      # authentication to enter. LiveView does not go through plugs, so we
+      # have to block here as well.
       %{is_admin: true} = account ->
         if VR.Accounts.MFA.satisfied?(account) do
           {:cont, socket}
@@ -203,7 +208,7 @@ defmodule VRWeb.UserAuth do
            socket
            |> Phoenix.LiveView.put_flash(
              :error,
-             "어드민 계정은 2단계 인증을 켜야 들어갈 수 있습니다."
+             "Admin accounts must enable two-factor authentication to enter."
            )
            |> Phoenix.LiveView.redirect(to: ~p"/settings")}
         end
@@ -233,7 +238,7 @@ defmodule VRWeb.UserAuth do
     end)
   end
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
   defp ensure_token(conn) do
     if token = get_session(conn, :account_token) do
@@ -266,7 +271,7 @@ defmodule VRWeb.UserAuth do
 
   defp maybe_write_remember_cookie(conn, _token, _params), do: conn
 
-  # 세션 ID를 갈아끼워 세션 고정(fixation) 공격을 막는다
+  # Swaps out the session ID to prevent session fixation attacks
   @doc false
   def renew_session(conn) do
     delete_csrf_token()

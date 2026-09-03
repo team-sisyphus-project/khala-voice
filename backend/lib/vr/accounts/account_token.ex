@@ -1,18 +1,18 @@
 defmodule VR.Accounts.AccountToken do
   @moduledoc """
-  일회성 이메일 토큰 — 이메일 확인, 비밀번호 재설정, 이메일 변경.
+  One-time email tokens — email confirmation, password reset, email change.
 
-  세션과 마찬가지로 원본은 메일 링크에만 있고 DB에는 해시만 둔다.
+  As with sessions, the raw token exists only in the email link and the DB keeps only the hash.
 
-  ## 컨텍스트별 유효기간
+  ## Validity per context
 
-  | 컨텍스트 | 유효 |
+  | Context | Valid for |
   |---|---|
-  | `confirm` | 7일 |
-  | `reset_password` | 1시간 |
-  | `change_email` | 1일 |
+  | `confirm` | 7 days |
+  | `reset_password` | 1 hour |
+  | `change_email` | 1 day |
 
-  비밀번호 재설정이 짧은 이유: 메일함이 털렸을 때의 노출 창을 줄이기 위해서다.
+  Password reset is short on purpose: it narrows the exposure window if a mailbox is compromised.
   """
 
   use Ecto.Schema
@@ -44,7 +44,7 @@ defmodule VR.Accounts.AccountToken do
 
   def contexts, do: Map.keys(@validity)
 
-  @doc "`{원본_토큰, changeset}`을 돌려준다. 원본은 메일 링크에만 쓴다."
+  @doc "Returns `{raw_token, changeset}`. The raw token is used only in email links."
   def build(account_id, context, sent_to) when is_map_key(@validity, context) do
     token = :crypto.strong_rand_bytes(@rand_size)
     {amount, unit} = @validity[context]

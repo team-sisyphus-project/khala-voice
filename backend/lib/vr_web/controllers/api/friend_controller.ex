@@ -1,9 +1,9 @@
 defmodule VRWeb.API.FriendController do
   @moduledoc """
-  친구 목록.
+  Friend list.
 
-  React 가 화자를 사람에 연결할 때 쓴다.
-  친구 관리(초대·수락)는 LiveView 화면이 담당한다.
+  Used by React to connect speakers to people.
+  Friend management (inviting, accepting) is handled by the LiveView screens.
   """
 
   use VRWeb, :controller

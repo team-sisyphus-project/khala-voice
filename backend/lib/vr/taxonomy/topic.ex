@@ -1,20 +1,20 @@
 defmodule VR.Taxonomy.Topic do
   @moduledoc """
-  회의 분류 — 토픽. 회의 하나에 **하나만** 붙는다.
+  Meeting classification — topics. A meeting carries **only one**.
 
-  **출처: sisyphus** `lib/sisyphus/topics/topic.ex`. 바꾼 것:
+  **Source: sisyphus** `lib/sisyphus/topics/topic.ex`. What changed:
 
-  | sisyphus | 이 앱 | 왜 |
+  | sisyphus | this app | why |
   |---|---|---|
-  | 테이블 `categories` | `topics` | 레거시 이름을 물려받지 않는다 |
-  | `project_id` | `owner_id` | 이 앱에는 프로젝트가 없다. 분류는 계정의 것이다 |
-  | `title` + `display_label` | `name` | 두 필드가 늘 같은 값으로 저장돼 있었다 |
-  | `description` | 없음 | 아무 화면도 읽지 않았다 |
-  | 자유 HEX | 팔레트 키 (`VR.Taxonomy.Color`) | 테마가 넷이라 임의 색이 배경에서 안 읽힌다 |
-  | (없음) | `sort_order` · `deleted_at` | 사용자 정렬과 소프트 삭제 |
+  | table `categories` | `topics` | We do not inherit the legacy name |
+  | `project_id` | `owner_id` | This app has no projects. Classification belongs to the account |
+  | `title` + `display_label` | `name` | The two fields were always stored with the same value |
+  | `description` | none | No screen ever read it |
+  | free-form HEX | palette keys (`VR.Taxonomy.Color`) | With four themes, arbitrary colors do not read against the backgrounds |
+  | (none) | `sort_order` · `deleted_at` | User ordering and soft delete |
 
-  `owner_id` 는 **절대 cast 하지 않는다.** 컨텍스트가 구조체에 박는다 —
-  cast 하면 요청 본문으로 남의 분류를 만들 수 있다.
+  `owner_id` is **never cast.** The context sets it on the struct —
+  casting it would let a request body create classifications for someone else.
   """
 
   use Ecto.Schema
@@ -55,7 +55,7 @@ defmodule VR.Taxonomy.Topic do
     |> validate()
   end
 
-  @doc "소프트 삭제. 쓰던 회의를 떼어내는 것은 컨텍스트가 같은 트랜잭션에서 한다."
+  @doc "Soft delete. Detaching the meetings that used it is done by the context in the same transaction."
   def delete_changeset(topic, now \\ nil) do
     change(topic, %{deleted_at: now || DateTime.utc_now(:second)})
   end
@@ -64,7 +64,7 @@ defmodule VR.Taxonomy.Topic do
     change(topic, %{sort_order: order})
   end
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
   defp validate(changeset) do
     changeset

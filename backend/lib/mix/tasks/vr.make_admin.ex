@@ -1,14 +1,15 @@
 defmodule Mix.Tasks.Vr.MakeAdmin do
   @moduledoc """
-  계정에 시스템 어드민 권한을 준다.
+  Grants system admin permission to an account.
 
       mix vr.make_admin someone@example.com
       mix vr.make_admin someone@example.com --revoke
 
-  어드민 계정은 이 방법으로만 만든다. 화면에서 스스로 승격할 수 없다 —
-  어드민 화면이 뚫리면 권한 상승까지 이어지기 때문이다.
+  Admin accounts are created only this way. There is no self-promotion in the
+  UI — a compromised admin screen would otherwise lead straight to privilege
+  escalation.
   """
-  @shortdoc "계정에 어드민 권한을 부여/회수한다"
+  @shortdoc "Grants or revokes admin permission for an account"
 
   use Mix.Task
 
@@ -20,14 +21,14 @@ defmodule Mix.Tasks.Vr.MakeAdmin do
 
     case argv do
       [email] -> toggle(email, not (opts[:revoke] || false))
-      _ -> Mix.raise("사용법: mix vr.make_admin <이메일> [--revoke]")
+      _ -> Mix.raise("Usage: mix vr.make_admin <email> [--revoke]")
     end
   end
 
   defp toggle(email, grant?) do
     case VR.Accounts.get_account_by_email(email) do
       nil ->
-        Mix.raise("계정을 찾을 수 없습니다: #{email}")
+        Mix.raise("Account not found: #{email}")
 
       account ->
         {:ok, updated} =
@@ -38,14 +39,14 @@ defmodule Mix.Tasks.Vr.MakeAdmin do
         if grant? do
           Mix.shell().info("""
 
-          ✅ 어드민 권한을 부여했습니다.
+          ✅ Admin permission granted.
 
              #{updated.email}  (#{updated.id})
 
-          /_admin 에 접속할 수 있습니다.
+          This account can now access /_admin.
           """)
         else
-          Mix.shell().info("\n✅ 어드민 권한을 회수했습니다: #{updated.email}\n")
+          Mix.shell().info("\n✅ Admin permission revoked: #{updated.email}\n")
         end
     end
   end

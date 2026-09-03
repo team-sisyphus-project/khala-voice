@@ -1,65 +1,67 @@
 defmodule VR.Storage do
   @moduledoc """
-  오디오·전사본 저장소.
+  Storage for audio and transcripts.
 
-  어댑터 뒤에 둔다. 지금은 S3 하나지만, STT가 GCS를 요구하므로
-  나중에 GCS 단일화로 바꿀 여지를 남겨둔다 (`docs/01-overview.md` A2).
+  Kept behind an adapter. It is just S3 for now, but since STT requires GCS,
+  we leave room to consolidate on GCS later (`docs/01-overview.md` A2).
   """
 
   @adapter VR.Storage.S3
 
   @doc """
-  브라우저가 직접 올릴 presigned PUT URL을 발급한다.
+  Issues a presigned PUT URL for the browser to upload directly.
 
-  서버를 거치지 않는 이유: 1시간짜리 녹음이 수십 MB가 되는데
-  그걸 앱 서버로 통과시키면 메모리와 대역폭이 그대로 낭비된다.
+  Why it does not go through the server: an hour-long recording runs to tens of
+  MB, and piping that through the app server wastes memory and bandwidth outright.
   """
   defdelegate presign_upload(opts), to: @adapter
 
   @doc """
-  다운로드용 URL. CDN이 설정돼 있으면 그쪽을 쓴다.
+  Download URL. Uses the CDN if one is configured.
 
-  **서명이 없다.** 사용자에게 직접 내려보내지 말고 `presign_download/2` 를 써라 —
-  저장 키가 결정적이라 서명 없는 URL 은 곧 영구 공개 링크다.
+  **Unsigned.** Do not hand this to users directly — use `presign_download/2`.
+  Storage keys are deterministic, so an unsigned URL is effectively a permanent
+  public link.
   """
   defdelegate public_url(key), to: @adapter
 
-  @doc "서명된 다운로드 URL. 사용자에게 오디오를 줄 때는 항상 이것을 쓴다."
+  @doc "Signed download URL. Always use this when giving audio to a user."
   defdelegate presign_download(key, opts), to: @adapter
 
   @doc """
-  우리 버킷/CDN 의 오브젝트인가. 워커가 따라가도 되는 URL 인지 판정한다.
+  Is this an object in our bucket/CDN? Decides whether a worker may follow the URL.
 
-  클라이언트가 준 주소를 그대로 GET 하면 사설망·메타데이터 엔드포인트로
-  서버를 보낼 수 있다 (SSRF).
+  GETting a client-supplied address as-is can send the server to private
+  networks or metadata endpoints (SSRF).
   """
   defdelegate own_object_url?(url), to: @adapter
 
   @doc """
-  서버에서 직접 올린다. 분할된 청크처럼 **서버가 만든 파일**에만 쓴다.
+  Uploads directly from the server. Only for **server-generated files**, such as
+  split chunks.
 
-  사용자 업로드는 presign 으로 브라우저가 직접 올린다 — 큰 파일을
-  앱 서버로 통과시키면 메모리와 대역폭이 낭비된다.
+  User uploads go straight from the browser via presign — piping large files
+  through the app server wastes memory and bandwidth.
   """
   defdelegate put_object(key, body, content_type), to: @adapter
 
-  @doc "설정이 갖춰졌는가."
+  @doc "Is the configuration complete?"
   defdelegate configured?(), to: @adapter
 
-  @doc "녹음 파일의 저장 경로."
+  @doc "Storage path for a recording file."
   def recording_key(meeting_id, session_id, started_at_unix, ext) do
     "data/meetings/#{meeting_id}/sessions/#{session_id}/#{started_at_unix}.#{ext}"
   end
 
-  @doc "전사본 저장 경로."
+  @doc "Storage path for a transcript."
   def transcript_key(meeting_id, session_id, started_at_unix) do
     "data/meetings/#{meeting_id}/sessions/#{session_id}/#{started_at_unix}.json"
   end
 
   @doc """
-  MIME 타입에서 확장자를 얻는다.
+  Gets the file extension from a MIME type.
 
-  브라우저마다 다른 값을 준다. Chrome/Firefox 는 webm, Safari 는 mp4.
+  Browsers report different values. Chrome/Firefox use webm, Safari uses mp4.
   """
   def extension_for("audio/webm" <> _), do: "webm"
   def extension_for("audio/ogg" <> _), do: "ogg"
@@ -69,7 +71,7 @@ defmodule VR.Storage do
   def extension_for("audio/x-wav"), do: "wav"
   def extension_for(_), do: "bin"
 
-  @doc "업로드를 허용하는 오디오 MIME 목록."
+  @doc "Audio MIME types allowed for upload."
   def allowed_mime?(mime) when is_binary(mime) do
     base = mime |> String.split(";") |> List.first() |> String.trim()
     base in ~w(audio/webm audio/ogg audio/mp4 audio/mpeg audio/wav audio/x-wav)

@@ -1,19 +1,20 @@
 defmodule VR.Vault do
   @moduledoc """
-  Cloak Vault — DB에 저장되는 민감 값의 암호화/복호화.
+  Cloak Vault — encryption/decryption of sensitive values stored in the DB.
 
-  **출처: sisyphus** `lib/sisyphus/vault.ex` — 그대로.
+  **Source: sisyphus** `lib/sisyphus/vault.ex` — verbatim.
 
-  AES-256-GCM을 사용하며 키는 `CLOAK_KEY` 환경변수에서 읽는다.
-  Base64로 인코딩된 32바이트(256비트) 값이어야 한다.
+  Uses AES-256-GCM; the key is read from the `CLOAK_KEY` environment variable.
+  It must be a Base64-encoded 32-byte (256-bit) value.
 
       openssl rand -base64 32
 
-  키가 없거나 형식이 틀리면 **부팅에 실패한다.** 기본 키를 만들지 않는다.
-  이 앱은 오픈소스로 공개되므로, 기본 키가 존재하면 그 자체가 취약점이 된다.
+  If the key is missing or malformed, **boot fails.** No default key is created.
+  This app is published as open source, so a default key would itself be a
+  vulnerability.
 
-  직접 쓸 일은 거의 없다. Ecto 스키마에서 `VR.Encrypted.Binary` 타입을 쓰면
-  저장/로드 시 자동으로 처리된다.
+  You rarely use this directly. Using the `VR.Encrypted.Binary` type in an Ecto
+  schema handles it automatically on store/load.
 
       field :api_key, VR.Encrypted.Binary, source: :api_key_encrypted
   """
@@ -34,14 +35,14 @@ defmodule VR.Vault do
     case System.get_env("CLOAK_KEY") do
       nil ->
         raise """
-        CLOAK_KEY 환경변수가 없습니다.
+        The CLOAK_KEY environment variable is missing.
 
-        DB에 저장되는 API 키를 암호화하는 데 필요합니다. 다음으로 생성하세요:
+        It is required to encrypt API keys stored in the DB. Generate one with:
 
             openssl rand -base64 32
 
-        기본 키는 제공하지 않습니다. 이 리포는 공개되므로 기본 키가 있으면
-        모든 배포본의 암호화가 무력화됩니다.
+        No default key is provided. This repo is public, so a default key would
+        neutralize the encryption of every deployment.
         """
 
       value ->
@@ -50,11 +51,11 @@ defmodule VR.Vault do
             key
 
           {:ok, key} ->
-            raise "CLOAK_KEY는 32바이트여야 합니다 (현재 #{byte_size(key)}바이트). " <>
-                    "openssl rand -base64 32 로 다시 생성하세요."
+            raise "CLOAK_KEY must be 32 bytes (currently #{byte_size(key)} bytes). " <>
+                    "Regenerate it with: openssl rand -base64 32"
 
           :error ->
-            raise "CLOAK_KEY가 올바른 Base64가 아닙니다. openssl rand -base64 32 로 생성하세요."
+            raise "CLOAK_KEY is not valid Base64. Generate it with: openssl rand -base64 32"
         end
     end
   end

@@ -1,4 +1,4 @@
-/** 최소한의 타입 있는 이벤트 에미터. 의존성을 늘리지 않으려고 직접 둔다. */
+/** Minimal typed event emitter. Kept in-house to avoid adding dependencies. */
 
 export type Listener<T> = (payload: T) => void;
 
@@ -24,12 +24,12 @@ export class Emitter<Events> {
     const set = this.#listeners.get(event);
     if (!set) return;
 
-    // 리스너 하나가 던져도 나머지는 계속 받아야 한다
+    // One listener throwing must not stop the rest from receiving
     for (const listener of [...set]) {
       try {
         (listener as Listener<Events[K]>)(payload);
       } catch (error) {
-        console.error("[Emitter] 리스너 오류:", error);
+        console.error("[Emitter] listener error:", error);
       }
     }
   }

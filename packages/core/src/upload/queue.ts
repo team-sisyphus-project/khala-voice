@@ -1,23 +1,24 @@
 /**
- * IndexedDB 업로드 대기 큐.
+ * IndexedDB upload queue.
  *
- * ## 왜 필요한가
+ * ## Why it exists
  *
- * 녹음이 끝난 Blob 은 **메모리에만** 있다. 이 상태에서 탭이 닫히거나
- * 네트워크가 끊기면 한 시간짜리 회의가 통째로 사라진다.
+ * A finished recording's Blob lives **only in memory**. If the tab closes or
+ * the network drops in that state, an hour-long meeting vanishes wholesale.
  *
- * 그래서 순서를 이렇게 잡는다.
+ * So the order is:
  *
- *     1. 녹음 종료 → Blob
- *     2. IndexedDB 에 먼저 저장    ← 여기부터는 안전하다
- *     3. presign → S3 PUT → 서버 등록
- *     4. 성공했을 때만 IndexedDB 에서 제거
+ *     1. Recording ends → Blob
+ *     2. Save to IndexedDB first    ← safe from this point on
+ *     3. presign → S3 PUT → register with the server
+ *     4. Remove from IndexedDB only on success
  *
- * **출처: sisyphus** `assets/shared/utils/pending-uploads.js` — 검증된 순서를 그대로 가져왔다.
+ * **Source: sisyphus** `assets/shared/utils/pending-uploads.js` — the proven
+ * order, carried over as-is.
  */
 
 export interface PendingUpload {
-  /** 세션 ID. 키로 쓴다 */
+  /** Session ID. Used as the key */
   id: string;
   blob: Blob;
   mimeType: string;
@@ -33,7 +34,7 @@ const DB_NAME = "vr-pending-uploads";
 const DB_VERSION = 1;
 const STORE = "recordings";
 
-/** 이 횟수를 넘으면 자동 재시도를 멈추고 사용자에게 알린다. */
+/** Past this count, automatic retries stop and the user is notified. */
 export const MAX_RETRIES = 5;
 
 export class UploadQueue {
@@ -98,12 +99,12 @@ export class UploadQueue {
     return all.sort((a, b) => a.savedAt - b.savedAt);
   }
 
-  /** 자동 재시도 대상 — 아직 한도를 넘지 않은 것. */
+  /** Auto-retry candidates — those still under the limit. */
   async listRetryable(): Promise<PendingUpload[]> {
     return (await this.list()).filter((item) => item.retryCount < MAX_RETRIES);
   }
 
-  /** 한도를 넘어 사용자 판단이 필요한 것. */
+  /** Those past the limit, needing a user decision. */
   async listFailed(): Promise<PendingUpload[]> {
     return (await this.list()).filter((item) => item.retryCount >= MAX_RETRIES);
   }
@@ -125,7 +126,7 @@ export class UploadQueue {
     await this.#tx("readwrite", (store) => store.clear());
   }
 
-  /** 저장된 총 바이트. 용량 경고에 쓴다. */
+  /** Total stored bytes. Used for storage warnings. */
   async totalBytes(): Promise<number> {
     return (await this.list()).reduce((sum, item) => sum + item.blob.size, 0);
   }

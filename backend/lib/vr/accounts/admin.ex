@@ -1,26 +1,26 @@
 defmodule VR.Accounts.Admin do
   @moduledoc """
-  시스템 어드민의 계정 관리.
+  Account management by system admins.
 
-  ## 잠금 방지가 이 모듈의 핵심이다
+  ## Lockout prevention is the core of this module
 
-  어드민이 0명이 되면 **아무도 `/_admin` 에 들어갈 수 없다.**
-  DB 를 직접 만지거나 `mix vr.make_admin` 을 서버에서 실행해야 복구된다.
+  If the admin count reaches zero, **no one can enter `/_admin`.**
+  Recovery requires touching the DB directly or running `mix vr.make_admin` on the server.
 
-  그래서 다음을 **거부**한다.
+  Therefore, the following are **refused**:
 
-  - 마지막 어드민의 권한 회수
-  - 마지막 어드민의 삭제
-  - 자기 자신의 권한 회수 (실수로 나가는 것을 막는다)
-  - 자기 자신의 삭제
+  - Revoking the last admin's privileges
+  - Deleting the last admin
+  - Revoking your own privileges (prevents accidentally locking yourself out)
+  - Deleting yourself
 
-  자기 계정을 지우려면 일반 설정 화면의 "계정 삭제 예약"을 쓴다.
-  어드민 화면은 **남의 계정을 다루는 곳**이다.
+  To delete your own account, use "schedule account deletion" in the regular settings screen.
+  The admin screen is **for managing other people's accounts.**
 
-  ## 부트스트랩 계정
+  ## Bootstrap account
 
-  설치 직후에는 어드민이 없어 입구가 막혀 있다. 그래서 하나를 자동으로 만든다.
-  실사용자를 승격한 뒤 이 계정을 지우면 입구가 닫힌다.
+  Right after installation there is no admin, so the entrance is blocked. That is why one
+  is created automatically. Delete it after promoting a real user, and the entrance closes.
   """
 
   import Ecto.Query, warn: false
@@ -32,15 +32,15 @@ defmodule VR.Accounts.Admin do
   alias VR.Friends.{FriendInvitation, Friendship}
   alias VR.Repo
 
-  # ── 조회 ─────────────────────────────────────────────────
+  # ── Lookup ───────────────────────────────────────────────
 
   @doc """
-  계정 목록.
+  Account listing.
 
-  ## 옵션
-  - `:q` — 이메일·이름 부분 일치
+  ## Options
+  - `:q` — partial match on email/name
   - `:only` — `:admins` | `:bootstrap` | `:deleted`
-  - `:limit` — 기본 100
+  - `:limit` — default 100
   """
   def list_accounts(opts \\ []) do
     query = from a in Account, order_by: [desc: a.is_admin, asc: a.email]
@@ -68,7 +68,7 @@ defmodule VR.Accounts.Admin do
     where(query, [a], ilike(a.email, ^pattern) or ilike(a.name, ^pattern))
   end
 
-  @doc "살아있는 어드민 수. 잠금 방지 판단의 기준이다."
+  @doc "Number of live admins. The basis for lockout-prevention decisions."
   def count_admins do
     Repo.aggregate(
       from(a in Account, where: a.is_admin == true and is_nil(a.deleted_at)),
@@ -76,12 +76,12 @@ defmodule VR.Accounts.Admin do
     )
   end
 
-  @doc "아직 남아있는 부트스트랩 계정. 있으면 어드민 화면이 삭제를 권한다."
+  @doc "The bootstrap account still remaining, if any. When present, the admin screen recommends deleting it."
   def bootstrap_account do
     Repo.one(from a in Account, where: a.is_bootstrap == true and is_nil(a.deleted_at), limit: 1)
   end
 
-  @doc "계정 하나에 대해 어드민이 할 수 있는 일. UI 가 버튼을 그릴 때 쓴다."
+  @doc "What an admin can do with a given account. Used by the UI to render buttons."
   def capabilities(%Account{} = target, %Account{} = actor) do
     self? = target.id == actor.id
     last_admin? = target.is_admin and count_admins() <= 1
@@ -95,9 +95,9 @@ defmodule VR.Accounts.Admin do
     }
   end
 
-  # ── 권한 변경 ────────────────────────────────────────────
+  # ── Privilege changes ────────────────────────────────────
 
-  @doc "다른 계정을 어드민으로 승격한다."
+  @doc "Promotes another account to admin."
   def promote(%Account{} = target, %Account{} = actor, session \\ nil) do
     cond do
       not actor.is_admin ->
@@ -118,9 +118,9 @@ defmodule VR.Accounts.Admin do
   end
 
   @doc """
-  어드민 권한을 회수한다.
+  Revokes admin privileges.
 
-  마지막 어드민이거나 자기 자신이면 거부한다.
+  Refused for the last admin or for yourself.
   """
   def demote(%Account{} = target, %Account{} = actor, session \\ nil) do
     cond do
@@ -159,16 +159,16 @@ defmodule VR.Accounts.Admin do
     end
   end
 
-  # ── 삭제 ─────────────────────────────────────────────────
+  # ── Deletion ─────────────────────────────────────────────
 
   @doc """
-  계정을 즉시 삭제한다 (소프트 삭제 + 익명화).
+  Deletes an account immediately (soft delete + anonymization).
 
-  일반 사용자의 "삭제 예약"과 달리 유예 기간이 없다.
-  어드민이 명시적으로 지우는 것이므로 바로 처리한다.
+  Unlike a regular user's "scheduled deletion", there is no grace period.
+  The admin is deleting explicitly, so it is processed right away.
 
-  `DeletionWorker` 와 같은 방식으로 익명화한다 — 이메일을 남기면
-  삭제의 의미가 없고, 같은 주소로 재가입도 막힌다.
+  Anonymizes the same way `DeletionWorker` does — keeping the email would defeat
+  the purpose of deletion and also block re-registration with the same address.
   """
   def delete_account(%Account{} = target, %Account{} = actor, session \\ nil) do
     cond do
@@ -194,7 +194,7 @@ defmodule VR.Accounts.Admin do
 
   @recent_mfa_seconds 10 * 60
 
-  @doc "고위험 관리자 작업에 인정되는 MFA 확인 유효기간(초)."
+  @doc "How long (in seconds) an MFA verification is honored for high-risk admin actions."
   def recent_mfa_seconds, do: @recent_mfa_seconds
 
   defp recent_mfa?(%AccountSession{id: session_id}, %Account{id: account_id}) do
@@ -284,24 +284,24 @@ defmodule VR.Accounts.Admin do
     }
   end
 
-  # ── 부트스트랩 ───────────────────────────────────────────
+  # ── Bootstrap ────────────────────────────────────────────
 
   @doc """
-  초기 어드민 계정을 만든다. 이미 어드민이 있으면 아무것도 하지 않는다.
+  Creates the initial admin account. Does nothing if an admin already exists.
 
-  `{:ok, account, password}` — 비밀번호는 **이때 한 번만** 볼 수 있다.
-  해시로만 저장하므로 나중에 조회할 수 없다.
+  `{:ok, account, password}` — the password is visible **only this once.**
+  It is stored only as a hash and cannot be looked up later.
 
-  비밀번호는 공통 설정 계층의 `app.bootstrap_admin_password`에서 읽고,
-  없으면 무작위로 만든다. **코드에 기본 비밀번호를 두지 않는다** —
-  이 리포는 공개되므로 기본값이 있으면 모든 배포본이 같은 열쇠를 갖게 된다.
+  The password is read from `app.bootstrap_admin_password` in the shared config layer,
+  or generated randomly if absent. **No default password lives in the code** —
+  this repo is public, so a default would give every deployment the same key.
   """
   def ensure_bootstrap_admin(opts \\ []) do
     if count_admins() > 0 do
       {:error, :admin_exists}
     else
-      # 이메일도 기본값을 두지 않는다. 모든 배포본이 같은 주소를 쓰면
-      # 그 자체가 공격 대상이 된다.
+      # No default email either. If every deployment used the same address,
+      # that in itself would become an attack target.
       email = opts[:email] || Config.fetch("app.bootstrap_admin_email")
 
       password =
@@ -319,7 +319,7 @@ defmodule VR.Accounts.Admin do
     attrs = %{
       email: email,
       password: password,
-      name: "초기 관리자"
+      name: "Initial Admin"
     }
 
     changeset =
@@ -327,7 +327,7 @@ defmodule VR.Accounts.Admin do
       |> Account.registration_changeset(attrs)
       |> Ecto.Changeset.put_change(:is_admin, true)
       |> Ecto.Changeset.put_change(:is_bootstrap, true)
-      # 로그인 직후 바로 쓸 수 있어야 한다. 메일 발송이 설정 안 됐을 수 있다.
+      # Must be usable immediately after login. Email delivery may not be configured yet.
       |> Ecto.Changeset.put_change(:confirmed_at, DateTime.utc_now(:second))
 
     case Repo.insert(changeset) do
@@ -336,7 +336,7 @@ defmodule VR.Accounts.Admin do
     end
   end
 
-  # 사람이 옮겨적기 쉽도록 헷갈리는 글자(0/O/1/l/I)를 뺀다
+  # Confusing characters (0/O/1/l/I) are excluded so it is easy for people to transcribe
   @alphabet ~c"abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
   defp random_password do

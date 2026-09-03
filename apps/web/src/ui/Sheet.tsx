@@ -1,11 +1,12 @@
 /**
- * 바텀시트 모달.
+ * Bottom-sheet modal.
  *
- * **출처: devkanban** `mobile/src/screens/BoardSettingsSheet.tsx` 의 `BoardSheet`.
- * 마크업(`mobile-context-sheet` 클래스)을 그대로 쓴다 — CSS 가 이 이름에 걸려 있다.
+ * **Source: devkanban** — `BoardSheet` from
+ * `mobile/src/screens/BoardSettingsSheet.tsx`. Uses the markup
+ * (`mobile-context-sheet` class) as-is — the CSS is keyed to the name.
  *
- * 원본과 다른 점: 스크림을 눌러 닫는 것 외에 **Esc 로도 닫는다.**
- * 이 앱은 데스크톱에서도 같은 화면을 쓰기 때문이다.
+ * Difference from the original: besides pressing the scrim, **Esc also
+ * closes it** — this app uses the same screens on desktop too.
  */
 import { useEffect } from "react"
 import { useTranslation } from "react-i18next"

@@ -1,15 +1,16 @@
 defmodule VR.Taxonomy.Label do
   @moduledoc """
-  회의 분류 — 라벨. 회의 하나에 **여러 개** 붙는다 (`meetings.label_ids`).
+  Meeting classification — labels. A meeting can carry **several** (`meetings.label_ids`).
 
-  **출처: sisyphus** `lib/sisyphus/labels/label.ex`. 바꾼 것은
-  `VR.Taxonomy.Topic` 과 같다 (`project_id`→`owner_id`, 자유 HEX→팔레트 키 등).
-  이름 길이 상한 20자는 원본 그대로 가져왔다.
+  **Source: sisyphus** `lib/sisyphus/labels/label.ex`. The changes are the same
+  as `VR.Taxonomy.Topic` (`project_id`→`owner_id`, free-form HEX→palette keys, etc.).
+  The 20-character name limit was kept from the original.
 
-  ## 토픽과 달리 `sort_order` 가 없다
+  ## Unlike topics, there is no `sort_order`
 
-  라벨은 이름순으로만 보여준다. 라벨은 개수가 늘기 쉬워서 수동 정렬이
-  금세 관리 부담이 된다. 필요해지면 마이그레이션 하나로 되돌릴 수 있다.
+  Labels are shown only in name order. Labels multiply easily, so manual
+  ordering quickly becomes a maintenance burden. If needed, one migration can
+  bring it back.
   """
 
   use Ecto.Schema
@@ -49,12 +50,12 @@ defmodule VR.Taxonomy.Label do
     |> validate()
   end
 
-  @doc "소프트 삭제. 회의의 `label_ids` 에서 빼는 것은 컨텍스트가 같은 트랜잭션에서 한다."
+  @doc "Soft delete. Removing it from meetings' `label_ids` is done by the context in the same transaction."
   def delete_changeset(label, now \\ nil) do
     change(label, %{deleted_at: now || DateTime.utc_now(:second)})
   end
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
   defp validate(changeset) do
     changeset

@@ -1,163 +1,166 @@
-# 04. 녹음 파이프라인
+# 04. Recording Pipeline
 
-녹음 한 번이 요약까지 도달하는 전 과정.
+The full journey of a single recording, from capture to summary.
 
-## 전체 흐름
+## End-to-end flow
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant U as 사용자
-    participant C as 클라이언트
+    participant U as User
+    participant C as Client
     participant DB as IndexedDB
     participant API as Phoenix API
     participant S3 as S3
-    participant W as Oban 워커
+    participant W as Oban worker
     participant GCS as GCS
     participant STT as Google STT
     participant LLM as LLM
 
-    U->>C: 녹음 시작
+    U->>C: Start recording
     C->>API: POST /meetings/:id/sessions
     API-->>C: session (status: recording)
     C->>C: getUserMedia · MediaRecorder.start(1000)
-    U->>C: 녹음 종료
-    C->>DB: Blob 저장 (유실 방지)
+    U->>C: Stop recording
+    C->>DB: Store Blob (loss prevention)
     C->>API: POST /uploads/presign
     API-->>C: uploadUrl · downloadUrl
     C->>S3: PUT (presigned)
     C->>API: POST /sessions/:id/upload
     API->>API: status: uploaded
-    C->>DB: 항목 제거
+    C->>DB: Remove entry
     C->>API: POST /sessions/:id/transcribe
-    API->>W: 잡 큐잉
+    API->>W: Enqueue job
 
-    alt duration > 20분
-        W->>S3: 원본 다운로드
-        W->>W: FFmpeg 19분 단위 분할
-        W->>S3: 청크 업로드
-        W->>API: 청크별 새 세션 생성 · 원본 삭제
-        W->>W: 청크마다 전사 잡 큐잉
+    alt duration > 20 min
+        W->>S3: Download original
+        W->>W: FFmpeg split into 19-min chunks
+        W->>S3: Upload chunks
+        W->>API: Create a new session per chunk · delete original
+        W->>W: Enqueue a transcription job per chunk
     end
 
-    W->>S3: 오디오 다운로드
-    W->>W: FFmpeg MP3 트랜스코딩
-    W->>GCS: 임시 업로드
-    W->>STT: batchRecognize (화자분리)
-    loop 5초 간격 · 최대 30분
-        W->>STT: 진행 폴링
+    W->>S3: Download audio
+    W->>W: FFmpeg MP3 transcoding
+    W->>GCS: Staging upload
+    W->>STT: batchRecognize (diarization)
+    loop every 5s · up to 30 min
+        W->>STT: Poll progress
     end
-    STT-->>GCS: 결과 기록
-    W->>GCS: 결과 읽기 · 임시파일 정리
-    W->>API: transcript 저장 · status: completed
-    W->>W: 크레딧 원장 기록
+    STT-->>GCS: Write results
+    W->>GCS: Read results · clean up staging files
+    W->>API: Store transcript · status: completed
+    W->>W: Record credit ledger entries
     W-->>C: SSE session_status_changed
 
-    W->>LLM: 요약 요청 (프롬프트 + 직렬화된 전사)
+    W->>LLM: Summary request (prompt + serialized transcript)
     LLM-->>W: summary_data JSON
-    W->>API: 저장 · 토큰 사용량 원장 기록
+    W->>API: Store · record token usage in ledger
     W-->>C: SSE summary_completed
 ```
 
 ---
 
-## 1. 녹음 (클라이언트)
+## 1. Recording (client)
 
-| 항목 | 설정 |
+| Item | Setting |
 |---|---|
-| 오디오 제약 | `channelCount: 1` (모노 강제), `echoCancellation: true`, `noiseSuppression: true` |
-| MIME 폴백 | `audio/webm;codecs=opus` → `audio/webm` → `audio/mp4;codecs=aac` → `audio/mp4` → `audio/ogg;codecs=opus` → 브라우저 기본 |
-| 청크 수집 | `MediaRecorder.start(1000)` — 1초 단위 |
-| 파형 | `AudioContext` + `AnalyserNode(fftSize: 256)` → 캔버스 |
-| 최대 길이 | 3시간. 남은 시간 카운트다운 표시 |
-| 장치 선택 | `enumerateDevices()` — 권한 없으면 라벨이 비어 힌트 표시 |
-| 권한 진단 | `navigator.permissions.query({name:"microphone"})` — 지원 안 하면 `unknown` |
-| 언어 | ko-KR / en-US / ja-JP / cmn-Hans-CN / cmn-Hant-TW / es-ES |
-| 이탈 방지 | 녹음 중 · 업로드 중 `beforeunload` 경고 |
-| 잠금 | 녹음 중에는 마이크 · 언어 변경 불가 |
+| Audio constraints | `channelCount: 1` (mono forced), `echoCancellation: true`, `noiseSuppression: true` |
+| MIME fallback | `audio/webm;codecs=opus` → `audio/webm` → `audio/mp4;codecs=aac` → `audio/mp4` → `audio/ogg;codecs=opus` → browser default |
+| Chunk collection | `MediaRecorder.start(1000)` — 1-second intervals |
+| Waveform | `AudioContext` + `AnalyserNode(fftSize: 256)` → canvas |
+| Max length | 3 hours. Remaining time shown as a countdown |
+| Device selection | `enumerateDevices()` — labels are empty without permission, so show a hint |
+| Permission diagnosis | `navigator.permissions.query({name:"microphone"})` — `unknown` if unsupported |
+| Languages | ko-KR / en-US / ja-JP / cmn-Hans-CN / cmn-Hant-TW / es-ES |
+| Exit protection | `beforeunload` warning while recording or uploading |
+| Lock | Microphone and language cannot be changed while recording |
 
-> **모노 강제 이유**: Google STT의 화자분리는 단일 채널만 지원한다.
+> **Why mono is forced**: Google STT diarization only supports a single channel.
 
-### 마이크 권한 — 왜 실패를 잘게 나누는가
+### Microphone permission — why we split failures finely
 
-`getUserMedia` 가 던지는 것은 대부분 `NotAllowedError` **하나**다.
-그런데 사용자가 실제로 해야 할 일은 상황마다 전혀 다르다.
-전부 "마이크 사용이 거부되었습니다" 로 뭉치면 사용자는 같은 버튼만 반복해서
-누르다 이탈한다. 녹음이 제품의 전부인 앱에서 이건 치명적이다.
+`getUserMedia` mostly throws just **one** thing: `NotAllowedError`.
+Yet what the user actually needs to do differs completely by situation.
+If everything collapses into "microphone access was denied", the user keeps pressing
+the same button and leaves. In an app where recording is the entire product, that is fatal.
 
-| 코드 | 언제 | 사용자가 할 일 | 다시 시도가 통하는가 |
+| Code | When | What the user should do | Does retrying work? |
 |---|---|---|---|
-| `permission_dismissed` | 권한 창을 그냥 닫음 | 다시 누른다 | ✅ |
-| `permission_blocked` | "차단" 을 눌러 굳음 | 브라우저 사이트 설정 | ❌ 창이 안 뜬다 |
-| `permission_denied` | 거부됐는데 굳었는지는 모름 (Safari) | 한 번 더 눌러 보고, 안 되면 설정 | 애매 — 그래서 둘 다 안내 |
-| `system_denied` | OS 개인정보 설정에서 브라우저가 차단됨 | **시스템** 설정 | ❌ |
-| `embed_blocked` | iframe `allow` 없음 · 인앱 브라우저 정책 | 새 탭 / 다른 브라우저로 열기 | ❌ |
-| `device_busy` | 다른 앱이 마이크 점유 (`NotReadableError`) | 줌·통화 종료 | ✅ |
-| `device_unavailable` | 골라 둔 마이크가 사라짐 (`OverconstrainedError`) | 기본 마이크로 되돌리기 | ❌ 그대로는 안 된다 |
-| `no_device` | 입력 장치 자체가 없음 | 연결 확인 | ✅ |
+| `permission_dismissed` | Dismissed the permission prompt | Press again | ✅ |
+| `permission_blocked` | Clicked "Block" and it stuck | Browser site settings | ❌ the prompt never appears |
+| `permission_denied` | Denied, but unclear whether it stuck (Safari) | Try once more; if that fails, settings | Ambiguous — so we guide both |
+| `system_denied` | The OS privacy settings block the browser | **System** settings | ❌ |
+| `embed_blocked` | Missing iframe `allow` / in-app browser policy | Open in a new tab / another browser | ❌ |
+| `device_busy` | Another app holds the mic (`NotReadableError`) | End Zoom / the call | ✅ |
+| `device_unavailable` | The chosen mic disappeared (`OverconstrainedError`) | Fall back to the default mic | ❌ not as-is |
+| `no_device` | No input device at all | Check the connection | ✅ |
 
-판정은 두 단계다.
+Classification happens in two steps.
 
-1. `classifyMediaError` — 예외 이름 + **메시지**로 나눈다.
-   Chrome 은 위 다섯 상황을 전부 `NotAllowedError` 로 주고 메시지로만 구분한다
-   (`Permission denied` / `dismissed` / `denied by system` / `permissions policy`).
-2. `refinePermissionCode` — 거부 **직후** Permissions API 를 한 번 더 읽어
-   `denied` 면 `permission_blocked`, `prompt` 면 `permission_dismissed` 로 올린다.
+1. `classifyMediaError` — splits by exception name plus the **message**.
+   Chrome reports all five of those situations as `NotAllowedError` and distinguishes them
+   only via the message (`Permission denied` / `dismissed` / `denied by system` /
+   `permissions policy`).
+2. `refinePermissionCode` — reads the Permissions API once more **right after** the denial:
+   `denied` upgrades to `permission_blocked`, `prompt` upgrades to `permission_dismissed`.
 
-**모르면 모른다고 둔다.** Safari 는 `permissions.query({name:"microphone"})`
-자체를 던진다. 거기서 "차단됨" 으로 단정하면 실제로는 권한 창이 뜰 사용자까지
-버튼이 잠긴다. `unknown` 은 "시작할 수 있다" 쪽으로 센다.
+**When we don't know, we say we don't know.** Safari throws on
+`permissions.query({name:"microphone"})` itself. Concluding "blocked" there would lock the
+button even for users who would actually get a permission prompt. `unknown` counts toward
+"can start".
 
-### 안내 문구는 한 곳에서만 나온다
+### Guidance copy comes from one place only
 
-원인 · 절차 · "다시 시도가 통하는가" 는 전부
-`packages/core/src/recorder/permission.ts` 의 `micRecoveryGuide(code, platform)`
-가 만든다. 화면(데스크톱 · 모바일 · 스파이크 페이지)은 자기 문구를 쓰지 않는다 —
-쓰기 시작하면 같은 상황에서 서로 다른 해결책을 말하게 되고,
-어느 쪽이 맞는지 아무도 모르게 된다.
+The cause, the steps, and "does retrying work?" are all produced by
+`micRecoveryGuide(code, platform)` in `packages/core/src/recorder/permission.ts`.
+Screens (desktop, mobile, spike pages) never write their own copy — once they do, the same
+situation gets conflicting fixes and nobody knows which one is right.
 
-절차는 기기마다 다르다 (`detectPlatform`).
-UA 스니핑을 쓰는 유일한 자리인데, **설정 UI 의 위치**는 기능 판별로 알 수 없기
-때문이다. 여기서 틀려도 나빠지는 것은 안내 문구뿐이고 동작은 그대로다.
+The steps differ per device (`detectPlatform`).
+This is the only place that uses UA sniffing, because **the location of the settings UI**
+cannot be determined by feature detection. Getting it wrong here only degrades the
+guidance copy; behavior is unaffected.
 
-### 일시정지 정책 — 통일 필요
+### Pause policy — needs unification
 
-sisyphus는 데스크톱과 모바일이 서로 다르게 동작했다.
+sisyphus behaved differently on desktop and mobile.
 
-| | sisyphus 데스크톱 | sisyphus 모바일 |
+| | sisyphus desktop | sisyphus mobile |
 |---|---|---|
-| 일시정지 | 현재 세션 **종료 + 업로드** | `MediaRecorder.pause()` |
-| 재개 | **새 세션 생성** | `MediaRecorder.resume()` |
-| 결과 | 세션이 쪼개짐 | 한 세션 유지 |
+| Pause | **End + upload** the current session | `MediaRecorder.pause()` |
+| Resume | **Create a new session** | `MediaRecorder.resume()` |
+| Result | Sessions get fragmented | One session preserved |
 
-**이 앱의 결정: `pause()` / `resume()`으로 한 세션을 유지한다.**
-- 사용자 기대(잠깐 멈췄다 이어서)와 일치
-- 세션이 잘게 쪼개지지 않아 화자 체계가 유지된다 (분할 세션은 화자 번호가 독립적이라 이어붙이기 어렵다)
-- 경과 시간은 `totalPausedTime`을 빼서 계산
+**This app's decision: keep one session via `pause()` / `resume()`.**
+- Matches user expectations (pause briefly, then continue)
+- Sessions don't fragment, so the speaker scheme stays intact (split sessions have
+  independent speaker numbering, which makes stitching hard)
+- Elapsed time is computed by subtracting `totalPausedTime`
 
-> sisyphus 데스크톱의 재개 경로는 존재하지 않는 함수(`getSupportedMimeType`,
-> `startWaveform`)를 호출해 실제로 동작하지 않았다. 이식 시 반드시 고쳐야 할 지점.
-> → [10-porting-map.md](10-porting-map.md#알려진-결함)
+> The sisyphus desktop resume path called functions that don't exist
+> (`getSupportedMimeType`, `startWaveform`) and never actually worked. This must be fixed
+> during the port. → [10-porting-map.md](10-porting-map.md)
 
 ---
 
-## 2. 업로드
+## 2. Upload
 
-### 유실 방지 순서
+### Loss-prevention ordering
 
 ```
-1. 녹음 종료 → Blob 생성
-2. IndexedDB에 먼저 저장          ← 네트워크가 끊겨도 여기 남는다
-3. presign 요청 → S3 PUT
-4. 서버에 등록 (POST /sessions/:id/upload)
-5. 성공 시에만 IndexedDB에서 제거
+1. Recording ends → create Blob
+2. Store in IndexedDB first          ← survives here even if the network drops
+3. Request presign → S3 PUT
+4. Register with the server (POST /sessions/:id/upload)
+5. Remove from IndexedDB only on success
 ```
 
-### IndexedDB 큐 스키마
+### IndexedDB queue schema
 
 ```jsonc
 {
-  id: "mrss_xxx",          // 세션 ID = 키
+  id: "mrss_xxx",          // session ID = key
   blob: Blob,
   mimeType: "audio/webm;codecs=opus",
   durationSeconds: 1234,
@@ -170,19 +173,19 @@ sisyphus는 데스크톱과 모바일이 서로 다르게 동작했다.
 }
 ```
 
-### 재시도 정책
+### Retry policy
 
-| 상황 | 동작 |
+| Situation | Behavior |
 |---|---|
-| 앱 시작 | 대기 항목 확인 후 순차 재시도 (동시 업로드 금지) |
-| `online` 이벤트 | 연결 안정화 대기 후 재시도 |
-| 실패 | `retryCount` 증가 + 에러 기록 |
-| `retryCount >= 5` | 자동 재시도 중단, 화면에 실패 배너 표시 |
-| 실패 배너 | [모두 재시도] / [모두 삭제] 제공 |
+| App start | Check pending entries, retry sequentially (no concurrent uploads) |
+| `online` event | Wait for the connection to stabilize, then retry |
+| Failure | Increment `retryCount` + record the error |
+| `retryCount >= 5` | Stop automatic retries, show a failure banner |
+| Failure banner | Offers [Retry all] / [Delete all] |
 
 ### S3 presign
 
-sisyphus는 이 발급을 n8n 웹훅에 위임했다. **이 앱은 직접 구현한다.**
+sisyphus delegated this issuance to an n8n webhook. **This app implements it directly.**
 
 ```
 POST /api/uploads/presign
@@ -190,156 +193,160 @@ POST /api/uploads/presign
 → { upload_url, download_url, key, expires_in }
 ```
 
-| 항목 | 값 |
+| Item | Value |
 |---|---|
-| 서명 | AWS Signature V4 쿼리스트링 presign |
-| 메서드 | `PUT`, 페이로드 `UNSIGNED-PAYLOAD` |
-| 서명 헤더 | `content-disposition;content-type;host` |
-| 만료 | 1800초 |
-| 키 경로 | `data/meetings/{meeting_id}/sessions/{session_id}/{started_at_unix}.{ext}` |
-| 다운로드 | CDN 도메인 (설정값) |
+| Signing | AWS Signature V4 query-string presign |
+| Method | `PUT`, payload `UNSIGNED-PAYLOAD` |
+| Signed headers | `content-disposition;content-type;host` |
+| Expiry | 1800 seconds |
+| Key path | `data/meetings/{meeting_id}/sessions/{session_id}/{started_at_unix}.{ext}` |
+| Download | CDN domain (configured value) |
 
-Elixir에서는 `ExAws.S3.presigned_url/5`로 처리한다. SigV4를 직접 구현하지 않는다.
+In Elixir this is handled with `ExAws.S3.presigned_url/5`. We do not hand-roll SigV4.
 
-> 자격증명은 **어드민 DB 또는 환경변수**에서만 읽는다. 코드에 리터럴 금지.
+> Credentials are read **only from the admin DB or environment variables**. No literals in code.
 > → [07-config-admin.md](07-config-admin.md)
 
 ---
 
-## 3. 전사
+## 3. Transcription
 
-### 분할 판단
+### Split decision
 
 ```
-duration_seconds > 1200 (20분)  →  AudioSplitWorker
+duration_seconds > 1200 (20 min)  →  AudioSplitWorker
                               ↓
-                     FFmpeg 19분 단위 분할
-                     각 청크 S3 업로드
-                     청크마다 새 RecordingSession 생성 (metadata.part)
-                     원본 세션 soft delete
-                     각 청크에 전사 잡 큐잉
+                     FFmpeg split into 19-min chunks
+                     Upload each chunk to S3
+                     Create a new RecordingSession per chunk (metadata.part)
+                     Soft-delete the original session
+                     Enqueue a transcription job per chunk
 ```
 
-Google STT `batchRecognize`의 입력 길이 제한이 있어서 필요한 처리다.
-청크 세션은 라벨에 시간대를 표시한다 (예: `0:00~19:00`).
+This is required because Google STT `batchRecognize` has an input-length limit.
+Chunk sessions show a time range in their label (e.g. `0:00~19:00`).
 
-**주의**: 청크마다 화자 번호 체계가 독립적이다. 청크 1의 `speaker_1`과
-청크 2의 `speaker_1`은 다른 사람일 수 있다. UI에서 이를 명시해야 한다.
+**Caution**: speaker numbering is independent per chunk. `speaker_1` in chunk 1 and
+`speaker_1` in chunk 2 may be different people. The UI must make this explicit.
 
-### STT 호출
+### STT call
 
-| 항목 | 값 |
+| Item | Value |
 |---|---|
 | API | Google Cloud Speech-to-Text **v2**, `batchRecognize` |
-| 모델 | Chirp 계열 (설정값) |
-| 화자분리 | 최소 2명 ~ 최대 10명 |
-| 입력 형식 | MP3로 트랜스코딩 후 전달 (브라우저 호환 + STT 안정성) |
-| 입력 위치 | GCS 임시 버킷 (`gs://` URI 필수) |
-| 폴링 | 5초 간격, 최대 360회 (= 30분) |
-| 정리 | 완료 후 GCS 임시 오브젝트 · 결과 파일 삭제 |
+| Model | Chirp family (configured value) |
+| Diarization | Minimum 2 to maximum 10 speakers |
+| Input format | Transcoded to MP3 before submission (browser compatibility + STT stability) |
+| Input location | GCS staging bucket (`gs://` URI required) |
+| Polling | Every 5 seconds, up to 360 times (= 30 min) |
+| Cleanup | Delete the GCS staging objects and result files after completion |
 
-### 결과 후처리
+### Result post-processing
 
-1. 단어 단위 결과를 **화자별로 그룹핑**
-2. 너무 짧은 세그먼트를 인접 세그먼트에 **병합**
-3. `segments[]` 형태로 저장 + `original_segments[]`에 원본 보존 (복원용)
+1. **Group** word-level results **by speaker**
+2. **Merge** overly short segments into adjacent ones
+3. Store as `segments[]`, and preserve originals in `original_segments[]` (for restore)
 
-### 개발 모드
+### Dev mode
 
-설정에서 STT 개발 모드를 켜면 실제 API를 호출하지 않고 목 세그먼트를 반환한다.
-GCP 자격증명 없이도 전체 UI 흐름을 개발·테스트할 수 있다.
+With STT dev mode enabled in settings, the real API is never called and mock segments
+are returned. The entire UI flow can be developed and tested without GCP credentials.
 
 ---
 
-## 4. 화자 편집
+## 4. Speaker editing
 
-### 2계층 구조
+### Two-layer structure
 
 ```
-transcript.segments[i].speaker  =  "speaker_1"        ← STT 원본, 세그먼트별
-speaker_map["speaker_1"]        =  { name, account_id } ← 사람 매핑, 화자별
+transcript.segments[i].speaker  =  "speaker_1"        ← STT original, per segment
+speaker_map["speaker_1"]        =  { name, account_id } ← person mapping, per speaker
 ```
 
-| 조작 | UI | 수정 대상 | 영향 범위 |
+| Operation | UI | What changes | Blast radius |
 |---|---|---|---|
-| **화자 칩 변경** | 상단 화자 바의 칩 클릭 | `speaker_map[key]` | 그 화자의 **모든** 발언 |
-| **세그먼트 변경** | 메시지의 아바타/이름 클릭 | `segments[i].speaker` | **그 한 줄만** |
+| **Speaker chip change** | Click a chip in the top speaker bar | `speaker_map[key]` | **All** utterances by that speaker |
+| **Segment change** | Click a message's avatar/name | `segments[i].speaker` | **That one line only** |
 
-두 번째는 STT가 화자를 잘못 분리했을 때 쓴다.
+The second one is for when STT diarized incorrectly.
 
-### 그 외 편집
+### Other edits
 
-| 기능 | 설명 |
+| Feature | Description |
 |---|---|
-| 화자 추가 | STT가 놓친 화자를 수동 추가 |
-| 화자 삭제 | 잘못 생성된 화자 제거 (해당 세그먼트는 다른 화자로 이동) |
-| 텍스트 편집 | 세그먼트 문장 직접 수정 |
-| 세그먼트 분할 | 한 세그먼트를 커서 위치에서 둘로 나눔 (화자가 섞였을 때) |
-| 원본 복원 | `original_segments`로 되돌림 |
-| 재전사 | 해당 세션만 다시 STT 호출 (크레딧 재소모) |
+| Add speaker | Manually add a speaker STT missed |
+| Delete speaker | Remove a wrongly created speaker (its segments move to another speaker) |
+| Text editing | Edit a segment's text directly |
+| Segment split | Split one segment in two at the cursor (when speakers got mixed) |
+| Restore original | Revert using `original_segments` |
+| Re-transcribe | Re-run STT for just that session (credits charged again) |
 
-### 화자 색상
+### Speaker colors
 
-10색 팔레트를 등장 순서대로 고정 배정한다. 각 색은 3단계로 쓴다.
+A 10-color palette is assigned in order of appearance and stays fixed. Each color is
+used at three levels.
 
-| 용도 | 키 |
+| Use | Key |
 |---|---|
-| 칩 배경 | `pastel` (연한 파스텔) |
-| 아바타 배경 | `solid` (중간 채도) |
-| 텍스트 | `text` (명도 낮은 짙은색) |
+| Chip background | `pastel` (light pastel) |
+| Avatar background | `solid` (medium saturation) |
+| Text | `text` (dark, low lightness) |
 
-인접 색이 겹치지 않도록 대비 순으로 배열한다. 화자 이름을 바꿔도 색은 유지된다.
+The palette is ordered for contrast so adjacent colors don't clash. Renaming a speaker
+keeps their color.
 
 ---
 
-## 5. AI 요약
+## 5. AI summary
 
-sisyphus는 n8n 워크플로에 위임했다. **이 앱은 LLM을 직접 호출한다.**
+sisyphus delegated this to an n8n workflow. **This app calls the LLM directly.**
 
-### 전사 직렬화 규약
+### Transcript serialization convention
 
-LLM에 넘기기 전 각 발화를 다음 형식으로 직렬화한다. **프롬프트와 합의된 규약이다.**
+Before sending to the LLM, each utterance is serialized in the following format.
+**This is a convention agreed upon with the prompt.**
 
 ```
-[<session_id>|<speaker_name>|<HH:MM:SS>] 발화 내용
+[<session_id>|<speaker_name>|<HH:MM:SS>] utterance text
 ```
 
-예:
+Example:
 ```
-[mrss_abc|홍길동|00:12:34] 그러면 4월 30일까지 음성 녹음 배포로 갑시다.
-[mrss_abc|이기획|00:18:05] 백엔드 API는 박개발자가 맡는 걸로 합시다.
+[mrss_abc|Jane Doe|00:12:34] Then let's go with the voice recording release by April 30.
+[mrss_abc|Sam Planner|00:18:05] Let's have Pat Developer own the backend API.
 ```
 
-### 프롬프트 규칙 (핵심)
+### Prompt rules (essential)
 
-- `source.session_id` = `[`와 첫 `|` 사이 토큰
-- `source.speaker` = 두 번째 토큰
-- `source.time_label` = 세 번째 토큰 (`HH:MM:SS` 그대로)
-- `source.quote` = `]` 뒤의 **발화 전문**. 라벨은 포함하지 않음
-- **축약 · 번역 · 의역 금지.** 라벨에서 읽을 수 없으면 빈 문자열. **날조 금지**
+- `source.session_id` = the token between `[` and the first `|`
+- `source.speaker` = the second token
+- `source.time_label` = the third token (`HH:MM:SS` verbatim)
+- `source.quote` = the **full utterance** after `]`. The label is not included
+- **No abbreviation, translation, or paraphrasing.** If it cannot be read from the label,
+  use an empty string. **No fabrication**
 
-### 출력 스키마
+### Output schema
 
 ```jsonc
 summary_data = {
-  "one_liner": "결론 중심 1~2문장. 안건 나열이 아니라 무엇이 정해졌는지.",
+  "one_liner": "1-2 conclusion-focused sentences. What was decided, not a list of agenda items.",
   "decisions": [
-    { "text": "확정된 결정 한 문장",
-      "source": { "session_id": "mrss_abc", "speaker": "홍길동",
-                  "time_label": "00:12:34", "quote": "원문 발화 그대로" } }
+    { "text": "one sentence stating a confirmed decision",
+      "source": { "session_id": "mrss_abc", "speaker": "Jane Doe",
+                  "time_label": "00:12:34", "quote": "the original utterance verbatim" } }
   ],
   "action_items": [
-    { "who": "담당자명 (미지정이면 \"\")",
-      "what": "실행 동사가 포함된 한 줄 작업",
-      "due": "YYYY-MM-DD 또는 언급된 표현 (미지정이면 \"\")",
-      "source": { /* 위와 동일 */ } }
+    { "who": "assignee name (\"\" if unassigned)",
+      "what": "a one-line task containing an action verb",
+      "due": "YYYY-MM-DD or the phrasing as mentioned (\"\" if unspecified)",
+      "source": { /* same as above */ } }
   ],
-  "facts": ["전사에 명시된 객관적 사실 (수치 · 날짜 · 이름 · 지표)"],
-  "open_questions": ["제기됐지만 이 회의에서 결론나지 않은 것"],
-  "next_steps": ["action_items에 없는 향후 일정 · 마일스톤"],
-  "key_topics": ["짧은 명사구 태그 1~3단어. 최대 5개"],
+  "facts": ["objective facts stated in the transcript (figures, dates, names, metrics)"],
+  "open_questions": ["raised but not resolved in this meeting"],
+  "next_steps": ["upcoming schedule/milestones not covered by action_items"],
+  "key_topics": ["short noun-phrase tags, 1-3 words. Max 5"],
 
-  // 메타 (서버가 채움)
+  // meta (filled in by the server)
   "language": "ko",
   "model": "gemini-2.5-flash",
   "generated_at": "2026-08-19T...",
@@ -348,45 +355,45 @@ summary_data = {
 }
 ```
 
-`source` 덕분에 **요약 항목을 클릭하면 해당 오디오 지점으로 점프**한다.
-이 제품의 핵심 UX이므로 프롬프트 규칙을 느슨하게 만들면 안 된다.
+Thanks to `source`, **clicking a summary item jumps to that point in the audio**.
+This is the product's core UX, so the prompt rules must not be loosened.
 
-### 호출 파라미터
+### Call parameters
 
-| 항목 | 값 |
+| Item | Value |
 |---|---|
-| 기본 모델 | Gemini (어드민에서 변경) |
+| Default model | Gemini (changeable in admin) |
 | temperature | 0.2 |
 | maxOutputTokens | 16384 |
-| 출력 강제 | 구조화 출력 / JSON 스키마 |
-| 실패 시 | `last_summary_error`에 기록, 기존 `summary_data`는 유지 |
+| Output enforcement | Structured output / JSON schema |
+| On failure | Recorded in `last_summary_error`; the existing `summary_data` is kept |
 
-### 모드
+### Modes
 
-| 모드 | 트리거 | 동작 |
+| Mode | Trigger | Behavior |
 |---|---|---|
-| `auto` | 전사 완료 시 자동 | `summary_data`만 저장 |
-| `retry` | 사용자가 [재요약] 클릭 | auto 가드 우회, 강제 재생성 |
+| `auto` | Automatic on transcription completion | Stores `summary_data` only |
+| `retry` | User clicks [Re-summarize] | Bypasses the auto guard, forces regeneration |
 
-`meeting_id` 단위 unique 잡이라 중복 실행되지 않는다.
+The job is unique per `meeting_id`, so it never runs twice concurrently.
 
-### 사용량 기록
+### Usage recording
 
-LLM 응답의 토큰 사용량을 받아 **직접 크레딧 원장에 기록**한다.
-sisyphus의 `service-usage/callback` 왕복이 사라진다. → [06-billing.md](06-billing.md)
+The token usage from the LLM response is **recorded directly in the credit ledger**.
+sisyphus's `service-usage/callback` round trip goes away. → [06-billing.md](06-billing.md)
 
 ---
 
-## 6. 재생
+## 6. Playback
 
-| 동작 | 결과 |
+| Action | Result |
 |---|---|
-| 세션 재생 버튼 | 세션 처음부터 재생 |
-| 세그먼트 클릭 | 해당 `start_ms`부터 재생 |
-| 요약 항목 클릭 | `source.session_id` + `time_label` 위치로 점프 |
-| 같은 세션 재클릭 | 토글 (플레이어 숨김) |
+| Session play button | Plays the session from the beginning |
+| Segment click | Plays from that `start_ms` |
+| Summary item click | Jumps to the `source.session_id` + `time_label` position |
+| Re-clicking the same session | Toggles (hides the player) |
 
-- 플레이어는 화면 하단 고정 **1개**만 존재한다
-- 재생 위치에 따라 현재 세그먼트를 하이라이트한다
-- webm 파일의 `duration`이 `Infinity`로 나오는 브라우저 버그를 보정한다
-  (알려진 길이로 강제 seek 후 되돌리는 방식)
+- There is exactly **one** player, pinned to the bottom of the screen
+- The current segment is highlighted based on playback position
+- A browser bug where a webm file's `duration` reads `Infinity` is corrected
+  (force-seek to a known length, then seek back)

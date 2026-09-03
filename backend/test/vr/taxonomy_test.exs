@@ -9,90 +9,90 @@ defmodule VR.TaxonomyTest do
     %{account: account_fixture(), other: account_fixture()}
   end
 
-  describe "토픽 생성" do
-    test "정렬 순서가 뒤로 이어진다", %{account: account} do
-      {:ok, a} = Taxonomy.create_topic(account, %{"name" => "기획"})
-      {:ok, b} = Taxonomy.create_topic(account, %{"name" => "개발"})
-      {:ok, c} = Taxonomy.create_topic(account, %{"name" => "운영"})
+  describe "topic creation" do
+    test "sort order keeps appending", %{account: account} do
+      {:ok, a} = Taxonomy.create_topic(account, %{"name" => "Planning"})
+      {:ok, b} = Taxonomy.create_topic(account, %{"name" => "Engineering"})
+      {:ok, c} = Taxonomy.create_topic(account, %{"name" => "Operations"})
 
       assert [a.sort_order, b.sort_order, c.sort_order] == [0, 1, 2]
     end
 
-    test "id 에 접두사가 붙는다", %{account: account} do
-      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "기획"})
-      {:ok, label} = Taxonomy.create_label(account, %{"name" => "긴급"})
+    test "ids carry prefixes", %{account: account} do
+      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "Planning"})
+      {:ok, label} = Taxonomy.create_label(account, %{"name" => "Urgent"})
 
       assert String.starts_with?(topic.id, "topc_")
       assert String.starts_with?(label.id, "labl_")
     end
 
-    test "이름 앞뒤 공백을 지운다", %{account: account} do
-      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "  기획  "})
-      assert topic.name == "기획"
+    test "trims surrounding whitespace from names", %{account: account} do
+      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "  Planning  "})
+      assert topic.name == "Planning"
     end
 
-    test "같은 이름은 두 번 만들 수 없다", %{account: account} do
-      {:ok, _} = Taxonomy.create_topic(account, %{"name" => "기획"})
-      assert {:error, changeset} = Taxonomy.create_topic(account, %{"name" => "기획"})
+    test "the same name cannot be created twice", %{account: account} do
+      {:ok, _} = Taxonomy.create_topic(account, %{"name" => "Planning"})
+      assert {:error, changeset} = Taxonomy.create_topic(account, %{"name" => "Planning"})
       refute changeset.valid?
     end
 
-    test "다른 사람은 같은 이름을 쓸 수 있다", %{account: account, other: other} do
-      {:ok, _} = Taxonomy.create_topic(account, %{"name" => "기획"})
-      assert {:ok, _} = Taxonomy.create_topic(other, %{"name" => "기획"})
+    test "someone else may use the same name", %{account: account, other: other} do
+      {:ok, _} = Taxonomy.create_topic(account, %{"name" => "Planning"})
+      assert {:ok, _} = Taxonomy.create_topic(other, %{"name" => "Planning"})
     end
 
-    test "지운 이름은 다시 만들 수 있다", %{account: account} do
-      # 부분 유니크 인덱스 회귀. 전체 유니크였으면 여기서 막힌다.
-      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "기획"})
+    test "a deleted name can be created again", %{account: account} do
+      # Partial unique index regression. A full unique index would block here.
+      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "Planning"})
       {:ok, _} = Taxonomy.delete_topic(topic)
 
-      assert {:ok, _} = Taxonomy.create_topic(account, %{"name" => "기획"})
+      assert {:ok, _} = Taxonomy.create_topic(account, %{"name" => "Planning"})
     end
 
-    test "팔레트에 없는 색은 거부한다", %{account: account} do
+    test "rejects colors outside the palette", %{account: account} do
       assert {:error, changeset} =
                Taxonomy.create_topic(account, %{"name" => "x", "color" => "hotpink"})
 
       assert %{color: _} = errors_on(changeset)
     end
 
-    test "색을 안 고르면 기본색", %{account: account} do
-      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "기획"})
+    test "defaults the color when none is picked", %{account: account} do
+      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "Planning"})
       assert topic.color == VR.Taxonomy.Color.default()
     end
 
-    test "이름이 비면 거부한다", %{account: account} do
+    test "rejects an empty name", %{account: account} do
       assert {:error, _} = Taxonomy.create_topic(account, %{"name" => "   "})
       assert {:error, _} = Taxonomy.create_topic(account, %{})
     end
 
-    test "라벨 이름은 20자까지", %{account: account} do
-      assert {:ok, _} = Taxonomy.create_label(account, %{"name" => String.duplicate("가", 20)})
-      assert {:error, _} = Taxonomy.create_label(account, %{"name" => String.duplicate("가", 21)})
+    test "label names max out at 20 characters", %{account: account} do
+      assert {:ok, _} = Taxonomy.create_label(account, %{"name" => String.duplicate("a", 20)})
+      assert {:error, _} = Taxonomy.create_label(account, %{"name" => String.duplicate("a", 21)})
     end
   end
 
-  describe "소유권" do
-    test "남의 토픽은 nil 로 온다", %{account: account, other: other} do
-      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "기획"})
+  describe "ownership" do
+    test "someone else's topic comes back as nil", %{account: account, other: other} do
+      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "Planning"})
 
       assert Taxonomy.get_topic(account.id, topic.id)
-      # 없는 것과 구별되지 않아야 한다 — 컨트롤러가 이걸 404 로 바꾼다
+      # Must be indistinguishable from nonexistent — the controller turns this into 404
       refute Taxonomy.get_topic(other.id, topic.id)
     end
 
-    test "목록에는 내 것만 나온다", %{account: account, other: other} do
-      {:ok, _} = Taxonomy.create_topic(account, %{"name" => "내것"})
-      {:ok, _} = Taxonomy.create_topic(other, %{"name" => "남의것"})
+    test "the list shows only mine", %{account: account, other: other} do
+      {:ok, _} = Taxonomy.create_topic(account, %{"name" => "Mine"})
+      {:ok, _} = Taxonomy.create_topic(other, %{"name" => "Theirs"})
 
-      assert [%{name: "내것"}] = Taxonomy.list_topics(account)
+      assert [%{name: "Mine"}] = Taxonomy.list_topics(account)
     end
   end
 
-  describe "삭제하면 회의에서 떼어낸다" do
-    test "토픽을 지우면 쓰던 회의의 topic_id 가 비워진다", %{account: account} do
-      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "기획"})
+  describe "deletion detaches from meetings" do
+    test "deleting a topic clears topic_id on meetings that used it", %{account: account} do
+      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "Planning"})
       {:ok, m1} = Meetings.create_meeting(account, %{title: "a", topic_id: topic.id})
       {:ok, m2} = Meetings.create_meeting(account, %{title: "b", topic_id: topic.id})
       {:ok, m3} = Meetings.create_meeting(account, %{title: "c"})
@@ -105,9 +105,9 @@ defmodule VR.TaxonomyTest do
       assert Taxonomy.list_topics(account) == []
     end
 
-    test "라벨을 지우면 그 id 만 빠지고 나머지는 남는다", %{account: account} do
-      {:ok, keep} = Taxonomy.create_label(account, %{"name" => "유지"})
-      {:ok, drop} = Taxonomy.create_label(account, %{"name" => "삭제"})
+    test "deleting a label removes only that id, keeping the rest", %{account: account} do
+      {:ok, keep} = Taxonomy.create_label(account, %{"name" => "Keep"})
+      {:ok, drop} = Taxonomy.create_label(account, %{"name" => "Drop"})
 
       {:ok, meeting} =
         Meetings.create_meeting(account, %{title: "a", label_ids: [keep.id, drop.id]})
@@ -117,17 +117,17 @@ defmodule VR.TaxonomyTest do
       assert Meetings.get_meeting(meeting.id).label_ids == [keep.id]
     end
 
-    test "삭제된 분류도 이름은 해석된다", %{account: account} do
-      # 아직 회의에 참조가 남아 있는 동안 화면에 정체불명 칩이 뜨면 안 된다
-      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "기획"})
+    test "deleted taxonomy entries still resolve their names", %{account: account} do
+      # While meetings still reference it, the UI must not show a mystery chip
+      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "Planning"})
       {:ok, meeting} = Meetings.create_meeting(account, %{title: "a", topic_id: topic.id})
 
       resolved = Taxonomy.resolve_for([meeting])
-      assert resolved.topics[topic.id].name == "기획"
+      assert resolved.topics[topic.id].name == "Planning"
     end
   end
 
-  describe "정렬" do
+  describe "sorting" do
     setup %{account: account} do
       {:ok, a} = Taxonomy.create_topic(account, %{"name" => "A"})
       {:ok, b} = Taxonomy.create_topic(account, %{"name" => "B"})
@@ -135,20 +135,20 @@ defmodule VR.TaxonomyTest do
       %{ids: [a.id, b.id, c.id]}
     end
 
-    test "순서를 바꾼다", %{account: account, ids: [a, b, c]} do
+    test "reorders", %{account: account, ids: [a, b, c]} do
       assert {:ok, sorted} = Taxonomy.reorder_topics(account, [c, a, b])
       assert Enum.map(sorted, & &1.id) == [c, a, b]
     end
 
-    test "일부만 보내면 아무것도 안 바뀐다", %{account: account, ids: [a, b, _c]} do
+    test "sending a partial list changes nothing", %{account: account, ids: [a, b, _c]} do
       before = Taxonomy.list_topics(account)
 
       assert {:error, :unknown_topic} = Taxonomy.reorder_topics(account, [b, a])
       assert Taxonomy.list_topics(account) == before
     end
 
-    test "남의 id 가 섞이면 아무것도 안 바뀐다", %{account: account, other: other, ids: [a, b, _c]} do
-      {:ok, theirs} = Taxonomy.create_topic(other, %{"name" => "남의것"})
+    test "mixing in someone else's id changes nothing", %{account: account, other: other, ids: [a, b, _c]} do
+      {:ok, theirs} = Taxonomy.create_topic(other, %{"name" => "Theirs"})
       before = Taxonomy.list_topics(account)
 
       assert {:error, :unknown_topic} = Taxonomy.reorder_topics(account, [a, b, theirs.id])
@@ -156,30 +156,30 @@ defmodule VR.TaxonomyTest do
     end
   end
 
-  describe "회의에 붙일 때" do
-    test "남의 토픽은 붙일 수 없다", %{account: account, other: other} do
-      {:ok, theirs} = Taxonomy.create_topic(other, %{"name" => "남의것"})
+  describe "attaching to meetings" do
+    test "someone else's topic cannot be attached", %{account: account, other: other} do
+      {:ok, theirs} = Taxonomy.create_topic(other, %{"name" => "Theirs"})
 
       assert {:error, :invalid_topic} =
                Meetings.create_meeting(account, %{title: "a", topic_id: theirs.id})
     end
 
-    test "없는 라벨은 붙일 수 없다", %{account: account} do
+    test "a nonexistent label cannot be attached", %{account: account} do
       assert {:error, :invalid_label} =
-               Meetings.create_meeting(account, %{title: "a", label_ids: ["labl_없음"]})
+               Meetings.create_meeting(account, %{title: "a", label_ids: ["labl_missing"]})
     end
 
-    test "삭제된 라벨은 붙일 수 없다", %{account: account} do
-      {:ok, label} = Taxonomy.create_label(account, %{"name" => "긴급"})
+    test "a deleted label cannot be attached", %{account: account} do
+      {:ok, label} = Taxonomy.create_label(account, %{"name" => "Urgent"})
       {:ok, _} = Taxonomy.delete_label(label)
 
       assert {:error, :invalid_label} =
                Meetings.create_meeting(account, %{title: "a", label_ids: [label.id]})
     end
 
-    test "내 분류는 붙는다", %{account: account} do
-      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "기획"})
-      {:ok, label} = Taxonomy.create_label(account, %{"name" => "긴급"})
+    test "my own taxonomy attaches", %{account: account} do
+      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "Planning"})
+      {:ok, label} = Taxonomy.create_label(account, %{"name" => "Urgent"})
 
       assert {:ok, meeting} =
                Meetings.create_meeting(account, %{
@@ -192,15 +192,15 @@ defmodule VR.TaxonomyTest do
       assert meeting.label_ids == [label.id]
     end
 
-    test "분류를 안 주면 검증하지 않는다", %{account: account} do
+    test "no validation when no taxonomy is given", %{account: account} do
       assert {:ok, _} = Meetings.create_meeting(account, %{title: "a"})
     end
   end
 
-  describe "회의 수" do
-    test "토픽·라벨별로 센다", %{account: account} do
-      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "기획"})
-      {:ok, label} = Taxonomy.create_label(account, %{"name" => "긴급"})
+  describe "meeting counts" do
+    test "counts per topic and label", %{account: account} do
+      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "Planning"})
+      {:ok, label} = Taxonomy.create_label(account, %{"name" => "Urgent"})
 
       {:ok, _} =
         Meetings.create_meeting(account, %{title: "a", topic_id: topic.id, label_ids: [label.id]})
@@ -212,8 +212,8 @@ defmodule VR.TaxonomyTest do
       assert [%{label: _, meeting_count: 1}] = Taxonomy.list_labels_with_counts(account)
     end
 
-    test "삭제된 회의는 세지 않는다", %{account: account} do
-      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "기획"})
+    test "deleted meetings are not counted", %{account: account} do
+      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "Planning"})
       {:ok, meeting} = Meetings.create_meeting(account, %{title: "a", topic_id: topic.id})
       {:ok, _} = Meetings.delete_meeting(meeting)
 

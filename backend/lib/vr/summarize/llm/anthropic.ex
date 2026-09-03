@@ -1,12 +1,12 @@
 defmodule VR.Summarize.LLM.Anthropic do
   @moduledoc """
-  Anthropic Claude 어댑터.
+  Anthropic Claude adapter.
 
-  ## 도구로 구조를 강제한다
+  ## Structure enforced via a tool
 
-  Messages API 에는 `response_format` 이 없다. 대신 **스키마를 도구로 주고
-  그 도구를 쓰라고 강제**하면(`tool_choice`) 인자가 곧 구조화 출력이 된다.
-  모델이 산문을 섞을 여지가 없어진다.
+  The Messages API has no `response_format`. Instead we **pass the schema as
+  a tool and force the model to use it** (`tool_choice`), so the tool input
+  becomes the structured output. The model gets no room to mix in prose.
   """
 
   alias VR.Summarize.LLM.HTTP
@@ -25,7 +25,7 @@ defmodule VR.Summarize.LLM.Anthropic do
       "tools" => [
         %{
           "name" => @tool_name,
-          "description" => "회의 요약을 구조화해 제출한다",
+          "description" => "Submit the meeting summary in structured form",
           "input_schema" => schema
         }
       ],
@@ -44,7 +44,7 @@ defmodule VR.Summarize.LLM.Anthropic do
     end
   end
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
   defp base_url(provider) do
     case provider.base_url do
@@ -71,7 +71,7 @@ defmodule VR.Summarize.LLM.Anthropic do
       tool_input ->
         {:ok, Jason.encode!(tool_input)}
 
-      # 도구를 강제했는데도 산문만 왔다면 본문에서 JSON 을 건져 본다
+      # If only prose came back despite forcing the tool, try salvaging JSON from the body
       text = joined_text(blocks) ->
         {:ok, text}
 

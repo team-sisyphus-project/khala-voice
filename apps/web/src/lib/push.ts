@@ -2,14 +2,15 @@ import { api } from "@/lib/api";
 import i18n from "@/i18n";
 
 /**
- * 웹 푸시 구독.
+ * Web push subscriptions.
  *
- * 전사·요약은 몇 분씩 걸린다. 화면을 닫아도 끝났다는 것을 알려야 한다.
+ * Transcription and summarization take minutes. Completion must be announced
+ * even after the screen is closed.
  *
- * ## 권한은 사용자가 누를 때만 요청한다
+ * ## Permission is requested only on a user press
  *
- * 페이지가 뜨자마자 알림 권한을 물으면 대부분 거절한다. 한 번 거절하면
- * 브라우저가 다시 묻지 않으므로 되돌릴 수 없다.
+ * Asking for notification permission the moment the page loads gets mostly
+ * denials. Once denied, the browser never asks again — it can't be undone.
  */
 
 export type PushState = "unsupported" | "denied" | "off" | "on";
@@ -24,7 +25,7 @@ export async function pushState(): Promise<PushState> {
   return subscription ? "on" : "off";
 }
 
-/** 구독한다. 실패하면 이유를 문자열로 돌려준다. */
+/** Subscribe. On failure, returns the reason as a string. */
 export async function enablePush(): Promise<{ ok: true } | { ok: false; reason: string }> {
   if (!supported()) return { ok: false, reason: i18n.t("push.unsupported") };
 
@@ -42,7 +43,7 @@ export async function enablePush(): Promise<{ ok: true } | { ok: false; reason: 
   const registration = await navigator.serviceWorker.ready;
 
   const subscription = await registration.pushManager.subscribe({
-    // 알림 없이 조용히 데이터만 받는 구독은 브라우저가 거부한다
+    // Browsers reject subscriptions that silently receive data without notifications
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(status.public_key),
   });
@@ -56,7 +57,7 @@ export async function disablePush(): Promise<void> {
   const subscription = await registration?.pushManager.getSubscription();
   if (!subscription) return;
 
-  // 서버에서 먼저 지운다. 브라우저만 해지하면 서버가 죽은 구독에 계속 보낸다.
+  // Delete on the server first. Unsubscribing only in the browser leaves the server pushing to a dead subscription.
   await api.unsubscribePush(subscription.endpoint).catch(() => {});
   await subscription.unsubscribe();
 }
@@ -66,10 +67,10 @@ function supported(): boolean {
 }
 
 /**
- * VAPID 공개키는 base64url 문자열이다. `subscribe` 는 바이트 배열을 받는다.
+ * The VAPID public key is a base64url string. `subscribe` takes a byte array.
  *
- * `ArrayBuffer` 를 명시해 만든다 — TS 5.7 부터 `Uint8Array` 가 버퍼 타입을
- * 제네릭으로 들고 있어서 `BufferSource` 와 바로 맞지 않는다.
+ * Built with an explicit `ArrayBuffer` — since TS 5.7, `Uint8Array` carries
+ * its buffer type as a generic and doesn't line up with `BufferSource` directly.
  */
 function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);

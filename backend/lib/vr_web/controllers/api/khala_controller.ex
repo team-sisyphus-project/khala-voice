@@ -1,9 +1,9 @@
 defmodule VRWeb.API.KhalaController do
   @moduledoc """
-  칼라 연동 API — 상태 · 인박스 목록 · 발송.
+  Khala integration API — status, inbox listing, and sending.
 
-  OAuth 왕복은 브라우저가 해야 해서 `VRWeb.KhalaController` 에 있다.
-  여기는 앱이 부르는 쪽이다.
+  The OAuth round trip must happen in the browser, so it lives in
+  `VRWeb.KhalaController`. This module is the side the app calls.
   """
 
   use VRWeb, :controller
@@ -12,7 +12,7 @@ defmodule VRWeb.API.KhalaController do
 
   action_fallback VRWeb.API.FallbackController
 
-  @doc "연결 상태. 화면이 '연결하기'를 띄울지 정한다."
+  @doc "Connection status. Decides whether the UI shows the \"Connect\" button."
   def show(conn, _params) do
     account = conn.assigns.current_account
 
@@ -27,7 +27,7 @@ defmodule VRWeb.API.KhalaController do
   defp inbox_of(%{inbox_code: nil}), do: nil
   defp inbox_of(%{inbox_code: code, inbox_name: name}), do: %{code: code, name: name}
 
-  @doc "내 칼라 인박스 목록. 보낼 곳을 고르는 데 쓴다."
+  @doc "My Khala inbox list. Used to pick a destination for sending."
   def inboxes(conn, _params) do
     account = conn.assigns.current_account
 
@@ -37,7 +37,7 @@ defmodule VRWeb.API.KhalaController do
     end
   end
 
-  @doc "연결을 끊는다."
+  @doc "Disconnects."
   def disconnect(conn, _params) do
     account = conn.assigns.current_account
 
@@ -49,11 +49,12 @@ defmodule VRWeb.API.KhalaController do
   end
 
   @doc """
-  회의를 칼라로 보낸다.
+  Sends a meeting to Khala.
 
-  **Reviewer 만 보낼 수 있다** (`:lv0`). 회의록을 밖으로 내보내는 일이라
-  내보내기·공유와 같은 등급이다 — Contributor 가 전사를 고칠 수 있다고 해서
-  남의 인박스로 보낼 권한까지 갖는 것은 아니다.
+  **Only the Reviewer may send** (`:lv0`). This pushes meeting notes outside the
+  app, so it is gated like export and share — the fact that a Contributor can
+  edit the transcript does not grant them permission to send it to someone
+  else's inbox.
   """
   def send_meeting(conn, %{"meeting_id" => meeting_id} = params) do
     account = conn.assigns.current_account
@@ -78,7 +79,7 @@ defmodule VRWeb.API.KhalaController do
 
   defp app_url(_conn), do: VRWeb.Endpoint.url() |> String.trim_trailing("/")
 
-  # 사용자가 할 수 있는 일로 번역한다. 내부 사정을 그대로 내보내지 않는다.
+  # Translate into something the user can act on. Internal details are not exposed as-is.
   defp translate(:not_connected), do: :khala_not_connected
   defp translate(:reconnect_required), do: :khala_reconnect_required
   defp translate(:missing_recipient), do: :bad_request

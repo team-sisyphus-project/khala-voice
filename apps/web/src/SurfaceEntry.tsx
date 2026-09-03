@@ -2,17 +2,19 @@ import { Navigate, useLocation } from "react-router";
 import { entrySurface, toSurface } from "@/lib/surface";
 
 /**
- * 표면을 정하지 않은 진입을 정한 표면으로 보낸다.
+ * Sends surface-undecided entries to a decided surface.
  *
- * 두 가지 자리에서 쓴다:
+ * Used in two places:
  *
- * 1. `/`, `/app`, `/m` — 화면을 특정하지 않은 진입
- * 2. `/go/*` — **표면 중립 딥링크.** 서버(푸시 알림 · 메일 · 워커)가 만드는
- *    링크는 받는 사람이 폰인지 데스크톱인지 모른다. `/go/meetings/123` 하나로
- *    보내면 여는 쪽에서 표면을 고른다
+ * 1. `/`, `/app`, `/m` — entries that don't name a screen
+ * 2. `/go/*` — **surface-neutral deep links.** Links built by the server
+ *    (push notifications · mail · workers) can't know whether the recipient
+ *    is on a phone or a desktop. Send one `/go/meetings/123` and the opening
+ *    side picks the surface
  *
- * 이미 표면이 붙은 딥링크(`/m/meetings/123`)는 **받은 그대로** 연다.
- * 폭으로 뒤집으면 남에게 받은 링크가 다른 화면을 열게 된다.
+ * A deep link that already carries a surface (`/m/meetings/123`) opens
+ * **exactly as received**. Flipping it by width would make a link received
+ * from someone else open a different screen.
  */
 export function SurfaceEntry() {
   const { pathname, search } = useLocation();

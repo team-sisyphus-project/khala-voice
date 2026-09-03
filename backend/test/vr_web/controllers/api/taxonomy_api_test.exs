@@ -18,56 +18,56 @@ defmodule VRWeb.API.TaxonomyAPITest do
     %{conn: conn, account: account, other: other}
   end
 
-  describe "토픽" do
-    test "만들고 목록에 나온다", %{conn: conn} do
+  describe "topics" do
+    test "creates and appears in the list", %{conn: conn} do
       created =
         conn
-        |> post(~p"/api/topics", %{"name" => "기획", "color" => "red"})
+        |> post(~p"/api/topics", %{"name" => "Planning", "color" => "red"})
         |> json_response(201)
 
-      assert created["name"] == "기획"
+      assert created["name"] == "Planning"
       assert created["color"] == "red"
       assert created["sort_order"] == 0
-      # 소유자는 내보내지 않는다
+      # The owner is not exported
       refute Map.has_key?(created, "owner_id")
 
       body = conn |> get(~p"/api/topics") |> json_response(200)
-      assert [%{"name" => "기획", "meeting_count" => 0}] = body["topics"]
+      assert [%{"name" => "Planning", "meeting_count" => 0}] = body["topics"]
     end
 
-    test "팔레트에 없는 색은 422", %{conn: conn} do
+    test "colors outside the palette are 422", %{conn: conn} do
       conn = post(conn, ~p"/api/topics", %{"name" => "x", "color" => "hotpink"})
       assert json_response(conn, 422)["code"] == "validation_failed"
     end
 
-    test "남의 토픽 수정은 404", %{conn: conn, other: other} do
-      {:ok, topic} = Taxonomy.create_topic(other, %{"name" => "남의것"})
+    test "editing someone else's topic is 404", %{conn: conn, other: other} do
+      {:ok, topic} = Taxonomy.create_topic(other, %{"name" => "Theirs"})
 
-      # 403 이 아니다 — 그 id 의 존재를 노출하지 않는다
-      assert conn |> patch(~p"/api/topics/#{topic.id}", %{"name" => "탈취"}) |> json_response(404)
-      assert Taxonomy.get_topic(other.id, topic.id).name == "남의것"
+      # Not 403 — do not reveal that the id exists
+      assert conn |> patch(~p"/api/topics/#{topic.id}", %{"name" => "hijacked"}) |> json_response(404)
+      assert Taxonomy.get_topic(other.id, topic.id).name == "Theirs"
     end
 
-    test "남의 토픽 삭제는 404", %{conn: conn, other: other} do
-      {:ok, topic} = Taxonomy.create_topic(other, %{"name" => "남의것"})
+    test "deleting someone else's topic is 404", %{conn: conn, other: other} do
+      {:ok, topic} = Taxonomy.create_topic(other, %{"name" => "Theirs"})
 
       assert conn |> delete(~p"/api/topics/#{topic.id}") |> json_response(404)
       assert Taxonomy.get_topic(other.id, topic.id)
     end
 
-    test "없는 토픽도 404", %{conn: conn} do
-      assert conn |> patch(~p"/api/topics/topc_없음", %{"name" => "x"}) |> json_response(404)
+    test "a nonexistent topic is also 404", %{conn: conn} do
+      assert conn |> patch(~p"/api/topics/topc_missing", %{"name" => "x"}) |> json_response(404)
     end
 
-    test "삭제하면 풀린 회의 수를 알려준다", %{conn: conn, account: account} do
-      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "기획"})
+    test "deletion reports how many meetings were detached", %{conn: conn, account: account} do
+      {:ok, topic} = Taxonomy.create_topic(account, %{"name" => "Planning"})
       {:ok, _} = VR.Meetings.create_meeting(account, %{title: "a", topic_id: topic.id})
 
       body = conn |> delete(~p"/api/topics/#{topic.id}") |> json_response(200)
       assert body["detached_meetings"] == 1
     end
 
-    test "reorder 가 :id 라우트로 새지 않는다", %{conn: conn, account: account} do
+    test "reorder does not leak into the :id route", %{conn: conn, account: account} do
       {:ok, a} = Taxonomy.create_topic(account, %{"name" => "A"})
       {:ok, b} = Taxonomy.create_topic(account, %{"name" => "B"})
 
@@ -79,28 +79,28 @@ defmodule VRWeb.API.TaxonomyAPITest do
       assert Enum.map(body["topics"], & &1["id"]) == [b.id, a.id]
     end
 
-    test "reorder 에 ids 가 없으면 422", %{conn: conn} do
+    test "reorder without ids is 422", %{conn: conn} do
       assert conn |> patch(~p"/api/topics/reorder", %{}) |> json_response(422)
     end
   end
 
-  describe "라벨" do
-    test "만들고 지운다", %{conn: conn} do
-      created = conn |> post(~p"/api/labels", %{"name" => "긴급"}) |> json_response(201)
+  describe "labels" do
+    test "creates and deletes", %{conn: conn} do
+      created = conn |> post(~p"/api/labels", %{"name" => "Urgent"}) |> json_response(201)
       assert created["color"] == "blue"
 
       assert conn |> delete(~p"/api/labels/#{created["id"]}") |> json_response(200)
       assert conn |> get(~p"/api/labels") |> json_response(200) |> Map.get("labels") == []
     end
 
-    test "남의 라벨은 404", %{conn: conn, other: other} do
-      {:ok, label} = Taxonomy.create_label(other, %{"name" => "남의것"})
+    test "someone else's label is 404", %{conn: conn, other: other} do
+      {:ok, label} = Taxonomy.create_label(other, %{"name" => "Theirs"})
       assert conn |> delete(~p"/api/labels/#{label.id}") |> json_response(404)
     end
   end
 
-  describe "인증" do
-    test "비로그인은 401 JSON" do
+  describe "authentication" do
+    test "unauthenticated gets 401 JSON" do
       conn =
         Phoenix.ConnTest.build_conn()
         |> Plug.Test.init_test_session(%{})

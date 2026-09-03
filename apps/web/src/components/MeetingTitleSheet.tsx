@@ -7,13 +7,15 @@ import { Button, Sheet } from "@/ui";
 import type { Label, Meeting, Topic } from "@core/api";
 
 /**
- * 회의 제목·분류를 고치는 모달.
+ * The modal for editing a meeting's title and taxonomy.
  *
- * 녹음 화면에서 제목을 누르면 열린다. 녹음 화면 본문에 입력칸을 두지 않는 이유:
- * 그 화면의 주인공은 녹음 버튼이고, 폼이 끼면 "지금 뭘 해야 하는지"가 흐려진다.
+ * Opens when the title is pressed on the recording screen. Why no input field
+ * in the recording screen's body: the star of that screen is the record
+ * button, and a form in the middle blurs "what should I do now".
  *
- * 분류 목록은 **회의 owner 의 것**을 서버에서 받는다 (`GET /meetings/:id/taxonomy`).
- * 내 분류를 남의 회의에 붙이면 owner 의 아카이브 검색에 그 회의가 안 걸린다.
+ * The taxonomy list comes from the server as **the meeting owner's**
+ * (`GET /meetings/:id/taxonomy`). Attaching my taxonomy to someone else's
+ * meeting would keep it out of the owner's archive search.
  */
 export function MeetingTitleSheet({
   meeting,
@@ -62,16 +64,17 @@ export function MeetingTitleSheet({
   async function done() {
     const next = title.trim();
 
-    // 제목이 그대로면 요청을 보내지 않는다 — 분류만 바꾸고 닫는 경우가 더 잦다
+    // If the title is unchanged, send no request — changing only the taxonomy and closing is the more common case
     if (next !== (meeting.title ?? "").trim()) await save({ title: next });
 
     onClose();
   }
 
   /**
-   * 새 토픽. **토픽만 여기서 만든다** — 회의를 열자마자 "이건 무슨 회의인가"를
-   * 정하는 흐름이라 분류 화면까지 다녀오게 하면 끊긴다. 라벨은 성격이 달라서
-   * (여러 개를 걸치는 꼬리표) 만들어진 것 중에 고르기만 한다.
+   * A new topic. **Only topics are created here** — this is the flow of
+   * deciding "what meeting is this" right as it opens, and a round trip to the
+   * taxonomy screen would break it. Labels are different in nature (tags that
+   * span several), so they're only picked from what already exists.
    */
   const createTopic = useCallback(
     async (name: string) => {

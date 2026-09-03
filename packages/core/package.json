@@ -2,7 +2,7 @@
   "name": "@vr/core",
   "version": "0.1.0",
   "private": true,
-  "description": "녹음·업로드·도메인 로직. UI 프레임워크에 의존하지 않는다.",
+  "description": "Recording, upload, and domain logic. Depends on no UI framework.",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

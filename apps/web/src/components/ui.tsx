@@ -4,18 +4,20 @@ import { EmptyState as DkEmptyState, Notice as DkNotice, StatusChip } from "@/ui
 import type { NoticeTone } from "@/ui";
 
 /**
- * 옛 공용 UI 를 devkanban 위젯으로 잇는 얇은 층.
+ * A thin layer bridging the old shared UI to devkanban widgets.
  *
- * 화면들이 `Card` / `Notice` / `Chip` 을 곳곳에서 쓰고 있어서, 한 번에 다 고치는
- * 대신 **여기서 devkanban 마크업으로 갈아끼운다.** 화면을 하나씩 옮기다 말면
- * 같은 앱 안에 두 디자인이 섞여 더 나빠진다.
+ * Screens use `Card` / `Notice` / `Chip` all over, so instead of fixing
+ * everything at once, **the devkanban markup is swapped in here.** Migrating
+ * screens one by one and stopping midway would mix two designs in one app —
+ * worse.
  *
- * 새 화면은 이 파일이 아니라 `@/ui` 를 직접 쓴다. 여기 있는 것은 옮겨가는 동안의 다리다.
+ * New screens use `@/ui` directly, not this file. What's here is a bridge for
+ * the migration.
  */
 
 /**
- * devkanban 에는 Card 가 없다. `mobile-section` 에 유리 카드 변형을 씌워 같은 자리를 맡긴다.
- * 카드 경계가 없으면 한 화면의 덩어리들이 한 덩어리로 읽힌다.
+ * devkanban has no Card. A glass-card variant over `mobile-section` fills the
+ * same role. Without card boundaries, a screen's chunks read as one blob.
  */
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <section className={`mobile-section mobile-section--card ${className}`}>{children}</section>;
@@ -38,7 +40,7 @@ export function Notice({
   children?: ReactNode;
   className?: string;
 }) {
-  // className 은 옛 여백 유틸(mb-4 등)이라 흘려보낸다 — 새 레이아웃은 gap 이 맡는다
+  // className carries old spacing utils (mb-4 etc.), passed through — new layouts use gap
   void className;
 
   return (
@@ -87,7 +89,7 @@ export function EmptyState({
   );
 }
 
-/** 로딩은 별도 연출 없이 빈 상태 문구로 말한다 — devkanban 문법이다. */
+/** Loading speaks through empty-state copy, no separate treatment — devkanban grammar. */
 export function Spinner({ label }: { label?: string }) {
   return <DkEmptyState title={label ?? i18n.t("common.loading")} />;
 }
@@ -95,7 +97,7 @@ export function Spinner({ label }: { label?: string }) {
 export function Avatar({ id, name, size = 32 }: { id: string; name?: string | null; size?: number }) {
   const letter = (name || id).trim().charAt(0).toUpperCase();
 
-  // 같은 사람은 늘 같은 색이어야 한다. id 를 색으로 접는다.
+  // The same person must always get the same color. Fold the id into a color.
   const hue = [...id].reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) % 360, 7);
 
   return (

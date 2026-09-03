@@ -1,20 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
- * 통합 오디오 플레이어.
+ * The unified audio player.
  *
- * **출처: sisyphus** `assets/webapp/meeting-recorder.js` 2960~3280.
+ * **Source: sisyphus** `assets/webapp/meeting-recorder.js` 2960–3280.
  *
- * ## 플레이어는 하나뿐이다
+ * ## There is only one player
  *
- * 세션마다 `<audio>` 를 두면 두 개가 동시에 울린다.
- * 하나만 두고 소스를 갈아끼운다.
+ * An `<audio>` per session means two playing at once.
+ * Keep one and swap its source.
  *
- * ## webm duration 버그
+ * ## The webm duration bug
  *
- * MediaRecorder 가 만든 webm 은 `duration` 이 `Infinity` 로 나온다.
- * 스트리밍용으로 헤더에 길이를 안 적기 때문이다. 끝으로 한 번 seek 하면
- * 브라우저가 실제 길이를 계산한다. sisyphus 의 `fixAudioDuration` 과 같은 처리다.
+ * webm produced by MediaRecorder reports `duration` as `Infinity` — being
+ * meant for streaming, it doesn't write a length into the header. Seeking to
+ * the end once makes the browser compute the real length. Same treatment as
+ * sisyphus's `fixAudioDuration`.
  */
 export interface AudioPlayerState {
   sessionId: string | null;
@@ -24,9 +25,9 @@ export interface AudioPlayerState {
 }
 
 export interface AudioPlayer extends AudioPlayerState {
-  /** 이 세션을 재생한다. 같은 세션을 다시 부르면 토글된다. */
+  /** Play this session. Calling again with the same session toggles. */
   play: (sessionId: string, url: string, startMs?: number) => void;
-  /** 현재 재생 중인 소스에서 위치만 옮긴다. */
+  /** Move the position within the currently playing source. */
   seek: (ms: number) => void;
   toggle: () => void;
   stop: () => void;
@@ -54,7 +55,7 @@ export function useAudioPlayer(): AudioPlayer {
     });
 
     audio.addEventListener("loadedmetadata", () => {
-      // Infinity 면 끝으로 seek 해 브라우저가 길이를 계산하게 한다
+      // If Infinity, seek to the end to make the browser compute the length
       if (!Number.isFinite(audio.duration)) {
         const onSeeked = () => {
           audio.removeEventListener("seeked", onSeeked);
@@ -88,7 +89,7 @@ export function useAudioPlayer(): AudioPlayer {
         audio.src = url;
         setState((prev) => ({ ...prev, sessionId, currentMs: startMs, durationMs: 0 }));
       } else if (state.playing && startMs === 0) {
-        // 같은 세션을 다시 누르면 토글
+        // Pressing the same session again toggles
         audio.pause();
         return;
       }
@@ -96,7 +97,7 @@ export function useAudioPlayer(): AudioPlayer {
       const start = () => {
         if (startMs > 0) audio.currentTime = startMs / 1000;
         void audio.play().catch(() => {
-          // 자동 재생이 막혔거나 소스를 못 읽었다. 조용히 넘어간다.
+          // Autoplay was blocked or the source failed to load. Pass silently.
         });
       };
 

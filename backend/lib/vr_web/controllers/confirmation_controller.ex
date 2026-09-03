@@ -1,5 +1,5 @@
 defmodule VRWeb.ConfirmationController do
-  @moduledoc "이메일 확인 링크 처리."
+  @moduledoc "Handles email confirmation links."
 
   use VRWeb, :controller
 
@@ -9,12 +9,12 @@ defmodule VRWeb.ConfirmationController do
     case Accounts.confirm_account(token) do
       {:ok, _account} ->
         conn
-        |> put_flash(:info, "이메일 확인이 완료되었습니다")
+        |> put_flash(:info, "Your email has been confirmed")
         |> redirect(to: redirect_target(conn))
 
       _ ->
         conn
-        |> put_flash(:error, "링크가 만료되었거나 이미 사용되었습니다")
+        |> put_flash(:error, "This link has expired or has already been used")
         |> redirect(to: redirect_target(conn))
     end
   end

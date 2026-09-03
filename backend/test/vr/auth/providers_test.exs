@@ -3,8 +3,8 @@ defmodule VR.Auth.ProvidersTest do
 
   alias VR.Auth.Providers
 
-  describe "활성화 판정" do
-    test "키가 없으면 노출되지 않는다" do
+  describe "activation decision" do
+    test "not exposed without credentials" do
       google = Providers.get("google")
       refute google.credentials_present
       refute google.active
@@ -12,11 +12,11 @@ defmodule VR.Auth.ProvidersTest do
       refute Providers.active?("google")
     end
 
-    test "키가 없으면 켤 수 없다" do
+    test "cannot be enabled without credentials" do
       assert {:error, :credentials_missing} = Providers.set_enabled("google", true)
     end
 
-    test "키가 있어도 꺼져 있으면 노출되지 않는다" do
+    test "not exposed when disabled even with credentials" do
       {:ok, _} = Providers.upsert("google", %{"client_id" => "cid", "client_secret" => "sec"})
 
       google = Providers.get("google")
@@ -25,7 +25,7 @@ defmodule VR.Auth.ProvidersTest do
       refute google.active
     end
 
-    test "키가 있고 켜면 노출된다" do
+    test "exposed when credentials exist and it is enabled" do
       {:ok, _} = Providers.upsert("google", %{"client_id" => "cid", "client_secret" => "sec"})
       {:ok, _} = Providers.set_enabled("google", true)
 
@@ -34,15 +34,15 @@ defmodule VR.Auth.ProvidersTest do
     end
   end
 
-  describe "비밀값 보존" do
-    test "빈 client_secret으로 저장해도 기존 값이 유지된다" do
+  describe "secret preservation" do
+    test "saving with an empty client_secret keeps the existing value" do
       {:ok, _} = Providers.upsert("google", %{"client_id" => "cid", "client_secret" => "sec"})
       {:ok, _} = Providers.upsert("google", %{"client_secret" => ""})
 
       assert Providers.get("google").credentials_present
     end
 
-    test "client_secret은 DB에 평문으로 남지 않는다" do
+    test "client_secret is not stored in the DB as plaintext" do
       {:ok, _} =
         Providers.upsert("google", %{"client_id" => "cid", "client_secret" => "plaintext-secret"})
 
@@ -56,8 +56,8 @@ defmodule VR.Auth.ProvidersTest do
     end
   end
 
-  describe "환경변수 폴백" do
-    test "키는 환경변수에서 읽지만 enabled는 DB에서만 켜진다" do
+  describe "env var fallback" do
+    test "credentials come from env vars but enabled only flips in the DB" do
       System.put_env("GOOGLE_OAUTH_CLIENT_ID", "env-cid")
       System.put_env("GOOGLE_OAUTH_CLIENT_SECRET", "env-sec")
 

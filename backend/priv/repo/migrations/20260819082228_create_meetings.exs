@@ -2,16 +2,17 @@ defmodule VR.Repo.Migrations.CreateMeetings do
   use Ecto.Migration
 
   @moduledoc """
-  회의 · 녹음 세션 · 분류(토픽/라벨).
+  Meetings · recording sessions · taxonomy (topics/labels).
 
-  전사 본문 검색을 위해 pg_trgm 인덱스를 건다. 한국어는 형태소 분석 없이도
-  trigram 으로 부분 일치가 되어 별도 검색 엔진 없이 쓸 만하다.
+  A pg_trgm index backs transcript search. Trigram partial matching is good
+  enough without a dedicated search engine, even for languages that would
+  otherwise need morphological analysis.
   """
 
   def change do
     execute "CREATE EXTENSION IF NOT EXISTS pg_trgm", "DROP EXTENSION IF EXISTS pg_trgm"
 
-    # ── 분류 ────────────────────────────────────────────────
+    # ── Taxonomy ────────────────────────────────────────────
     create table(:topics, primary_key: false) do
       add :id, :string, primary_key: true
       add :owner_id, references(:accounts, type: :string, on_delete: :delete_all), null: false
@@ -37,7 +38,7 @@ defmodule VR.Repo.Migrations.CreateMeetings do
 
     create index(:labels, [:owner_id])
 
-    # ── 회의 ────────────────────────────────────────────────
+    # ── Meetings ────────────────────────────────────────────
     create table(:meetings, primary_key: false) do
       add :id, :string, primary_key: true
       add :title, :string
@@ -73,18 +74,18 @@ defmodule VR.Repo.Migrations.CreateMeetings do
     create index(:meetings, [:status])
     create index(:meetings, [:topic_id])
     create index(:meetings, [:started_at])
-    # Contributor 로 참여 중인 회의를 찾는 질의용
+    # For queries that find meetings someone joins as a contributor
     create index(:meetings, [:contributor_ids], using: :gin)
     create index(:meetings, [:label_ids], using: :gin)
 
-    # 제목·요약 부분 일치 검색
+    # Partial-match search on title/summary
     execute """
             CREATE INDEX meetings_title_trgm_idx ON meetings
             USING gin (coalesce(title, '') gin_trgm_ops)
             """,
             "DROP INDEX IF EXISTS meetings_title_trgm_idx"
 
-    # ── 녹음 세션 ───────────────────────────────────────────
+    # ── Recording sessions ──────────────────────────────────
     create table(:recording_sessions, primary_key: false) do
       add :id, :string, primary_key: true
       add :meeting_id, references(:meetings, type: :string, on_delete: :delete_all), null: false

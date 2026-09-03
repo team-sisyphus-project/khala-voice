@@ -2,7 +2,7 @@ defmodule VR.Repo.Migrations.CreateLlmProviders do
   use Ecto.Migration
 
   @moduledoc """
-  AI 요약용 LLM 제공자. priority 오름차순으로 시도하고 실패 시 폴백한다.
+  LLM providers for AI summaries. Tried in ascending priority order, with fallback on failure.
   """
 
   def change do

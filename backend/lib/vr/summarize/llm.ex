@@ -1,18 +1,19 @@
 defmodule VR.Summarize.LLM do
   @moduledoc """
-  LLM 호출 진입점.
+  LLM call entry point.
 
-  **출처: sisyphus** — sisyphus 는 n8n 워크플로에 위임했다.
-  이 앱은 직접 호출한다 (사용자 요구: n8n 제거).
+  **Origin: sisyphus** — sisyphus delegated this to an n8n workflow.
+  This app calls providers directly (user requirement: remove n8n).
 
-  ## 폴백
+  ## Fallback
 
-  `LlmProviders.list_usable/0` 순서대로 시도한다.
-  **재시도할 가치가 있는 실패에만** 다음 제공자로 넘어간다 —
-  레이트리밋(429)·서버 오류(5xx)·타임아웃.
+  Providers are tried in `LlmProviders.list_usable/0` order.
+  We move on to the next provider **only for failures worth retrying** —
+  rate limits (429), server errors (5xx), timeouts.
 
-  키가 틀렸거나(401) 요청이 잘못됐으면(400) 다음 제공자도 같은 이유로 실패하거나,
-  더 나쁘게는 **돈만 두 번 쓴다.** 그런 실패는 즉시 멈춘다.
+  A bad key (401) or malformed request (400) would fail on the next provider
+  for the same reason — or worse, **spend money twice.** Those failures stop
+  immediately.
   """
 
   alias VR.Summarize.LLM.{Anthropic, Gemini, OpenAI}
@@ -30,10 +31,10 @@ defmodule VR.Summarize.LLM do
   @type result :: %{body: String.t(), model: String.t(), provider: String.t(), usage: usage()}
 
   @doc """
-  구조화 JSON 을 받아온다.
+  Fetches structured JSON.
 
-  성공하면 `{:ok, %{body:, model:, provider:, usage:}}`.
-  전부 실패하면 마지막 이유를 담아 `{:error, reason}`.
+  On success: `{:ok, %{body:, model:, provider:, usage:}}`.
+  If every provider fails: `{:error, reason}` with the last failure reason.
   """
   @spec complete(String.t(), String.t(), map(), keyword()) :: {:ok, result()} | {:error, term()}
   def complete(system, user, schema, opts \\ []) do
@@ -43,13 +44,13 @@ defmodule VR.Summarize.LLM do
     end
   end
 
-  @doc "이 환경에서 요약이 가능한가."
+  @doc "Whether summarization is available in this environment."
   def ready?, do: LlmProviders.ready?()
 
-  @doc "제공자 이름 → 어댑터 모듈. 없으면 nil."
+  @doc "Provider name -> adapter module. Returns nil if unknown."
   def adapter(provider), do: Map.get(@adapters, provider)
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
   defp try_providers([], _system, _user, _schema, _opts, last_error) do
     {:error, last_error || :no_provider}
@@ -58,7 +59,7 @@ defmodule VR.Summarize.LLM do
   defp try_providers([provider | rest], system, user, schema, opts, _last) do
     case adapter(provider.provider) do
       nil ->
-        Logger.warning("[LLM] 모르는 제공자: #{provider.provider}")
+        Logger.warning("[LLM] Unknown provider: #{provider.provider}")
         try_providers(rest, system, user, schema, opts, {:unknown_provider, provider.provider})
 
       module ->
@@ -68,7 +69,7 @@ defmodule VR.Summarize.LLM do
 
           {:error, reason} ->
             if retryable?(reason) and rest != [] do
-              Logger.warning("[LLM] #{provider.provider} 실패(#{inspect(reason)}), 다음 제공자로 넘어갑니다")
+              Logger.warning("[LLM] #{provider.provider} failed (#{inspect(reason)}); falling back to the next provider")
 
               try_providers(rest, system, user, schema, opts, reason)
             else
@@ -78,7 +79,7 @@ defmodule VR.Summarize.LLM do
     end
   end
 
-  # 같은 요청을 다른 제공자에 보내 볼 만한 실패인가
+  # Is this a failure worth sending the same request to another provider?
   defp retryable?({:http, status, _}) when status == 429 or status >= 500, do: true
   defp retryable?({:transport, _}), do: true
   defp retryable?(:timeout), do: true

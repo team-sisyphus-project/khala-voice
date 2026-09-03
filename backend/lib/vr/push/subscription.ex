@@ -1,9 +1,10 @@
 defmodule VR.Push.Subscription do
   @moduledoc """
-  웹 푸시 구독 하나. 기기 하나에 해당한다.
+  One web push subscription. Corresponds to one device.
 
-  브라우저의 `PushSubscription.toJSON()` 이 주는 세 값(`endpoint`, `keys.p256dh`,
-  `keys.auth`)을 그대로 담는다. 이 셋이 있어야 그 기기에 암호화된 알림을 보낼 수 있다.
+  Holds, as is, the three values the browser's `PushSubscription.toJSON()`
+  provides (`endpoint`, `keys.p256dh`, `keys.auth`). All three are needed to
+  send an encrypted notification to that device.
   """
 
   use Ecto.Schema
@@ -28,11 +29,12 @@ defmodule VR.Push.Subscription do
   end
 
   @doc """
-  구독을 만들거나 갱신한다.
+  Create or update a subscription.
 
-  `account_id` 를 **인자로 받는다.** `attrs` 로 받으면 요청 본문이 소유자를
-  정할 수 있고, 구조체에 직접 박으면 Ecto 가 변경으로 보지 않아 기기를
-  넘겨줬을 때 옛 주인에게 알림이 계속 간다.
+  `account_id` is **taken as an argument.** Accepting it via `attrs` would let
+  the request body decide the owner, and setting it directly on the struct
+  means Ecto does not see it as a change — so when a device is handed over,
+  notifications keep going to the previous owner.
   """
   def changeset(subscription, account_id, attrs) do
     subscription
@@ -44,7 +46,7 @@ defmodule VR.Push.Subscription do
     |> unique_constraint(:endpoint)
   end
 
-  @doc "푸시 서비스에 보낼 JSON. 라이브러리가 이 형태를 받는다."
+  @doc "The JSON to send to the push service. The library accepts this shape."
   def to_push_json(%__MODULE__{} = subscription) do
     Jason.encode!(%{
       "endpoint" => subscription.endpoint,
@@ -52,10 +54,10 @@ defmodule VR.Push.Subscription do
     })
   end
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
-  # endpoint 는 브라우저가 주지만 우리가 그 주소로 요청을 보낸다.
-  # 검증 없이 받으면 임의 호스트로 서버를 보낼 수 있다 (SSRF).
+  # The endpoint comes from the browser, but we are the ones sending requests to it.
+  # Accepting it unvalidated lets the server be pointed at an arbitrary host (SSRF).
   defp validate_endpoint(changeset) do
     case get_field(changeset, :endpoint) do
       nil ->
@@ -67,7 +69,7 @@ defmodule VR.Push.Subscription do
             changeset
 
           _ ->
-            add_error(changeset, :endpoint, "https 주소여야 합니다")
+            add_error(changeset, :endpoint, "must be an https URL")
         end
     end
   end

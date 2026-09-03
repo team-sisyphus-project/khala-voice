@@ -6,8 +6,8 @@ defmodule VRWeb.Layouts do
   use VRWeb, :html
 
   @doc """
-  현재 계정의 테마. 로그인 전에는 기본값(라이트)으로 칠하고, 클라이언트가
-  localStorage 캐시가 있으면 그것으로 정정한다.
+  The current account's theme. Before sign-in we paint with the default (light),
+  and the client corrects it from its localStorage cache if one exists.
   """
   def theme(assigns) do
     case assigns[:current_account] do
@@ -17,11 +17,11 @@ defmodule VRWeb.Layouts do
   end
 
   @doc """
-  현재 계정의 표시 언어를 `<html lang>` 용 BCP-47 태그로 낸다.
+  Emits the current account's display language as a BCP-47 tag for `<html lang>`.
 
-  계정의 `locale`(`VRWeb.Plugs.Locale` 이 assign 에 심는다)을 쓰고, 없으면
-  기본값(영어). 계정 값은 `zh_CN` 처럼 밑줄을 쓰므로 `zh-CN` 으로 바꿔 준다 —
-  HTML `lang` 은 하이픈을 쓴다.
+  Uses the account's `locale` (which `VRWeb.Plugs.Locale` puts into the assigns),
+  falling back to the default (English). Account values use underscores like
+  `zh_CN`, so we convert them to `zh-CN` — HTML `lang` uses hyphens.
   """
   def locale(assigns) do
     (assigns[:locale] || VRWeb.Plugs.Locale.resolve(assigns[:current_account]))

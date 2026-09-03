@@ -22,8 +22,8 @@ defmodule VRWeb.MFALoginTest do
     conn |> recycle() |> Plug.Test.init_test_session(Plug.Conn.get_session(conn))
   end
 
-  describe "MFA 가 꺼진 계정" do
-    test "바로 로그인된다", %{conn: conn} do
+  describe "accounts with MFA off" do
+    test "logs straight in", %{conn: conn} do
       account = account_fixture()
       conn = login(conn, account)
 
@@ -32,8 +32,8 @@ defmodule VRWeb.MFALoginTest do
     end
   end
 
-  describe "MFA 가 켜진 어드민" do
-    test "비밀번호만으로는 세션이 생기지 않는다", %{conn: conn} do
+  describe "admins with MFA on" do
+    test "the password alone creates no session", %{conn: conn} do
       {admin, _} = admin_with_mfa()
       conn = login(conn, admin)
 
@@ -42,7 +42,7 @@ defmodule VRWeb.MFALoginTest do
       assert redirected_to(conn) == ~p"/login/mfa"
     end
 
-    test "코드를 넣으면 로그인된다", %{conn: conn} do
+    test "entering the code logs in", %{conn: conn} do
       {admin, _} = admin_with_mfa()
 
       conn =
@@ -58,11 +58,11 @@ defmodule VRWeb.MFALoginTest do
                VR.Accounts.get_account_by_session_token(get_session(conn, :account_token))
 
       assert session.mfa_verified_at
-      # 대기 상태는 정리된다
+      # The pending state is cleaned up
       refute get_session(conn, :mfa_pending_account_id)
     end
 
-    test "백업 코드로도 통과한다", %{conn: conn} do
+    test "a backup code passes too", %{conn: conn} do
       {admin, codes} = admin_with_mfa()
 
       conn =
@@ -74,27 +74,27 @@ defmodule VRWeb.MFALoginTest do
       assert get_session(conn, :account_token)
     end
 
-    test "틀린 코드는 세션을 만들지 않는다", %{conn: conn} do
+    test "a wrong code creates no session", %{conn: conn} do
       {admin, _} = admin_with_mfa()
 
       conn =
         conn
         |> login(admin)
         |> recycle_session()
-        |> post(~p"/login/mfa", %{"code" => "틀린코드"})
+        |> post(~p"/login/mfa", %{"code" => "wrongcode"})
 
       refute get_session(conn, :account_token)
       assert redirected_to(conn) == ~p"/login/mfa"
     end
 
-    test "대기 상태 없이 코드만 보내면 거부한다", %{conn: conn} do
+    test "sending a code without a pending state is rejected", %{conn: conn} do
       conn = post(conn, ~p"/login/mfa", %{"code" => "123456"})
 
       refute get_session(conn, :account_token)
       assert redirected_to(conn) == ~p"/login"
     end
 
-    test "5분이 지나면 만료된다", %{conn: conn} do
+    test "expires after 5 minutes", %{conn: conn} do
       {admin, _} = admin_with_mfa()
 
       conn =
@@ -102,7 +102,7 @@ defmodule VRWeb.MFALoginTest do
         |> login(admin)
         |> recycle_session()
 
-      # 6분 전에 시작한 것으로 되돌린다
+      # Rewind as if it started 6 minutes ago
       stale = System.system_time(:second) - 360
 
       conn =
@@ -116,18 +116,18 @@ defmodule VRWeb.MFALoginTest do
       assert redirected_to(conn) == ~p"/login"
     end
 
-    test "MFA 화면은 대기 상태가 없으면 로그인으로 보낸다", %{conn: conn} do
+    test "the MFA screen sends you to login without a pending state", %{conn: conn} do
       conn = get(conn, ~p"/login/mfa")
       assert redirected_to(conn) == ~p"/login"
     end
   end
 
-  describe "일반 사용자" do
-    test "MFA 를 켜도 요구하지 않는다 (어드민만 해당)", %{conn: conn} do
+  describe "regular users" do
+    test "not required even when enabled (admins only)", %{conn: conn} do
       user = account_fixture()
       {:ok, _enabled, _} = MFA.enable(user, MFA.generate_secret(), "123456")
 
-      # MFA.required? 는 is_admin 도 함께 본다
+      # MFA.required? also checks is_admin
       reloaded = VR.Repo.get!(VR.Accounts.Account, user.id)
       refute MFA.required?(reloaded)
 

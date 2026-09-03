@@ -36,10 +36,10 @@ config :phoenix, :plug_init_mode, :runtime
 config :phoenix_live_view,
   enable_expensive_runtime_checks: true
 
-# 테스트에서는 Oban 큐와 플러그인을 끈다.
-# 켜두면 Peer 프로세스가 Ecto SQL 샌드박스 밖에서 DB를 잡아 테스트가 전부 깨진다.
+# Oban queues and plugins are disabled in tests.
+# Left on, the Peer process grabs the DB outside the Ecto SQL sandbox and every test breaks.
 config :vr, Oban, testing: :manual
 
-# 테스트에서는 bcrypt 강도를 최소로 낮춘다. 보안이 아니라 속도가 목적이다.
-# 운영 강도(12)로 돌리면 테스트 한 벌에 수십 초가 걸린다.
+# Bcrypt cost is lowered to the minimum in tests. The goal is speed, not security.
+# At the production cost (12), a single test run takes tens of seconds.
 config :bcrypt_elixir, log_rounds: 1

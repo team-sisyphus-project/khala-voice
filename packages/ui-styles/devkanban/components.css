@@ -1,7 +1,7 @@
 :root {
-  /* 컨트롤·모달 외곽선 두께. 1px이지만 `--mobile-border` 색이 배경과 근소하게만
-     달라서 "있는 듯 없는 듯"한 선으로 읽힌다 — 형태만 잡아주고 대비는 만들지
-     않는다. 선을 통째로 끄려면 규칙에서 토큰을 빼지 말고 이 값을 0으로. */
+  /* Outline thickness for controls and modals. It is 1px, but `--mobile-border` differs
+        only marginally from the background, so it reads as a barely-there line — it defines
+        shape without creating contrast. To remove the line entirely, set this to 0 instead of pulling the token from rules. */
   --mobile-border-width: 1px;
   --mobile-border-style: solid;
   --mobile-screen-max-width: 560px;
@@ -52,8 +52,8 @@
   align-items: center;
 }
 
-/* 밝은/어두운 배경용 두 장을 실어 두고 테마로 고른다 — 래스터 로고라 색을
-   CSS로 못 바꾼다. 판정은 tokens.css의 dark 계열 두 값을 접두사로 잡는다. */
+/* Carry two versions for light/dark backgrounds and pick by theme — it is a raster logo,
+      so CSS cannot recolor it. Detection matches the two dark-family values in tokens.css as a prefix. */
 .brand-lockup img {
   display: block;
   width: auto;
@@ -278,9 +278,9 @@
   font-weight: var(--mobile-font-weight-semibold);
 }
 
-/* 체크박스·라디오는 필드가 아니다 — 아래 필드 규칙(너비 100%·높이 48px·좌우
-   패딩·필드 배경)에 걸리면 공용 토글이 세로로 늘어난 라운드 박스가 된다
-   (로그인 '로그인 유지' 체크박스에서 실제로 발생). 타입으로 제외한다. */
+/* Checkboxes and radios are not fields — caught by the field rules below (100% width,
+      48px height, side padding, field background), the shared toggle becomes a vertically
+      stretched rounded box (actually happened on the login "stay signed in" checkbox). Exclude by type. */
 .login-form input:not([type="checkbox"]):not([type="radio"]),
 .login-form select,
 .login-form textarea,
@@ -519,7 +519,7 @@
   padding-bottom: calc(var(--mobile-safe-bottom) + var(--mobile-space-9));
 }
 
-/* SoT: 화면 내 주요 섹션(screen-stack 자식) 사이 ≥36px 여백 확보. */
+/* SoT: ensure ≥36px gaps between major on-screen sections (screen-stack children). */
 .screen-stack {
   display: grid;
   gap: var(--mobile-section-gap);
@@ -555,7 +555,7 @@
   transition: background 160ms ease, border-color 160ms ease;
 }
 
-/* SoT: 상세 헤더의 제목은 스크롤했을 때만 노출. 최상단에서는 뒤로가기만 보이고 제목은 숨김. */
+/* SoT: the detail header title shows only after scrolling. At the very top only the back button is visible; the title stays hidden. */
 .top-appbar.is-visible {
   border-bottom-color: var(--mobile-border);
   background: var(--mobile-glass-strong);
@@ -1048,7 +1048,7 @@ details.section-panel summary {
   padding: var(--mobile-space-3) var(--mobile-space-4);
 }
 
-/* SoT: 알림 카드 높이 축소 — 본문 2줄 클램프. */
+/* SoT: reduced notification card height — body clamped to 2 lines. */
 .notification-row .row-meta {
   display: -webkit-box;
   overflow: hidden;
@@ -1061,7 +1061,7 @@ details.section-panel summary {
   background: var(--mobile-accent-soft);
 }
 
-/* SoT: 읽지 않은 알림만 우측 상단에 dot. 읽은 알림은 dot 없음. */
+/* SoT: top-right dot on unread notifications only. Read notifications get no dot. */
 .notification-row.unread::before {
   position: absolute;
   top: var(--mobile-space-3);
@@ -1105,7 +1105,7 @@ details.section-panel summary {
   transition: color 140ms ease, background 140ms ease;
 }
 
-/* SoT: 활성 탭 신호 강화 — 아이콘+라벨+서피스+굵기. */
+/* SoT: stronger active-tab signal — icon + label + surface + weight. */
 .bottom-nav button[aria-current="page"] {
   color: var(--mobile-accent);
   background: var(--mobile-accent-soft);
@@ -1432,8 +1432,8 @@ details.section-panel summary {
 }
 
 /* ============================================================
-   상세 상단 요약 (workbench-lead) — 상태 칩 + 제목 한 번만.
-   제목/보드/제품 중복은 스크롤 헤더로만 노출.
+      Detail top summary (workbench-lead) — status chip + title, once only.
+      Title/board/product duplicates surface only via the scroll header.
    ============================================================ */
 .workbench-lead {
   display: grid;
@@ -1454,7 +1454,7 @@ details.section-panel summary {
 }
 
 /* ============================================================
-   결과 탭 고스트 버튼 — 내용 직접 표시 없이 열기만.
+      Results tab ghost button — opens only; never shows the content inline.
    ============================================================ */
 .ghost-button-stack {
   display: grid;
@@ -1472,11 +1472,11 @@ details.section-panel summary {
 }
 
 /* ============================================================
-   노트 마크다운 렌더
+      Note markdown rendering
    ============================================================ */
-/* 컨테이너는 **간격을 주지 않는다** — 일반 블록 흐름이고 리듬은 블록이 갖는다.
-   예전에는 여기서 `display: grid; gap`으로 일괄로 줬는데, grid gap은 블록의
-   margin과 **더해지지 상쇄되지 않아** 종류별 리듬을 얹을 수가 없었다. */
+/* The container adds **no spacing** — it is normal block flow, and rhythm belongs to
+      the blocks. This used to be a blanket `display: grid; gap` here, but grid gap
+      **adds to** block margins instead of collapsing, so per-kind rhythm could not be layered on. */
 .note-markdown,
 .chat-bubble-body {
   color: var(--mobile-fg-default);
@@ -1485,9 +1485,9 @@ details.section-panel summary {
   overflow-wrap: anywhere;
 }
 
-/* ---- 블록 리듬 (마크다운 공통) ----
-   노트·기획서·챗 답변·내 말풍선이 **같은 리듬**을 쓴다. 클래스가 블록 자신에
-   붙어 있으므로 어느 컨테이너에 들어가도 같게 읽힌다. */
+/* ---- Block rhythm (shared markdown) ----
+      Notes, specs, chat replies, and my own bubbles use **the same rhythm**. The classes
+      sit on the blocks themselves, so they read the same in any container. */
 .md-heading {
   margin: var(--mobile-md-heading-lead) 0 var(--mobile-md-heading-trail);
   color: var(--mobile-fg-strong);
@@ -1495,8 +1495,8 @@ details.section-panel summary {
   line-height: var(--mobile-line-height-tight);
 }
 
-/* 제목 계층 — 전부 본문 크기 볼드였다. 크기가 같으면 h1도 h3도 그냥 굵은
-   줄일 뿐이라, 긴 문서에서 어디가 어느 단인지 알 수 없다. */
+/* Heading hierarchy — everything used to be body-size bold. At equal size, h1 and h3
+      are both just bold lines, and in a long document you can't tell which level is which. */
 h1.md-heading {
   font-size: 1.45em;
 }
@@ -1509,8 +1509,8 @@ h3.md-heading {
   font-size: 1.06em;
 }
 
-/* 제목이 연달아 나오면(예: h2 바로 밑 h3) 위 간격을 줄인다 — 둘 사이가
-   문단 사이만큼 벌어지면 상위 제목이 홀로 떠 있는 것처럼 보인다. */
+/* Consecutive headings (e.g. h3 right under h2) get reduced top spacing — a full
+      paragraph gap between them leaves the parent heading looking stranded on its own. */
 .md-heading + .md-heading {
   margin-top: var(--mobile-md-block-gap);
 }
@@ -1524,13 +1524,13 @@ h3.md-heading {
   padding-left: var(--mobile-space-8);
 }
 
-/* 항목 사이는 블록 사이보다 촘촘하다 — 같은 간격이면 목록이 문단 여러 개로
-   흩어져 보이고 "한 묶음"이라는 사실이 사라진다. */
+/* Items sit tighter than blocks — at equal spacing the list scatters into several
+      paragraphs and the fact that it is "one group" disappears. */
 .md-list li + li {
   margin-top: var(--mobile-md-tight-gap);
 }
 
-/* 중첩 목록은 부모 항목에 딸린 것이라 더 붙인다. */
+/* Nested lists belong to their parent item, so they sit even closer. */
 .md-list .md-list {
   margin: var(--mobile-md-tight-gap) 0 0;
 }
@@ -1542,8 +1542,8 @@ h3.md-heading {
   color: var(--mobile-fg-muted);
 }
 
-/* 바깥 여백은 컨테이너가 준다 — 첫/마지막 블록의 margin이 밖으로 새면
-   말풍선 위아래가 들쭉날쭉해진다(블록 종류마다 값이 다르므로). */
+/* Outer margins come from the container — if the first/last block's margin leaks out,
+      bubble tops and bottoms become uneven (values differ per block kind). */
 .note-markdown > :first-child,
 .chat-bubble-body > :first-child,
 .mobile-note-markdown > :first-child,
@@ -1621,7 +1621,7 @@ h3.md-heading {
   text-decoration: underline;
 }
 
-/* GFM 테이블 — 넓은 표는 자체 가로 스크롤 */
+/* GFM tables — wide tables scroll horizontally on their own */
 .md-table-wrap {
   margin: var(--mobile-md-block-gap) 0;
   overflow-x: auto;
@@ -1660,7 +1660,7 @@ h3.md-heading {
 }
 
 /* ============================================================
-   채팅 오버레이 (풀스크린) — 노트 플래너 / 보드 채팅 공용.
+      Chat overlay (fullscreen) — shared by the note planner / board chat.
    ============================================================ */
 .chat-overlay {
   position: fixed;
@@ -1854,9 +1854,9 @@ h3.md-heading {
   }
 }
 
-/* ── 온보딩 (모바일) ─────────────────────────────────────────
-   웹 스테이지와 같은 규약: 지금 묻는 한 가지만 두고, 지나간 답은 위에 흐린
-   칩으로 남긴다. 좌우가 잘리지 않게 고정 폭을 쓰지 않는다. */
+/* ── Onboarding (mobile) ─────────────────────────────────────
+      Same contract as the web stage: show only the one question being asked; past
+      answers remain above as dimmed chips. No fixed widths, so nothing clips at the sides. */
 .mobile-onboarding {
   display: flex;
   flex-direction: column;
@@ -1895,8 +1895,8 @@ h3.md-heading {
   color: var(--text-secondary, rgba(255, 255, 255, 0.7));
   overflow-wrap: break-word;
 }
-/* 한국어만 어절 단위로 끊는다. 일본어·중국어는 공백이 없어 keep-all을 주면
-   줄이 아예 안 끊긴다. */
+/* Only Korean breaks at word (eojeol) boundaries. Japanese and Chinese have no spaces,
+      so keep-all would prevent line breaks entirely. */
 :lang(ko) .mobile-onboarding__title,
 :lang(ko) .mobile-onboarding__subtitle,
 :lang(ko) .mobile-onboarding__choice {
@@ -1911,16 +1911,16 @@ h3.md-heading {
   min-width: 0;
 }
 
-/* 이름·공간 이름은 한 칸짜리 답이다. 웹 무대와 같은 규약 — 가운데 정렬하고,
-   이 화면에서만 크고 굵게 쓴다(공용 `mobile-input`은 건드리지 않는다). */
+/* Names and space names are one-slot answers. Same contract as the web stage — centered,
+      and large/bold on this screen only (the shared `mobile-input` stays untouched). */
 .mobile-onboarding__form .mobile-input {
   text-align: center;
   font-size: var(--mobile-font-size-title);
   font-weight: var(--mobile-font-weight-semibold);
 }
 
-/* 본인 LLM 플랜 키 안내. 웹과 같은 단계를 쓰되 폰에는 터미널이 없으므로
-   명령어는 눌러서 복사하게 둔다. */
+/* Bring-your-own LLM plan key guide. Same steps as web, but phones have no terminal,
+      so commands are tap-to-copy. */
 .mobile-provider-key {
   display: flex;
   flex-direction: column;
@@ -1993,7 +1993,7 @@ h3.md-heading {
   cursor: pointer;
   text-align: left;
 }
-/* 명령어는 길어도 잘리지 않고 접혀야 한다 — 반만 보이면 옮겨 적을 수 없다. */
+/* Commands must wrap, never truncate — half a command can't be copied over. */
 .mobile-provider-key__command code {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -2005,7 +2005,7 @@ h3.md-heading {
   font-size: 13px;
   color: var(--accent, #6ea8fe);
 }
-/* GPT 기기 인증 — 붙여넣을 값이 없고, 받아 온 코드를 크게 보여준다. */
+/* GPT device auth — nothing to paste; show the received code large. */
 .mobile-provider-key__device {
   display: flex;
   flex-direction: column;
@@ -2045,8 +2045,8 @@ h3.md-heading {
 .mobile-onboarding__choice:disabled {
   opacity: 0.5;
 }
-/* 여러 개 고르는 문항에서 켜진 선택지. 하나만 고르는 문항은 누르는 즉시
-   넘어가므로 이 상태로 머무르지 않는다. */
+/* A selected option in a multi-select question. Single-select questions advance the
+      moment you tap, so they never linger in this state. */
 .mobile-onboarding__choice[data-selected="true"] {
   border-color: var(--accent, #6ea8fe);
   background: var(--accent-soft, rgba(110, 168, 254, 0.16));
@@ -2062,11 +2062,11 @@ h3.md-heading {
   color: var(--text-tertiary, rgba(255, 255, 255, 0.55));
 }
 
-/* ── 코드 탐색 꺼짐 안내 (컴포저 도구 행 아래) ───────────────────────────────
-   탐색은 토글이 없어 사용자가 켜고 끄지 못한다 — 그래서 꺼진 사실을 화면이
-   말하지 않으면 "왜 코드를 안 읽지"가 된다. 컴포저는 스레드 위에 떠 있으므로
-   자리를 뺏지 않게 캡션 한 줄로만 눕힌다(줄바꿈은 허용 — 문구가 잘리면
-   해결 방법을 못 읽는다). 바깥 상하 여백은 컴포저 박스의 flex gap이 준다. */
+/* ── Code-exploration-off notice (below the composer tool row) ───────────────
+      Exploration has no toggle, so the user can't turn it on or off — if the screen
+      doesn't say it is off, it becomes "why isn't it reading the code". The composer
+      floats above the thread, so this lies as a single caption line to avoid stealing
+      space (wrapping allowed — a clipped message hides the fix). Outer vertical margins come from the composer box's flex gap. */
 .mobile-chat-explore-off {
   display: flex;
   align-items: center;
@@ -2083,11 +2083,11 @@ h3.md-heading {
   flex: 0 0 auto;
 }
 
-/* ── LogicModel 피커: 폼 필드 변형 (카드 설정 시트) ──────────────────────────
-   설정 시트에서는 담당·검토자 `<select>`와 같은 줄에 선다 — 헤더용 글래스 필로
-   두면 이 항목만 다른 컨트롤처럼 보인다. `.mobile-choice-field`(48px,
-   inset 배경, 필드 라운드)에 맞춘다. 시트 패널 안에서는 backdrop-filter가
-   그려지지 않으므로(중첩 블러) 아예 벗긴다. */
+/* ── LogicModel picker: form-field variant (card settings sheet) ──────────────
+      In the settings sheet it stands on the same row as the assignee/reviewer `<select>` —
+      kept as the header glass pill, this one item would look like a different control.
+      Match `.mobile-choice-field` (48px, inset background, field radius). Inside a sheet
+      panel, backdrop-filter never paints (nested blur), so strip it entirely. */
 .mobile-logic-model--field {
   width: 100%;
 }
@@ -2104,9 +2104,9 @@ h3.md-heading {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   box-shadow: none;
-  /* 옆 `<select>`가 쓰는 것과 **같은 선언**이다 — 값을 베끼면 한쪽 토큰만 바뀔 때
-     같은 줄에서 글자 크기가 갈린다. 헤더 칩의 15px·semibold를 그대로 두면 담당·
-     검토자 칸(12px·normal)과 나란히 섰을 때 이 항목만 튄다. */
+  /* The **same declaration** the neighboring `<select>` uses — copying the values means
+        font sizes split on one row when only one token changes. Keeping the header chip's
+        15px semibold would make this item stick out next to the assignee/reviewer fields (12px normal). */
   font: inherit;
 }
 
@@ -2115,11 +2115,11 @@ h3.md-heading {
   text-align: left;
 }
 
-/* ── 워크벤치 메타 스트립 (예약·브랜치·변형·Sync) ────────────────────────────
-   데스크톱 카드 모달 상단의 표식 줄과 같은 몫이다. 항목 수가 들쭉날쭉해서
-   그리드가 아니라 wrap 하는 칩 나열로 둔다 — 하나만 있을 때도 빈칸이 남지
-   않는다. 리드 블록(`.mobile-workbench-lead`) 안이라 바깥 여백은 그쪽 gap이
-   준다. */
+/* ── Workbench meta strip (schedule · branch · variant · Sync) ───────────────
+      Plays the same role as the marker row atop the desktop card modal. Item counts
+      vary, so it is a wrapping chip list rather than a grid — no empty cell remains
+      even with a single item. It sits inside the lead block (`.mobile-workbench-lead`),
+      whose gap supplies the outer spacing. */
 .mobile-workbench-meta {
   display: flex;
   flex-wrap: wrap;
@@ -2140,7 +2140,7 @@ h3.md-heading {
   color: var(--mobile-fg-muted);
   font-size: var(--mobile-font-size-caption);
   font-weight: var(--mobile-font-weight-medium);
-  /* 브랜치 이름은 길다 — 줄을 늘리지 말고 칩 안에서 자른다. */
+  /* Branch names run long — truncate inside the chip instead of growing the row. */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2152,7 +2152,7 @@ h3.md-heading {
   flex: 0 0 auto;
 }
 
-/* 부가 수치(큐 순번·변형 라벨)는 같은 칩 안에서 한 톤 흐리게. */
+/* Secondary figures (queue position, variant label) go one tone dimmer inside the same chip. */
 .mobile-workbench-meta__chip em {
   color: var(--mobile-fg-subtle);
   font-style: normal;
@@ -2173,7 +2173,7 @@ a.mobile-workbench-meta__chip {
   color: var(--mobile-info);
 }
 
-/* 잠금 사유 — 비활성만 하고 끝내지 않는다는 규칙의 표시 자리. */
+/* Lock reason — the display slot for the rule that we never just disable and stop there. */
 .mobile-workbench-lock {
   display: flex;
   align-items: flex-start;
@@ -2186,12 +2186,12 @@ a.mobile-workbench-meta__chip {
   width: var(--mobile-icon-size-sm);
   height: var(--mobile-icon-size-sm);
   flex: 0 0 auto;
-  /* 아이콘 광학 중심을 첫 줄 baseline 쪽으로 내린다. */
+  /* Lower the icon's optical center toward the first line's baseline. */
   margin-top: 2px;
 }
 
-/* 읽기 전용 값(담당 = "Last run by"). `.mobile-choice-field`와 같은 자리에
-   서지만 컨트롤이 아니므로 테두리 없이 값만 보인다. */
+/* Read-only value (assignee = "Last run by"). Sits in the same slot as
+      `.mobile-choice-field` but is not a control, so no border — just the value. */
 .mobile-manage-field__readonly {
   min-height: var(--mobile-control-height);
   display: flex;
@@ -2202,12 +2202,12 @@ a.mobile-workbench-meta__chip {
   color: var(--mobile-fg-strong);
 }
 
-/* 제목의 읽기 표시. 위 `__readonly`(상자)를 쓰지 않는 이유가 있다: 상자를 두르면
-   테두리·inset 배경이 `.mobile-rename__input`과 사실상 같아서 "지금 입력창인가
-   아닌가"를 눈으로 구분할 수 없다 — 사용자가 실기기에서 지적한 것이 정확히 그
-   착시였다(2026-08-03). 데스크톱도 평소 제목은 상자 없는 `<h2>`이고 편집을 눌러야
-   입력창이 생긴다. `__readonly`는 옆에 `<select>`가 서 있어 줄을 맞춰야 하는
-   "마지막 실행자" 쪽에 남는다. */
+/* Read-only display for the title. There is a reason `__readonly` (the box) above is not
+      used: boxed, its border and inset background are practically identical to
+      `.mobile-rename__input`, so the eye cannot tell whether it is an input right now —
+      exactly the illusion a user pointed out on a real device (2026-08-03). Desktop also
+      shows the title as a box-less `<h2>` until edit is pressed. `__readonly` stays on the
+      "last run by" side, which must line up with the `<select>` standing next to it. */
 .mobile-manage-field__value {
   font-size: var(--mobile-font-size-body-strong);
   font-weight: var(--mobile-font-weight-semibold);
@@ -2216,10 +2216,10 @@ a.mobile-workbench-meta__chip {
   overflow-wrap: anywhere;
 }
 
-/* 필드 라벨 — 데스크톱 `.inspector-menu-field-label`(아이콘 + 굵은 소문자 캡션)과
-   같은 몫이다. 라벨과 값이 같은 굵기·같은 색이면 시트가 문장 더미로 읽힌다:
-   라벨은 흐리고 굵게, 값(`__readonly`·select)은 진하게 둬서 층을 만든다.
-   섹션 키커(`.mobile-home-chat__picker-label`, 11px 대문자)와도 어휘가 갈린다. */
+/* Field label — plays the same role as desktop `.inspector-menu-field-label` (icon +
+      bold lowercase caption). If labels and values share weight and color, the sheet
+      reads as a pile of sentences: labels dim and bold, values (`__readonly`, select)
+      strong, creating layers. Its vocabulary also splits from the section kicker (`.mobile-home-chat__picker-label`, 11px uppercase). */
 .mobile-manage-field__label {
   display: inline-flex;
   align-items: center;
@@ -2235,18 +2235,18 @@ a.mobile-workbench-meta__chip {
   flex: 0 0 auto;
 }
 
-/* ── 바텀시트 섹션 묶음 ──────────────────────────────────────────────────────
-   `.mobile-context-sheet__panel`은 목록형 시트(컨텍스트 핀·로직모델 피커)에
-   맞춰 자식 간격이 2px이다. 폼이 들어가는 시트(카드 설정)에서는 그 간격 때문에
-   "계획 설정"·"위험 구역" 같은 구역 제목이 바로 위 본문에 붙어 라벨인지 문장인지
-   구분되지 않았다. 데스크톱 카드 모달은 구역마다 키커 + 가로 실선
-   (`.inspector-more-section-head` / `-rule`)으로 끊는다 — 같은 처방을 모바일
-   어휘로 옮긴다: 위쪽에 이 앱의 표준 구분선(border-top)을 긋고, 구역 안쪽만
-   숨 쉬는 간격을 준다. 시트 자체(패널·그래버·헤드)는 그대로 공용 문법이다. */
-/* 구역은 **선이 아니라 여백**으로 가른다. 이 제품은 컴포넌트를 줄로 나누지
-   않는다 — 목록·패널 어디에도 구분선이 없고, 이 시트만 `border-top`으로 칸을
-   그어 혼자 다른 문법이었다(사용자 지적 2026-08-09). 화면 전역이 쓰는 섹션
-   간격 토큰 하나로 맞춘다. */
+/* ── Bottom-sheet section groups ─────────────────────────────────────────────
+      `.mobile-context-sheet__panel` uses 2px child spacing, tuned for list-style sheets
+      (context pins, logic-model picker). In form sheets (card settings) that spacing made
+      section titles like "Plan settings" / "Danger zone" hug the text right above, so
+      you couldn't tell label from sentence. The desktop card modal breaks each section
+      with a kicker + horizontal rule (`.inspector-more-section-head` / `-rule`) — the
+      same prescription moved into the mobile vocabulary: draw this app's standard divider
+      (border-top) above, and give breathing room only inside the section. The sheet itself (panel, grabber, head) keeps the shared grammar. */
+/* Sections are divided by **space, not lines**. This product does not split components
+      with rules — no divider exists in any list or panel, and this sheet alone drew
+      border-top cells, a grammar of its own (user feedback 2026-08-09). Align on the
+      single section-gap token the whole screen uses. */
 .mobile-context-sheet__section {
   display: flex;
   flex-direction: column;
@@ -2254,17 +2254,17 @@ a.mobile-workbench-meta__chip {
   margin-top: var(--mobile-section-gap);
 }
 
-/* 섹션 안에서는 키커가 곧 구역 제목이라 목록용 좌우 여백(8px)이 필요 없다 —
-   폼 필드는 여백 0에서 시작하므로 그대로 두면 제목만 어긋나 보인다.
-   (0,2,0)이라 뒤에 오는 redesign.css의 (0,1,0) 규칙을 순서와 무관하게 이긴다. */
+/* Inside a section the kicker is the section title, so the list-style side margin (8px)
+      is unneeded — form fields start at margin 0, so left alone only the title would look misaligned.
+      At (0,2,0) it beats the later (0,1,0) rule in redesign.css regardless of order. */
 .mobile-context-sheet__section > .mobile-home-chat__picker-label {
   padding: 0;
 }
 
-/* ── 타임라인 워크플랜 필터 ──────────────────────────────────────────────────
-   단계가 여럿인 카드에서 "3단계는 왜 실패했나"를 짚으려면 그 단계 기록만
-   남길 수 있어야 한다. 칩 행은 상태 이동 칩(.mobile-status-chip-row)과 같은
-   가로 스크롤 문법이되, 섹션 본문 안이라 음수 여백은 쓰지 않는다. */
+/* ── Timeline workplan filter ────────────────────────────────────────────────
+      On a card with several stages, pinning down "why did stage 3 fail" requires
+      keeping only that stage's records. The chip row uses the same horizontal-scroll
+      grammar as the status move chips (.mobile-status-chip-row), but sits inside a section body, so no negative margins. */
 .mobile-workplan-filter {
   display: flex;
   gap: var(--mobile-space-2);
@@ -2297,7 +2297,7 @@ a.mobile-workbench-meta__chip {
   color: var(--mobile-accent-strong);
 }
 
-/* 항목마다 붙는 단계 표식. 필터를 안 걸어도 어느 단계인지는 늘 보인다. */
+/* Stage marker on every item. Even with no filter applied, the stage is always visible. */
 .mobile-activity-list__step {
   align-self: flex-start;
   padding: 0 var(--mobile-space-2);
@@ -2308,7 +2308,7 @@ a.mobile-workbench-meta__chip {
   font-weight: var(--mobile-font-weight-semibold);
 }
 
-/* 기록에 남은 선택지 목록(질문 항목). 답변은 독에서 하고 여기는 읽기 전용. */
+/* Choice list left in the record (question items). Answering happens in the dock; this is read-only. */
 .mobile-activity-list__options {
   display: flex;
   flex-direction: column;
@@ -2320,9 +2320,9 @@ a.mobile-workbench-meta__chip {
   font-size: var(--mobile-font-size-caption);
 }
 
-/* ── 답변 프롬프트 (액션 독 위) ──────────────────────────────────────────────
-   질문 전문과 에이전트 선택지. 독은 화면 위에 떠 있으므로 유리 문법을 그대로
-   따르고, 펼친 질문이 화면을 다 먹지 않게 높이 상한 안에서 스크롤한다. */
+/* ── Answer prompt (above the action dock) ───────────────────────────────────
+      Full question text plus agent choices. The dock floats over the screen, so it
+      follows the glass grammar as-is, and an expanded question scrolls within a height cap instead of eating the screen. */
 .mobile-answer-prompt {
   display: flex;
   flex-direction: column;
@@ -2344,7 +2344,7 @@ a.mobile-workbench-meta__chip {
   color: var(--mobile-fg-default);
   font-size: var(--mobile-font-size-label);
   line-height: var(--mobile-line-height-base);
-  /* 에이전트 질문은 줄바꿈이 의미다 — 원문 그대로 접는다. */
+  /* Line breaks carry meaning in agent questions — wrap the original text as-is. */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -2381,7 +2381,7 @@ a.mobile-workbench-meta__chip {
   gap: var(--mobile-space-2);
 }
 
-/* 탭하면 입력창을 채운다 — 제출이 아니다. 그래서 강조 버튼이 아니라 칩이다. */
+/* Tapping fills the input — it does not submit. Hence a chip, not an emphasized button. */
 .mobile-answer-prompt__option {
   min-height: 32px;
   max-width: 100%;
@@ -2404,9 +2404,9 @@ a.mobile-workbench-meta__chip {
   color: var(--mobile-accent-strong);
 }
 
-/* ── 액션 독: 비가역 조작 확인 · 비활성 사유 ─────────────────────────────────
-   확인 대기 중에는 칩 행 대신 이 블록이 그 자리를 차지한다 — 다른 칩이 같이
-   보이면 확인하려다 옆을 누른다. */
+/* ── Action dock: irreversible-action confirmation · disabled reason ─────────
+      While awaiting confirmation, this block takes the chip row's place — with other
+      chips still visible, you'd tap one while trying to confirm. */
 .mobile-action-dock__confirm {
   display: flex;
   flex-direction: column;
@@ -2442,9 +2442,9 @@ a.mobile-workbench-meta__chip {
   text-align: center;
 }
 
-/* ── 워크플랜 편집기: 초안 유실 방지 · 삭제 확인 ─────────────────────────────
-   확인 문구는 버튼 왼쪽에 눕는다(푸터·행 액션 모두 flex-end 정렬이라 자연히
-   버튼 앞자리를 차지한다). */
+/* ── Workplan editor: draft-loss prevention · delete confirmation ────────────
+      The confirmation text lies to the left of the buttons (footer and row actions are
+      both flex-end aligned, so it naturally takes the slot before the buttons). */
 .mobile-workplan-modal__confirm,
 .mobile-workplan-editor__confirm {
   flex: 1 1 auto;
@@ -2454,9 +2454,9 @@ a.mobile-workbench-meta__chip {
   font-size: var(--mobile-font-size-caption);
 }
 
-/* ── 진화(Evolution) 응답 카드 ───────────────────────────────────────────────
-   설정 화면 섹션 안에 서는 카드다. 행(`mobile-row`)이 아닌 이유: 문장이 두 줄
-   이상이고 버튼이 둘이라, 한 줄 규격에 밀어 넣으면 문장이 잘린다. */
+/* ── Evolution response card ─────────────────────────────────────────────────
+      A card standing inside a settings-screen section. Not a row (`mobile-row`) because
+      the sentence runs two-plus lines and there are two buttons — forced into the one-line format, the sentence clips. */
 .mobile-evolution-ask {
   display: flex;
   flex-direction: column;
@@ -2473,7 +2473,7 @@ a.mobile-workbench-meta__chip {
   font-size: var(--mobile-font-size-caption);
 }
 
-/* 가설 문장은 원문 그대로다 — 줄바꿈을 살리고 긴 토큰도 화면을 뚫지 않게 한다. */
+/* The hypothesis sentence is verbatim — preserve line breaks and keep long tokens from piercing the screen. */
 .mobile-evolution-ask__statement {
   margin: 0;
   color: var(--mobile-fg-strong);
@@ -2489,21 +2489,21 @@ a.mobile-workbench-meta__chip {
   gap: var(--mobile-space-2);
 }
 
-/* ---- 액션 독 확인 단계의 긍정 버튼 ----
-   확인이 필요한 조작이 전부 파괴적인 것은 아니다(예: complete_manual =
-   "리뷰로 보내기"). 기저 규칙은 `redesign.css`의 `.mobile-action-dock__chip`이고
-   여기서는 `.is-danger`와 같은 문법으로 색만 바꾼다 — 이 파일이 먼저 오지만
-   기저보다 명시도가 높아(0,2,0 vs 0,1,0) 순서와 무관하게 이긴다. */
+/* ---- Positive button in the action dock's confirmation step ----
+      Not every action needing confirmation is destructive (e.g. complete_manual =
+      "send to review"). The base rule is `.mobile-action-dock__chip` in `redesign.css`;
+      here only the color changes, in the same grammar as `.is-danger` — this file comes
+      first, but its higher specificity (0,2,0 vs 0,1,0) wins regardless of order. */
 .mobile-action-dock__chip.is-primary {
   color: var(--mobile-accent-strong);
   border-color: var(--mobile-accent-soft);
 }
 
-/* ---- 대시보드 목록 항목의 예약 표식 ----
-   데스크톱 lane-card는 카드 오른쪽 위 모서리에 시계+순번(`.queue-mark`)을 얹지만,
-   모바일 행은 그 자리를 상태칩이 쓰고 있고 행 자체가 하나의 버튼이라 안에 무엇을
-   덧붙이려면 행 컴포넌트를 고쳐야 한다. 그래서 행을 감싼 슬롯의 아래 오른쪽에
-   같은 표식을 둔다 — 위치만 다르고 정보(시계 + 몇 번째)는 같다. */
+/* ---- Schedule marker on dashboard list items ----
+      The desktop lane-card sets clock+position (`.queue-mark`) at the card's top-right
+      corner, but on mobile that spot holds the status chip and the row itself is one
+      button, so adding anything inside means changing the row component. So the same
+      marker goes at the bottom right of the slot wrapping the row — position differs, information (clock + position) is the same. */
 .mobile-dashboard-item {
   display: flex;
   flex-direction: column;
@@ -2531,9 +2531,9 @@ a.mobile-workbench-meta__chip {
   flex: 0 0 auto;
 }
 
-/* 기획서 트리 — 데스크톱 기획 탭(board_detail_live.ex:7401~)과 같은 문법이다.
-   **카드가 아니라 행**이고 깊이는 들여쓰기로만 말한다. 예전에는 Section(카드)
-   안에 Accordion(카드)을 넣고 그 안에 Row(카드)를 담아 카드가 3중으로 겹쳤다. */
+/* Spec tree — same grammar as the desktop planning tab (board_detail_live.ex:7401~).
+      **Rows, not cards**, and depth speaks only through indentation. It used to be a
+      Section (card) holding an Accordion (card) holding Rows (cards) — cards nested three deep. */
 .mobile-plan-tree {
   display: flex;
   flex-direction: column;
@@ -2609,8 +2609,8 @@ a.mobile-workbench-meta__chip {
   font-size: var(--mobile-font-size-caption);
 }
 
-/* 예약 큐 줄. 데스크톱 `.queue-row`의 모바일 번역 — 왼쪽 순번/상태, 가운데
-   제목+위치, 오른쪽 시각, 끝에 취소. 카드로 감싸지 않는다(줄 목록이다). */
+/* Schedule queue row. Mobile translation of the desktop `.queue-row` — position/status
+      on the left, title+location center, time on the right, cancel at the end. Not wrapped in a card (it is a line list). */
 .mobile-queue-row {
   display: flex;
   align-items: center;
@@ -2645,7 +2645,7 @@ a.mobile-workbench-meta__chip {
   font-weight: var(--mobile-font-weight-semibold);
 }
 
-/* 가운데만 늘어나고 양끝은 고정. min-width:0이 없으면 긴 제목이 줄을 밀어낸다. */
+/* Only the middle stretches; both ends stay fixed. Without min-width:0 a long title pushes the row out. */
 .mobile-queue-row__main {
   flex: 1;
   min-width: 0;
@@ -2707,7 +2707,7 @@ a.mobile-workbench-meta__chip {
   opacity: 0.4;
 }
 
-/* 개인 메모리 목록 — 한 줄에 기억 하나 + 지우기. 카드로 감싸지 않는다(줄 목록). */
+/* Personal memory list — one memory per line + delete. Not wrapped in a card (line list). */
 .mobile-memory-list {
   display: flex;
   flex-direction: column;
@@ -2735,7 +2735,7 @@ a.mobile-workbench-meta__chip {
   margin: 0;
   color: var(--mobile-fg-strong);
   font-size: var(--mobile-font-size-body);
-  /* 기억은 문장이라 줄바꿈을 허용한다 — 잘라내면 무엇을 지우는지 알 수 없다. */
+  /* Memories are sentences, so allow wrapping — truncated, you can't tell what you are deleting. */
   overflow-wrap: anywhere;
 }
 
@@ -2745,8 +2745,8 @@ a.mobile-workbench-meta__chip {
   font-size: var(--mobile-font-size-caption);
 }
 
-/* 되돌릴 수 없는 동작 앞의 확인 줄. 모달을 띄우지 않는 이유는 설정 화면 안에서
-   맥락(무엇이 지워지는지)이 바로 위에 보이기 때문이다. */
+/* Confirmation line before an irreversible action. No modal, because the context
+      (what gets deleted) is visible right above within the settings screen. */
 .mobile-inline-confirm {
   display: flex;
   flex-direction: column;
@@ -2761,7 +2761,7 @@ a.mobile-workbench-meta__chip {
   gap: var(--mobile-space-2);
 }
 
-/* 병합 차단·경고 목록. 왜 못 누르는지 말하는 자리라 감추지 않는다. */
+/* Merge blocker/warning list. It says why the button can't be pressed, so it is never hidden. */
 .mobile-merge-issues {
   display: flex;
   flex-direction: column;
@@ -2784,7 +2784,7 @@ a.mobile-workbench-meta__chip {
   color: var(--mobile-danger);
 }
 
-/* 시트 하단 액션 줄. 버튼이 둘~셋이라 가로로 두되 좁으면 접힌다. */
+/* Sheet bottom action row. Two or three buttons — laid out horizontally, wrapping when narrow. */
 .mobile-sheet-actions {
   display: flex;
   flex-wrap: wrap;

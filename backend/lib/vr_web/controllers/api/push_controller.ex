@@ -1,6 +1,6 @@
 defmodule VRWeb.API.PushController do
   @moduledoc """
-  웹 푸시 구독. **자기 것만 다룬다.**
+  Web push subscriptions. **Self only.**
   """
 
   use VRWeb, :controller
@@ -9,7 +9,7 @@ defmodule VRWeb.API.PushController do
 
   action_fallback VRWeb.API.FallbackController
 
-  @doc "브라우저가 구독하려면 공개키가 필요하다."
+  @doc "The browser needs the public key in order to subscribe."
   def show(conn, _params) do
     account = conn.assigns.current_account
 

@@ -1,20 +1,20 @@
 import Config
 
 # ══════════════════════════════════════════════════════════════════
-#  런타임 설정
+#  Runtime configuration
 #
-#  이 앱의 외부 자격증명은 **전부 VR.Config를 통해서만** 읽는다.
-#  (해석 순서: DB → 환경변수 → 없음)
+#  Every external credential in this app is read **only through VR.Config**.
+#  (Resolution order: DB → environment variable → absent)
 #
-#  따라서 여기에는 API 키를 두지 않는다. 여기서 다루는 것은
-#  앱이 부팅하는 데 필요한 것(DB 접속, 시크릿 베이스, 호스트)뿐이다.
+#  Therefore no API keys live here. This file only handles what the app
+#  needs to boot: DB connection, secret key base, host.
 #
-#  새 자격증명이 필요하면 config/runtime.exs가 아니라
-#  VR.Config.Registry에 항목을 추가한다.
+#  If you need a new credential, add an entry to VR.Config.Registry,
+#  not to config/runtime.exs.
 # ══════════════════════════════════════════════════════════════════
 
-# 개발/테스트에서는 .env 파일을 읽어 환경변수로 올린다.
-# 릴리즈(prod)에서는 실제 환경변수를 쓰므로 건너뛴다.
+# In dev/test, the .env file is read and lifted into environment variables.
+# Releases (prod) use real environment variables, so this is skipped.
 if config_env() in [:dev, :test] do
   env_file = Path.expand("../../.env", __DIR__)
 
@@ -29,7 +29,7 @@ if config_env() in [:dev, :test] do
           key = String.trim(key)
           value = value |> String.trim() |> String.trim("\"") |> String.trim("'")
 
-          # 이미 셸에 있는 값이 우선한다 (CI·배포에서 .env를 덮어쓰지 않도록)
+          # Values already in the shell win (so CI/deploys are not overwritten by .env)
           if System.get_env(key) in [nil, ""], do: System.put_env(key, value)
 
         _ ->
@@ -39,21 +39,25 @@ if config_env() in [:dev, :test] do
   end
 end
 
-# ── 포트 해석 ─────────────────────────────────────────────────────
+# ── Port resolution ───────────────────────────────────────────────
 #
-#  PORT / HTTPS_PORT 는 **선택** 환경변수다. 없거나 비어 있으면 기본값을 쓴다.
-#  DATABASE_URL · SECRET_KEY_BASE 처럼 "없으면 동작이 틀리는" 값이 아니라
-#  "없으면 기본값이면 되는" 값이기 때문이다.
+#  PORT / HTTPS_PORT are **optional** environment variables. When missing or
+#  empty, the default is used. Unlike DATABASE_URL / SECRET_KEY_BASE — values
+#  that make the app behave wrongly when absent — these are values where a
+#  default is perfectly fine.
 #
-#  다만 값이 **있는데 형식이 틀린** 경우(PORT=8080a, PORT=0 …)는 그대로 멈춘다.
-#  기본값으로 조용히 삼키면 "떴는데 헬스체크만 실패" 가 되어 원인 추적이 비싸진다.
-#  비어 있는 것은 "안 정했다", 형식이 틀린 것은 "잘못 정했다" — 다르게 대한다.
+#  However, a value that is **present but malformed** (PORT=8080a, PORT=0, …)
+#  halts boot as-is. Silently swallowing it into the default produces
+#  "the app is up but only the healthcheck fails", which is expensive to trace.
+#  Empty means "not decided"; malformed means "decided wrongly" — they are
+#  treated differently.
 #
-#  이 규칙은 여기 한 곳에만 있다. config/dev.exs 는 포트를 직접 읽지 않고,
-#  아래 :dev 분기가 dev.exs 의 Endpoint 설정 위에 포트만 덮어쓴다.
-#  (릴리즈에는 config.exs / prod.exs / runtime.exs 만 실려 가므로 규칙을
-#   별도 파일로 빼면 부팅 시점에 파일을 찾지 못한다. 그래서 파일 분리 대신
-#   "한 파일 안의 한 함수" 로 단일 출처를 지킨다.)
+#  This rule lives here and nowhere else. config/dev.exs does not read the
+#  port itself; the :dev branch below overwrites only the port on top of the
+#  Endpoint config from dev.exs.
+#  (Releases ship only config.exs / prod.exs / runtime.exs, so extracting the
+#   rule into a separate file would fail to find it at boot. Instead of a
+#   separate file, the single source of truth is "one function in one file".)
 port_from_env = fn name, default ->
   case System.get_env(name) do
     nil ->
@@ -71,17 +75,17 @@ port_from_env = fn name, default ->
 
             _ ->
               raise """
-              환경변수 #{name} 의 값이 올바른 포트 번호가 아닙니다: #{inspect(raw)}
-              1~65535 사이의 정수여야 합니다.
-              값을 비워 두면 기본값 #{default} 을 사용합니다.
+              The value of environment variable #{name} is not a valid port number: #{inspect(raw)}
+              It must be an integer between 1 and 65535.
+              Leave it empty to use the default, #{default}.
               """
           end
       end
   end
 end
 
-# 개발 환경의 포트도 같은 규칙을 탄다.
-# dev.exs 가 이미 잡아 둔 ip/certfile 등은 유지되고 port 만 병합된다.
+# The dev environment's port follows the same rule.
+# The ip/certfile etc. already set by dev.exs are kept; only the port is merged.
 if config_env() == :dev do
   config :vr, VRWeb.Endpoint, http: [port: port_from_env.("PORT", 4000)]
 
@@ -142,7 +146,7 @@ if config_env() == :prod do
 
   host = System.get_env("PHX_HOST", "localhost")
 
-  # PORT 는 선택값이다 — 플랫폼이 주입하면 그 값이 이기고, 없으면 4000.
+  # PORT is optional — a platform-injected value wins; otherwise 4000.
   port = port_from_env.("PORT", 4000)
 
   config :vr, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
@@ -206,14 +210,14 @@ if config_env() == :prod do
   # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
 end
 
-# ── Cloak 키 존재 확인 ────────────────────────────────────────────
-# VR.Vault가 부팅 시 다시 검증하지만, 여기서 먼저 알려주면 원인 파악이 빠르다.
+# ── Cloak key presence check ──────────────────────────────────────
+# VR.Vault verifies this again at boot, but warning here first makes the cause easier to spot.
 if config_env() != :test and System.get_env("CLOAK_KEY") in [nil, ""] do
   IO.warn("""
-  CLOAK_KEY가 설정되지 않았습니다. 앱이 부팅되지 않습니다.
+  CLOAK_KEY is not set. The app will not boot.
 
       openssl rand -base64 32
 
-  생성한 값을 .env 의 CLOAK_KEY 에 넣으세요.
+  Put the generated value into CLOAK_KEY in .env.
   """)
 end

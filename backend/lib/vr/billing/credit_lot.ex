@@ -1,16 +1,17 @@
 defmodule VR.Billing.CreditLot do
   @moduledoc """
-  지급된 크레딧 묶음. 자체 잔량과 만료를 가진다.
+  A granted batch of credits, with its own remaining amount and expiry.
 
-  **출처: devkanban** `lib/manualsquad/billing/credit_lot.ex`
-  — `held` / `held_amount` (환불 보류) 를 제거했다.
+  **Source: devkanban** `lib/manualsquad/billing/credit_lot.ex`
+  — removed `held` / `held_amount` (refund holds).
 
-  묶음으로 나누는 이유는 **만료가 각각 다르기 때문**이다.
-  플랜 월 지급은 기간 말에 만료되고, 관리자 지급은 무기한일 수 있다.
-  소비는 만료 임박 순으로 하므로 사라질 크레딧이 먼저 쓰인다.
+  Credits are split into lots because **each lot expires differently.**
+  Monthly plan grants expire at the end of the period, while admin grants may be
+  indefinite. Consumption goes soonest-expiring first, so credits about to vanish
+  are spent first.
 
-  `remaining` 은 **음수가 될 수 있다** — 사후 계량에서 잔액이 모자랄 때
-  오버드래프트 묶음으로 기록한다. 그래야 `Σ delta == Σ remaining` 이 유지된다.
+  `remaining` **can go negative** — when post-hoc metering finds the balance short,
+  the shortfall is recorded as an overdraft lot. That keeps `Σ delta == Σ remaining`.
   """
 
   use Ecto.Schema
@@ -45,7 +46,7 @@ defmodule VR.Billing.CreditLot do
     |> validate_inclusion(:source, @sources)
   end
 
-  @doc "아직 쓸 수 있는 양. 음수(오버드래프트)는 0으로 본다."
+  @doc "The amount still spendable. Negative (overdraft) counts as 0."
   def spendable(%__MODULE__{remaining: remaining}), do: max(remaining, 0)
 
   defp put_id(changeset) do

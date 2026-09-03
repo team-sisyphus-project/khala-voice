@@ -2,10 +2,10 @@ import { ApiClient } from "@core/api";
 import { Uploader } from "@core/upload";
 
 /**
- * 앱 전역에서 하나만 쓴다.
+ * One instance app-wide.
  *
- * `Uploader` 가 업로드 큐를 들고 있어서 인스턴스가 여러 개면
- * 같은 항목을 동시에 올리려 들고 중복 등록이 난다.
+ * `Uploader` holds the upload queue, so multiple instances would try to
+ * upload the same item concurrently and register duplicates.
  */
 export const api = new ApiClient();
 export const uploader = new Uploader(api);

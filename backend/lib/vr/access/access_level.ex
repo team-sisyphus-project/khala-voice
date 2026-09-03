@@ -1,24 +1,24 @@
 defmodule VR.Access.AccessLevel do
   @moduledoc """
-  **출처: sisyphus** `lib/sisyphus/access/access_level.ex`
+  **Source: sisyphus** `lib/sisyphus/access/access_level.ex`
 
-  권한 계산.
+  Permission calculation.
 
-  ## 두 개념을 구분한다
+  ## Two distinct concepts
 
-  - **View Scope** — 사용자가 회의 설정에서 **고르는** 공개 범위
-  - **Access Level** — 역할에서 **자동으로 계산되는** 권한
+  - **View Scope** — the visibility range the user **chooses** in the meeting settings
+  - **Access Level** — the permission **automatically calculated** from the role
 
-  ## 역할
+  ## Roles
 
-  명칭은 한국어 UI에서도 영문 그대로 쓴다 (`docs/05-auth-sharing.md`).
+  Role names are kept in English even in the Korean UI (`docs/05-auth-sharing.md`).
 
-  | 역할 | 코드 | 권한 |
+  | Role | Code | Permission |
   |---|---|---|
-  | Reviewer | `:lv0` | 전권 — 편집 · 삭제 · 아카이브 · 권한 변경 · 공유 링크 |
-  | Contributor | `:lv1` | 녹음 · 재생 · 화자/전사 편집. 삭제 · 권한 변경 불가 |
-  | Viewer | `:lv2` | 읽기 전용. 오디오 URL 마스킹 |
-  | — | `:lv3` | 접근 불가. **404로 응답한다** (존재 여부를 노출하지 않는다) |
+  | Reviewer | `:lv0` | Full control — edit, delete, archive, change permissions, share links |
+  | Contributor | `:lv1` | Record, play back, edit speakers/transcription. Cannot delete or change permissions |
+  | Viewer | `:lv2` | Read only. Audio URL is masked |
+  | — | `:lv3` | No access. **Responds with 404** (does not reveal whether the resource exists) |
   """
 
   @view_scopes ~w(me_only assignees_only selected_friends all_friends)
@@ -29,27 +29,28 @@ defmodule VR.Access.AccessLevel do
   def default_view_scope, do: "assignees_only"
 
   @doc """
-  권한 레벨을 계산한다.
+  Calculates the access level.
 
-  ## 옵션
-  - `:is_admin` — 시스템 어드민
-  - `:friends?` — `fn reviewer_id, account_id -> boolean end`. 순환 의존을 피해 주입받는다
-  - `:guest_role` — 공유 링크로 들어온 게스트에게 부여된 역할 (`"viewer"` | `"contributor"`)
-  - `:guest_resource_id` — **`:guest_role` 과 반드시 함께 온다.** 게스트 세션이 묶인
-    회의 id. 이 값이 `entity` 의 id 와 다르면 게스트 권한을 주지 않는다
+  ## Options
+  - `:is_admin` — system admin
+  - `:friends?` — `fn reviewer_id, account_id -> boolean end`. Injected to avoid a circular dependency
+  - `:guest_role` — the role granted to a guest arriving via a share link (`"viewer"` | `"contributor"`)
+  - `:guest_resource_id` — **must always accompany `:guest_role`.** The meeting id the
+    guest session is bound to. If this value differs from the `entity` id, no guest permission is granted
 
-  ## 게스트 역할은 회의와 묶여야만 유효하다
+  ## A guest role is only valid when bound to its meeting
 
-  `guest_role` 만 보고 권한을 주면, 그 값을 넘기는 호출부가 회의 id 를 잘못 넘겼을 때
-  **아무 회의나 열린다.** 게스트 토큰은 회의 하나에만 유효해야 하므로, 여기서 결합을
-  다시 확인한다. 정상 경로(`VR.Sharing.guest_authorize/2`)가 이미 확인하지만
-  호출부를 하나 빠뜨렸을 때 닫히는 쪽으로 실패하도록 이중으로 둔다.
+  If we granted permission based on `guest_role` alone, a caller passing the wrong
+  meeting id would **open any meeting.** A guest token must be valid for exactly one
+  meeting, so we re-check the binding here. The normal path
+  (`VR.Sharing.guest_authorize/2`) already checks it, but this double check makes a
+  missed call site fail closed.
   """
   @spec resolve(map(), String.t() | nil, keyword()) :: level()
   def resolve(entity, account_id, opts \\ [])
 
-  # 게스트 — 계정이 없어도 공유 링크가 역할을 준다.
-  # 단 **그 게스트 세션이 묶인 회의일 때만** 준다.
+  # Guest — a share link grants a role even without an account.
+  # But only **for the meeting the guest session is bound to.**
   def resolve(entity, nil, opts) do
     guest_or(opts, :lv3, entity)
   end
@@ -64,7 +65,7 @@ defmodule VR.Access.AccessLevel do
       opts[:is_admin] -> :lv0
       account_id == reviewer_id -> :lv0
       account_id in contributor_ids -> :lv1
-      # 아래는 Reviewer/Contributor가 아닌 사람에게만 적용된다
+      # The clauses below apply only to people who are not Reviewer/Contributor
       scope == "me_only" -> guest_or(opts, :lv3, entity)
       scope == "assignees_only" -> guest_or(opts, :lv3, entity)
       scope == "selected_friends" and account_id in selected -> :lv2
@@ -73,10 +74,11 @@ defmodule VR.Access.AccessLevel do
     end
   end
 
-  # 계정 권한이 없어도 공유 링크가 있으면 그 역할로 들어온다.
+  # Even without account permission, a share link admits the guest with its role.
   #
-  # **결합을 확인한다.** `guest_resource_id` 가 없거나 이 회의가 아니면 주지 않는다 —
-  # 게스트 토큰 하나로 다른 회의가 열리는 것을 막는 마지막 방어선이다.
+  # **Check the binding.** If `guest_resource_id` is missing or is not this meeting,
+  # grant nothing — this is the last line of defense preventing one guest token from
+  # opening a different meeting.
   defp guest_or(opts, fallback, entity) do
     with role when role in ["viewer", "contributor"] <- opts[:guest_role],
          resource_id when is_binary(resource_id) <- opts[:guest_resource_id],
@@ -103,7 +105,7 @@ defmodule VR.Access.AccessLevel do
     end
   end
 
-  @doc "level 이 최소 요구 수준 이상인가. `at_least?(:lv1, :lv1)` → true"
+  @doc "Is the level at or above the minimum required level? `at_least?(:lv1, :lv1)` → true"
   def at_least?(level, required), do: rank(level) <= rank(required)
 
   defp rank(:lv0), do: 0
@@ -121,17 +123,17 @@ defmodule VR.Access.AccessLevel do
   def to_string!(:lv2), do: "lv2"
   def to_string!(:lv3), do: "lv3"
 
-  @doc "레거시/잘못된 값을 정규화한다."
+  @doc "Normalizes legacy/invalid values."
   def normalize_view_scope(nil), do: default_view_scope()
   def normalize_view_scope(scope) when scope in @view_scopes, do: scope
-  # sisyphus 값 매핑
+  # sisyphus value mapping
   def normalize_view_scope("selected_members"), do: "selected_friends"
   def normalize_view_scope("project_members"), do: "all_friends"
   def normalize_view_scope("all_users"), do: "all_friends"
   def normalize_view_scope("private"), do: "me_only"
   def normalize_view_scope(_), do: default_view_scope()
 
-  # ── entity 에서 값 꺼내기 (구조체·맵·문자열 키 모두 지원) ──
+  # ── Extracting values from the entity (supports structs, maps, and string keys) ──
 
   defp get(entity, key) when is_map(entity) do
     Map.get(entity, key) || Map.get(entity, Atom.to_string(key))

@@ -38,8 +38,8 @@ describe("settings integration contract", () => {
     expect(settingsSource).toContain('card className="vr-settings-section"');
 
     const scopedStyles = stylesSource.slice(
-      stylesSource.indexOf("/* ── 설정 묶음"),
-      stylesSource.indexOf("/* ── 녹음 설정 줄"),
+      stylesSource.indexOf("/* ── Settings groups"),
+      stylesSource.indexOf("/* ── Recording-prefs row"),
     );
     expect(scopedStyles).not.toMatch(/#[\da-f]{3,8}\b|(?:rgb|hsl|oklch)\(/i);
     expect(scopedStyles).not.toMatch(/(?:^|[\s:(,])-?\d*\.?\d+px\b/m);

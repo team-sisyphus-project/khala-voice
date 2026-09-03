@@ -1,18 +1,19 @@
 defmodule VR.Billing.CreditConversionSetting do
   @moduledoc """
-  사용 원가(USD)를 내부 크레딧으로 바꾸는 **싱글턴** 정책.
+  **Singleton** policy that converts usage cost (USD) into internal credits.
 
-  **출처: devkanban** `lib/manualsquad/billing/credit_conversion_setting.ex` — 그대로.
+  **Source: devkanban** `lib/manualsquad/billing/credit_conversion_setting.ex` — as-is.
 
-  sisyphus 는 서비스마다 `cookie_rate` 를 따로 뒀다. 그러면 제공자 단가가 바뀔 때마다
-  서비스별 환산율을 다시 계산해야 한다. 이 방식은 **실제 USD 원가에서 파생**되므로
-  단가가 바뀌어도 원가 계산만 고치면 되고, 크레딧 정책은 여기 한 곳에만 있다.
+  sisyphus kept a separate `cookie_rate` per service. That meant recalculating each
+  service's conversion rate whenever a provider's unit price changed. This approach
+  is **derived from the actual USD cost**, so a price change only requires fixing the
+  cost calculation, and the credit policy lives in this one place.
 
       computed_credits = usage_cost_usd / credit_value_usd
       charged_credits  = ceil(computed_credits)
 
-  올림 고정인 이유: 정책이 하나뿐이라 단순하고 소수점 이하를 흘리지 않는다.
-  devkanban 도 `rounding_policies` 를 `["ceil"]` 하나로 못박아 뒀다.
+  Why ceiling is fixed: a single policy keeps things simple and never leaks fractions.
+  devkanban likewise pinned `rounding_policies` to just `["ceil"]`.
   """
 
   use Ecto.Schema

@@ -1,11 +1,11 @@
 /* ============================================================
    autosquad dev Mobile — Redesign component grammar
    SoT: mobile/sot/mobile-redesign/handoff/build-guide.md
-   - page gutter 24px (auth / tabs / detail 공통)
-   - top-level 섹션은 section header + content + divider (card-in-card 금지)
+   - page gutter 24px (shared by auth / tabs / detail)
+   - top-level sections are section header + content + divider (no card-in-card)
    - floating glass bottom nav / action rail (safe-area + 16px)
-   - 테두리 기반 인풋(inset shadow 금지), elevated CTA
-   모든 색상은 var(--mobile-*) 토큰만 사용.
+   - border-based inputs (no inset shadow), elevated CTA
+   All colors use var(--mobile-*) tokens only.
    ============================================================ */
 
 /* ---- Icon sizing baseline ---- */
@@ -15,8 +15,9 @@
   flex: 0 0 auto;
 }
 
-/* 스크롤바는 그리지 않는다 — 네이티브 모바일 문법(스크롤 동작·위치는 그대로,
-   표시만 없앤다). 데스크톱 브라우저로 열어도 앱처럼 보이게 전역 적용. */
+/* Never draw scrollbars — native mobile grammar (scroll behavior and position
+   stay intact, only the visual is removed). Applied globally so it looks like
+   an app even when opened in a desktop browser. */
 * {
   scrollbar-width: none;
 }
@@ -27,9 +28,10 @@
   height: 0;
 }
 
-/* ---- Screen (스크롤 컨테이너) ---- */
-/* 탑바가 오버레이(레이아웃 미점유)라, 첫 콘텐츠가 플로팅 버튼을 비키도록
-   시작 패딩을 버튼 행 높이만큼 준다. 스크롤하면 콘텐츠가 버튼 밑을 지나간다. */
+/* ---- Screen (scroll container) ---- */
+/* The top bar is an overlay (takes no layout space), so the initial padding
+   equals the button row height to keep the first content clear of the floating
+   buttons. On scroll, content passes underneath the buttons. */
 .mobile-screen {
   height: 100%;
   overflow-y: auto;
@@ -60,7 +62,7 @@
   padding-top: 0;
 }
 
-/* ---- Page header (본문 내 큰 타이틀) ---- */
+/* ---- Page header (large in-body title) ---- */
 .mobile-page-header {
   display: flex;
   flex-direction: column;
@@ -133,8 +135,9 @@
   transition: transform var(--mobile-transition), background var(--mobile-transition);
 }
 
-/* 누름 연출은 `styles/press.css`가 전담한다 — 여기서 scale(0.99)로 줄이던
-   것은 시스템 규칙(커지고 밝아진다)과 방향이 반대라 걷어냈다. */
+/* Press feedback is owned entirely by `styles/press.css` — the scale(0.99)
+   shrink we used here was removed because it went in the opposite direction of
+   the system rule (grow and brighten). */
 
 .mobile-row__icon {
   display: inline-flex;
@@ -223,10 +226,11 @@
   transform: none;
 }
 
-/* 유예 동의 시계 — **버튼 자체가 시계다**(데스크톱 `action-button-fill`·음성
-   스테이지와 같은 표현). 남은 시간이 배경으로 차오르고 남은 초가 라벨 옆에
-   붙는다. 별도 막대를 두면 "무엇이 자동으로 눌리는가"와 "얼마나 남았는가"가
-   화면에서 갈라져, 둘을 눈으로 이어 붙여야 한다. */
+/* Grace-consent clock — **the button itself is the clock** (same expression as
+   the desktop `action-button-fill` and the voice stage). Remaining time fills
+   the background and the seconds left sit next to the label. A separate bar
+   would split "what gets pressed automatically" and "how much time is left"
+   across the screen, forcing the eye to stitch them together. */
 .mobile-button.is-counting {
   position: relative;
   overflow: hidden;
@@ -236,10 +240,12 @@
   position: absolute;
   inset: 0 auto 0 0;
   z-index: 0;
-  /* 액센트 위에 올라가므로 색이 아니라 **밝기**로 구분한다 — 테마마다 다른
-     색을 고르면 같은 시계가 화면마다 다른 뜻으로 읽힌다. */
+  /* It sits on top of the accent, so it is distinguished by **brightness**,
+     not color — picking a different color per theme would make the same clock
+     read differently on every screen. */
   background: oklch(100% 0 0 / 0.28);
-  /* 틱(100ms)만큼만 부드럽게 — 더 길면 채움이 초침을 따라오지 못한다. */
+  /* Smooth only over one tick (100ms) — any longer and the fill can't keep up
+     with the ticking seconds. */
   transition: width 100ms linear;
   pointer-events: none;
 }
@@ -261,8 +267,9 @@
   width: 100%;
 }
 
-/* 섹션 본문(flex-column stretch) 안에서 내용 너비만 차지하는 본문 버튼.
-   본문 액션은 화면을 가로지르는 바가 아니라 가운데 놓인 인라인 컨트롤로 읽힌다. */
+/* A body button that takes only its content width inside a section body
+   (flex-column stretch). Body actions read as centered inline controls,
+   not bars spanning the screen. */
 .mobile-button--fit {
   align-self: center;
   width: fit-content;
@@ -274,7 +281,7 @@
   flex: 0 0 auto;
 }
 
-/* 원형 버튼(square와 함께) — 이슈카드 상세의 채팅 버튼 */
+/* Round button (combined with square) — the chat button on issue card detail */
 .mobile-button--round {
   border-radius: var(--mobile-radius-full);
 }
@@ -285,8 +292,9 @@
   box-shadow: var(--mobile-shadow-soft);
 }
 
-/* primary의 누름 배경도 press.css의 밝기 규칙이 대신한다 — 색을 따로 바꾸면
-   같은 조작이 버튼 종류마다 다른 밝기로 반응한다. */
+/* The primary press background is also handled by the brightness rule in
+   press.css — changing the color separately would make the same interaction
+   respond with different brightness per button type. */
 
 .mobile-button--secondary {
   background: var(--mobile-surface-item);
@@ -308,17 +316,18 @@
   opacity: 0.75;
 }
 
-/* ---- 면 채움 프로그레스 (variant와 직교) ----
-   "가만히 있으면 이게 된다"를 버튼 스스로 알리는 카운트다운 문법. 배경이
-   왼쪽부터 progress만큼 물들고, 라벨 우측에 남은 초가 붙는다. 프라이머리는
-   채워진 부분의 색이 한 단계 진해지는 방향(hover 색), 그 외 variant는
-   액센트 소프트가 차오른다. */
+/* ---- Surface-fill progress (orthogonal to variant) ----
+   Countdown grammar where the button itself announces "if you do nothing,
+   this happens". The background tints from the left up to progress, and the
+   seconds left sit to the right of the label. Primary fills toward a
+   one-step-darker color (the hover color); other variants fill with
+   accent soft. */
 .mobile-button--filling {
   position: relative;
   overflow: hidden;
 }
 
-/* 콘텐츠(아이콘·라벨·초)는 채움 층 위로. */
+/* Content (icon, label, seconds) sits above the fill layer. */
 .mobile-button--filling > * {
   position: relative;
   z-index: 1;
@@ -329,7 +338,8 @@
   z-index: 0;
   inset: 0 auto 0 0;
   background: var(--mobile-accent-soft);
-  /* 틱(200ms) 간격만큼만 부드럽게 — 더 길면 채움이 초침을 따라오지 못한다. */
+  /* Smooth only over one tick interval (200ms) — any longer and the fill
+     can't keep up with the ticking seconds. */
   transition: width 200ms linear;
   pointer-events: none;
 }
@@ -556,9 +566,9 @@
   background: var(--mobile-info-soft);
 }
 
-/* ---- IssueCardRow — 데스크톱 .lane-card 문법(18px 패딩·14px 라디우스·솔리드
-   서피스·리프트 인터랙션)의 모바일 카드. 리스트 행이 아니라 '카드'로 읽히도록
-   크기·그림자·여백을 준다. ---- */
+/* ---- IssueCardRow — mobile card version of the desktop .lane-card grammar
+   (18px padding, 14px radius, solid surface, lift interaction). Size, shadow,
+   and spacing make it read as a 'card', not a list row. ---- */
 .mobile-issue-card-row {
   position: relative;
   display: flex;
@@ -576,10 +586,12 @@
   transition: transform var(--mobile-transition), background var(--mobile-transition);
 }
 
-/* 카드가 살짝 들리며 기울던 연출(translateY + rotate)은 걷어냈다 — 누름
-   반응이 화면마다 다른 문법이면 "눌렸다"를 매번 새로 배워야 한다. */
+/* The slight lift-and-tilt effect (translateY + rotate) was removed — if press
+   feedback follows a different grammar on every screen, "this is pressed" has
+   to be relearned each time. */
 
-/* in-progress — 데스크톱 .lane-card.status-in_progress의 회전 conic 글로우 링 이식 */
+/* in-progress — ported from the rotating conic glow ring of the desktop
+   .lane-card.status-in_progress */
 @property --mobile-glow-angle {
   syntax: "<angle>";
   initial-value: 0deg;
@@ -667,7 +679,7 @@
   white-space: nowrap;
 }
 
-/* 워크플로 진행 — 얇은 진행 바 + n/m 카운트 */
+/* Workflow progress — thin progress bar + n/m count */
 .mobile-issue-card-row__workflow {
   display: flex;
   align-items: center;
@@ -693,7 +705,7 @@
   transition: width var(--mobile-transition);
 }
 
-/* 다음 액션 — 상태(칩)와 구분되는 "이어서 할 일" 필 */
+/* Next action — a "what to do next" pill, distinct from the status (chip) */
 .mobile-issue-card-row__next {
   display: inline-flex;
   align-items: center;
@@ -713,8 +725,9 @@
   height: 14px;
 }
 
-/* ---- IssueCard tile (보드 레인 전용) — 트렐로/지라처럼 레인당 1열 카드 스택.
-   높이는 내용 기반 + 최소 높이로 카드감을 유지한다. ---- */
+/* ---- IssueCard tile (board lanes only) — a single-column card stack per
+   lane, like Trello/Jira. Height is content-based plus a minimum height to
+   keep the card feel. ---- */
 .mobile-issue-card-grid {
   display: flex;
   flex-direction: column;
@@ -736,7 +749,7 @@
   margin-top: auto;
 }
 
-/* ---- 상태 이동 chip 행 (보드 상단) ---- */
+/* ---- Status-move chip row (top of the board) ---- */
 .mobile-status-chip-row {
   display: flex;
   gap: var(--mobile-space-2);
@@ -894,7 +907,8 @@
   color: var(--mobile-fg-subtle);
 }
 
-/* ---- Drawer (좌측 햄버거 내비 — 데스크톱 /service 사이드바의 모바일 번역) ---- */
+/* ---- Drawer (left hamburger nav — mobile translation of the desktop
+   /service sidebar) ---- */
 .mobile-drawer {
   position: fixed;
   inset: 0;
@@ -948,7 +962,8 @@
   margin-bottom: var(--mobile-space-5);
 }
 
-/* 로고 아이콘 + 조직명 = 홈 복귀 버튼. 남는 폭을 다 차지해 X를 우측 끝으로 민다. */
+/* Logo icon + org name = back-to-home button. Takes all remaining width,
+   pushing the X to the far right. */
 .mobile-drawer__home {
   display: flex;
   align-items: center;
@@ -977,7 +992,7 @@
   margin-left: auto;
 }
 
-/* 로고 = 홈 버튼 (새 채팅 상태로 진입) */
+/* Logo = home button (enters the new-chat state) */
 .mobile-drawer__brand {
   display: inline-flex;
   align-items: center;
@@ -1025,7 +1040,8 @@
   cursor: pointer;
 }
 
-/* 섹션 타이틀 행 — 우측 끝에 새 채팅 + 아이콘 (보더/박스 없는 플랫 버튼) */
+/* Section title row — new chat + icon at the far right (flat button,
+   no border/box) */
 .mobile-drawer__section-head {
   display: flex;
   align-items: center;
@@ -1039,7 +1055,8 @@
   color: var(--mobile-fg-strong);
 }
 
-/* 채팅 섹션 — 패널 가운데를 차지하고 목록만 내부 스크롤. 내비는 이 밖(하단 고정). */
+/* Chats section — occupies the middle of the panel; only the list scrolls
+   internally. The nav sits outside it (fixed at the bottom). */
 .mobile-drawer__chats {
   flex: 1 1 auto;
   min-height: 0;
@@ -1051,10 +1068,10 @@
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  /* 패널 우측 패딩을 상쇄해 스크롤바를 패널 가장자리에 붙인다 */
+  /* Offset the panel's right padding so the scrollbar hugs the panel edge */
   margin-right: calc(-1 * var(--mobile-space-5));
   padding-right: var(--mobile-space-5);
-  /* 스크롤 가능함을 암시하는 하단 페이드 */
+  /* Bottom fade hinting that the list is scrollable */
   mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
 }
@@ -1085,9 +1102,10 @@
   color: var(--mobile-fg-subtle);
 }
 
-/* 대화 목록 — 드로어(홈 대화)와 채팅 화면의 세션 시트(보드 대화)가 같은
-   컴포넌트로 그린다. `--dense`는 드로어 자리(내비 목록) 전용이고, 시트에서는
-   행이 44px 터치 타깃이다. */
+/* Conversation list — the drawer (home conversations) and the chat screen's
+   session sheet (board conversations) render with the same component.
+   `--dense` is exclusive to the drawer slot (nav list); in the sheet, rows are
+   44px touch targets. */
 .mobile-chat-sessions,
 .mobile-drawer__nav {
   display: flex;
@@ -1107,7 +1125,7 @@
   padding-bottom: var(--mobile-space-5);
 }
 
-/* 리소스 토글 — 우측 끝 펼침 캐럿 */
+/* Resources toggle — expand caret at the far right */
 .mobile-drawer__resources-toggle .mobile-icon:last-child {
   margin-left: auto;
 }
@@ -1168,22 +1186,25 @@
   background: var(--mobile-accent-soft);
 }
 
-/* 세션 행은 내비 항목보다 컴팩트하게 — 아이콘 없이 제목만, 낮은 높이.
-   좌측은 배지 슬롯(12px) + 간격(6px)만 쓴다 — 점 없는 행의 제목이 과하게
-   들여쓰이지 않게(데스크톱 사이드메뉴와 같은 규격). */
+/* Session rows are more compact than nav items — title only, no icon, lower
+   height. The left side uses only a badge slot (12px) + gap (6px) — so titles
+   on rows without a dot aren't over-indented (same spec as the desktop side
+   menu). */
 .mobile-chat-session {
   position: relative;
   min-height: var(--mobile-drawer-session-min-height);
   gap: var(--mobile-drawer-session-gap);
   padding: var(--mobile-space-1) var(--mobile-space-2);
-  /* 좌측 여백 8px + 점 6px + 점·글자 사이 6px = 제목 20px (데스크톱과 같은 규격) */
+  /* Left margin 8px + dot 6px + dot-to-text gap 6px = title at 20px (same
+     spec as desktop) */
   padding-left: var(--mobile-drawer-session-padding-inline-start);
   font-weight: var(--mobile-font-weight-regular);
 }
 
-/* 바텀시트 자리의 같은 행 — 손가락으로 고르는 목록이라 44px 터치 타깃을 지킨다
-   (시트의 다른 선택 행 `.mobile-home-chat__picker-item`과 같은 규격). 드로어는
-   내비 목록이라 촘촘한 쪽(`--dense`)이 기본이다. */
+/* The same row in the bottom sheet slot — a finger-picked list, so it keeps
+   the 44px touch target (same spec as the sheet's other selection row
+   `.mobile-home-chat__picker-item`). The drawer is a nav list, so the tighter
+   variant (`--dense`) is the default there. */
 .mobile-chat-sessions:not(.mobile-chat-sessions--dense) .mobile-chat-session {
   min-height: 44px;
 }
@@ -1192,8 +1213,9 @@
   font-weight: var(--mobile-font-weight-semibold);
 }
 
-/* 미읽음 점 — 데스크톱 사이드메뉴와 같은 규칙. 자리를 차지하지 않고 좌측 여백
-   위에 겹쳐 그린다. 판정은 서버가 하고(unread) 여기서는 그리기만 한다. */
+/* Unread dot — same rule as the desktop side menu. Takes no space; drawn
+   overlaid on the left margin. The server decides (unread); here we only
+   draw. */
 .mobile-chat-session.is-unread::before {
   content: "";
   position: absolute;
@@ -1214,7 +1236,8 @@
   white-space: nowrap;
 }
 
-/* 스코프 서브라벨이 붙는 행은 두 줄이 된다 — 제목과 스코프를 세로로 쌓는다. */
+/* Rows with a scope sublabel become two lines — title and scope stacked
+   vertically. */
 .mobile-chat-session__text {
   display: flex;
   flex-direction: column;
@@ -1227,9 +1250,10 @@
   flex: 0 0 auto;
 }
 
-/* 스코프 서브라벨은 이 목록에서 스코프가 남다른 대화(홈에서 인계받아 아직 이
-   보드에 핀되기 전인 세션)에만 붙는다 — 나머지는 전부 같은 값이라 정보가 아니다
-   (데스크톱 사이드바 동형). */
+/* The scope sublabel appears only on conversations whose scope stands out in
+   this list (sessions handed over from home and not yet pinned to this
+   board) — every other row shares the same value, so it carries no
+   information (mirrors the desktop sidebar). */
 .mobile-chat-session__scope {
   font-size: var(--mobile-font-size-caption);
   font-weight: var(--mobile-font-weight-regular);
@@ -1260,7 +1284,8 @@
   background: var(--mobile-border);
 }
 
-/* 드로어 헤더의 조직 스위처(복수 조직일 때만 토글 버튼). */
+/* Org switcher in the drawer header (a toggle button only when there are
+   multiple orgs). */
 .mobile-drawer__org-toggle {
   border: 0;
   background: transparent;
@@ -1292,7 +1317,7 @@
   background: var(--mobile-surface-inset);
 }
 
-/* ---- 세션 rename 시트 ---- */
+/* ---- Session rename sheet ---- */
 .mobile-rename {
   position: fixed;
   inset: 0;
@@ -1303,13 +1328,15 @@
   padding: 24px;
 }
 
-/* 딤이 아니라 **블러**가 분리를 만든다(`--scrim-alpha: 0%`, 2026-08-09 확정).
-   그래서 블러가 없으면 이 스크림은 아무것도 그리지 않는다 — 알파 0짜리 배경만
-   깔려서, 뜬 다이얼로그 뒤로 본문이 그대로 선명하게 보였다(2026-08-10 감사).
+/* Separation comes from **blur**, not dimming (`--scrim-alpha: 0%`, finalized
+   2026-08-09). So without blur this scrim draws nothing — only an alpha-0
+   background was laid down, and the body stayed fully sharp behind the
+   floating dialog (2026-08-10 audit).
 
-   토큰 알파를 0으로 내린 변경은 스크림 다섯 곳에 전부 먹었는데 보상 블러는
-   drawer·context-sheet 두 블록에만 들어갔다. 여기가 그 누락분이다.
-   형제(`.mobile-drawer__scrim`)와 같은 모양으로 맞춘다. */
+   The change lowering the token alpha to 0 hit all five scrim sites, but the
+   compensating blur only landed in the drawer and context-sheet blocks. This
+   is the missing one. Matched to the shape of its sibling
+   (`.mobile-drawer__scrim`). */
 .mobile-rename__scrim {
   position: absolute;
   inset: 0;
@@ -1360,10 +1387,12 @@
 }
 
 /* ---- Top app bar ----
-   SoT: 헤더는 스크롤할 때만 노출. 최상단에서는 투명(제목 숨김)이고,
-   좌측 상단 페이지 헤더 텍스트(.mobile-page-header)가 보인다. */
-/* iOS 문법: 헤더 바(스트립)를 통째로 칠하지도, 레이아웃 공간을 차지하지도
-   않는다. 버튼·타이틀 캡슐만 콘텐츠 위에 떠 있는 오버레이. */
+   SoT: the header appears only while scrolling. At the very top it is
+   transparent (title hidden) and the top-left page header text
+   (.mobile-page-header) is visible. */
+/* iOS grammar: the header bar (strip) is neither painted as a whole nor takes
+   layout space. Only the button and title capsules float as an overlay above
+   the content. */
 .mobile-top-app-bar {
   position: absolute;
   top: 0;
@@ -1380,14 +1409,14 @@
   display: flex;
   align-items: center;
   gap: var(--mobile-space-3);
-  /* 48px 터치 타깃. 상단 여백은 좌측 인셋(10px)보다 살짝 커야 시각적으로
-     균형이 맞는다 — 12px. */
+  /* 48px touch target. The top margin needs to be slightly larger than the
+     left inset (10px) to look visually balanced — 12px. */
   min-height: 64px;
   padding: var(--mobile-space-5) var(--mobile-space-4) var(--mobile-space-2);
   pointer-events: none;
 }
 
-/* 오버레이 안에서 실제 컨트롤만 탭 가능 */
+/* Only the actual controls inside the overlay are tappable */
 .mobile-top-app-bar__icon-button,
 .mobile-top-app-bar__action {
   pointer-events: auto;
@@ -1397,9 +1426,9 @@
   pointer-events: auto;
 }
 
-/* 타이틀 캡슐 — 스크롤 시에만 fade-in하는 플로팅 글래스 필. 슬랙처럼 항상
-   좌측(메뉴/뒤로가기 버튼 바로 옆)에 붙고, 버튼과 같은 높이(42px)라 한 줄로
-   읽힌다. */
+/* Title capsule — a floating glass pill that fades in only on scroll. Like
+   Slack, it always sits on the left (right next to the menu/back button) and
+   matches the button height (42px), so it reads as a single line. */
 .mobile-top-app-bar__titles {
   display: flex;
   flex-direction: column;
@@ -1426,7 +1455,8 @@
   box-shadow: var(--mobile-shadow-soft);
 }
 
-/* 동그란 글래스 버튼 — 콘텐츠 위에 떠 있는 iOS식 개별 컨트롤. */
+/* Round glass button — an iOS-style individual control floating above the
+   content. */
 .mobile-top-app-bar__icon-button {
   display: inline-flex;
   align-items: center;
@@ -1467,19 +1497,22 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  /* 액션이 둘 이상이면(보드: 카드 추가 + 기획서) 글래스 버튼끼리 붙어 하나로
-     보인다 — 버튼 간격을 준다. */
+  /* With two or more actions (board: add card + spec) the glass buttons stick
+     together and read as one — give them spacing. */
   gap: var(--mobile-space-2);
   min-width: 40px;
   flex: 0 0 auto;
   margin-left: auto;
 }
 
-/* 헤더 인라인 컨트롤(로직 모델 피커) — __titles 캡슐은 스크롤 전 opacity:0이라
-   그 안에 두면 첫 화면에서 안 보인다. 형제로 두고 항상 보이게 한다. */
-/* 헤더 좌측 그룹은 auto 마진을 쓰지 않는다 — 여러 요소가 margin-right:auto를
-   가지면 flex가 남는 공간을 나눠 가져 제목·피커가 가운데로 밀린다. 우측 액션만
-   margin-left:auto로 밀고, 나머지는 버튼 옆에 그대로 붙여 항상 좌측정렬한다. */
+/* Header inline control (logic model picker) — the __titles capsule is
+   opacity:0 before scrolling, so putting it inside would hide it on the first
+   screen. Keep it as a sibling so it is always visible. */
+/* The header's left group avoids auto margins — when multiple elements have
+   margin-right:auto, flex splits the remaining space between them and pushes
+   the title/picker toward the center. Only the right-side action is pushed
+   with margin-left:auto; everything else stays next to the button, always
+   left-aligned. */
 .mobile-top-app-bar__inline {
   display: flex;
   align-items: center;
@@ -1488,14 +1521,15 @@
   pointer-events: auto;
 }
 
-/* ---- 채팅 헤더 로직 모델 피커 ---- */
+/* ---- Chat header logic model picker ---- */
 .mobile-logic-model {
   position: relative;
   min-width: 0;
 }
 
-/* 헤더 체계와 동일한 문법: 42px 높이(버튼·타이틀 캡슐과 같은 줄), 글래스 필,
-   같은 보더·섀도·타이포. 헤더 안에서 별도 컴포넌트처럼 보이지 않게 맞춘다. */
+/* Same grammar as the header system: 42px height (same line as the button and
+   title capsules), glass pill, same border/shadow/typography. Matched so it
+   doesn't look like a separate component inside the header. */
 .mobile-logic-model__chip {
   display: inline-flex;
   align-items: center;
@@ -1529,14 +1563,16 @@
   min-width: 0;
 }
 
-/* 컴팩트(컴포저 도구 행) — 홈챗 컨텍스트 핀과 같은 경량 문법: 투명·무테,
-   라벨 폰트, 캐럿만. 글래스 필/보더/섀도를 벗는다. */
+/* Compact (composer tool row) — same lightweight grammar as the home chat
+   context pin: transparent, borderless, label font, caret only. Sheds the
+   glass pill/border/shadow. */
 .mobile-logic-model--compact .mobile-logic-model__chip {
   gap: 2px;
   height: auto;
   min-height: 34px;
-  /* vw 기준 상한은 래퍼가 flex로 줄어든 폭을 모른다 — 칩이 래퍼를 넘어 그려져
-     옆 칩(컨텍스트 핀)과 글자가 겹쳤다. 래퍼 폭(100%)을 상한으로 삼는다. */
+  /* A vw-based cap doesn't know the wrapper's flex-shrunk width — the chip
+     drew past the wrapper and its text overlapped the neighboring chip
+     (context pin). Use the wrapper width (100%) as the cap. */
   max-width: 100%;
   padding: 0 var(--mobile-space-1);
   border: 0;
@@ -1555,13 +1591,15 @@
   flex: 0 0 auto;
 }
 
-/* 지정됨 — 스코프 칩 `.is-pinned`와 같은 강조색. 두 칩이 나란히 서므로 같은
-   뜻(설정됨)은 같은 색이어야 한다.
+/* Set state — same emphasis color as the scope chip's `.is-pinned`. The two
+   chips stand side by side, so the same meaning (configured) must use the
+   same color.
 
-   ⚠ compact 셀렉터(`.mobile-logic-model--compact .mobile-logic-model__chip`)가
-   `color: muted`를 같은 특정도(클래스 2개)로 걸고 **뒤에 있어서**, 단순히
-   `.mobile-logic-model__chip.is-set`만 두면 눌린다. 컴포저의 칩은 전부 compact라
-   강조가 아예 안 먹었다. 그래서 compact 경로를 명시해 한 칸 더 세운다. */
+   ⚠ The compact selector (`.mobile-logic-model--compact .mobile-logic-model__chip`)
+   applies `color: muted` at the same specificity (two classes) and **comes
+   later**, so a plain `.mobile-logic-model__chip.is-set` gets overridden. The
+   composer's chips are all compact, so the emphasis never applied at all.
+   Hence the compact path is spelled out to raise it one notch. */
 .mobile-logic-model__chip.is-set,
 .mobile-logic-model--compact .mobile-logic-model__chip.is-set {
   color: var(--mobile-accent);
@@ -1598,8 +1636,9 @@
   height: 58px;
   border: 0;
   border-radius: var(--mobile-radius-full);
-  /* 다른 플로팅 컨트롤(독 칩·헤더 원형 버튼)과 같은 글래스 문법 — 액센트를
-     살짝 투과시키고 뒤를 블러해 떠 있는 느낌을 맞춘다. */
+  /* Same glass grammar as the other floating controls (dock chip, round
+     header button) — let the accent show through slightly and blur what's
+     behind to match the floating feel. */
   background: var(--mobile-accent-glass);
   backdrop-filter: var(--mobile-blur);
   -webkit-backdrop-filter: var(--mobile-blur);
@@ -1674,7 +1713,7 @@
   color: var(--mobile-fg-subtle);
 }
 
-/* ---- Auth header (좌측 정렬) ---- */
+/* ---- Auth header (left-aligned) ---- */
 .mobile-auth-header {
   display: flex;
   flex-direction: column;
@@ -1897,7 +1936,7 @@
 }
 
 /* ---- Diagnostic / detail list ---- */
-/* 진단 정보 — 연한 단순 텍스트. 긴 값은 그대로 줄바꿈한다. */
+/* Diagnostic info — faint plain text. Long values wrap as-is. */
 .mobile-diagnostics {
   display: flex;
   flex-direction: column;
@@ -2215,8 +2254,8 @@
 }
 
 /* ---- Note editor ---- */
-/* 편집 래퍼: focus-out 자동저장의 초점 경계이자, 섹션 본문의 세로 리듬을
-   유지하기 위한 flex 컬럼(텍스트영역 ↔ 액션 사이 gap). */
+/* Edit wrapper: the focus boundary for focus-out autosave, and a flex column
+   that keeps the section body's vertical rhythm (gap between textarea and actions). */
 .mobile-note-editor__edit {
   display: flex;
   flex-direction: column;
@@ -2237,14 +2276,15 @@
 
 .mobile-note-markdown {
   font-size: var(--mobile-font-size-body);
-  /* 긴 산문이다 — 노트·기획서 본문은 계속 읽어 내려간다. */
+  /* Long-form prose — note and spec bodies are read continuously. */
   line-height: var(--mobile-line-height-relaxed);
   color: var(--mobile-fg-default);
 }
 
-/* 블록 간격·제목 계층은 `md-*` 클래스가 갖는다(components.css "블록 리듬").
-   여기서 `> * + *`로 일괄로 주면 종류를 구분하지 못해 제목이 문단과 같은
-   간격으로 붙고, 컨테이너마다 값이 갈려 같은 글이 화면마다 다르게 읽힌다. */
+/* Block spacing and heading hierarchy belong to the `md-*` classes
+   (components.css "block rhythm"). Applying a blanket `> * + *` here can't
+   distinguish block types, so headings end up spaced like paragraphs, and
+   values diverge per container so the same text reads differently per screen. */
 
 .mobile-note-markdown code {
   padding: 1px 4px;
@@ -2458,8 +2498,9 @@
   white-space: nowrap;
 }
 
-/* 헤더 우측 아이콘 묶음 — 이름 바꾸기(연필) + 닫기. 헤더가 space-between이라
-   버튼을 낱개로 세우면 제목·연필·닫기가 균등 분배돼 제목이 가운데로 밀린다. */
+/* Icon group on the header's right — rename (pencil) + close. The header is
+   space-between, so placing the buttons individually would distribute
+   title/pencil/close evenly and push the title toward the center. */
 .mobile-chat-inspector__header-actions {
   display: flex;
   align-items: center;
@@ -2490,7 +2531,7 @@
   margin-bottom: var(--mobile-space-3);
 }
 
-/* ---- 보드챗 멀티 세션 피커 (데스크톱 세션 드롭다운 패리티) ---- */
+/* ---- Board chat multi-session picker (parity with the desktop session dropdown) ---- */
 .mobile-chat-inspector__session-toggle {
   display: inline-flex;
   align-items: center;
@@ -2516,15 +2557,16 @@
   transform: rotate(-90deg);
 }
 
-/* 세션 목록은 공용 바텀시트(`.mobile-context-sheet`) 안에서 드로어와 **같은
-   컴포넌트**로 그린다 — 행·미읽음 점·스코프 서브라벨 규칙은 전부
-   `.mobile-chat-session*` 한 자리에 있다(위쪽 드로어 절).
-   (인라인 카드 시절의 `__sessions`/`__session-list`/`__session-row`/
-   `__session-item`/`__session-rename`/`__session-more`/`__session-new`는
-   2026-08-03에 지웠다. 자체 스크롤러를 품은 40dvh 카드였고, 그래버도 시트
-   경계도 없어 마지막 행이 글자 중간에서 잘려 보이던 것이 그 구조였다.
-   시트 전용이던 `__session-text`/`__session-title`/`__session-scope`/
-   `__session-unread`는 목록을 한 벌로 합치며 함께 지웠다.) */
+/* The session list is drawn inside the shared bottom sheet
+   (`.mobile-context-sheet`) with the **same component** as the drawer — the
+   rules for rows, unread dots, and scope sublabels all live in one place under
+   `.mobile-chat-session*` (see the drawer section above).
+   (The inline-card era's `__sessions`/`__session-list`/`__session-row`/
+   `__session-item`/`__session-rename`/`__session-more`/`__session-new` were
+   removed on 2026-08-03. That structure was a 40dvh card with its own scroller,
+   no grabber and no sheet boundary, which is why the last row appeared cut off
+   mid-glyph. The sheet-only `__session-text`/`__session-title`/`__session-scope`/
+   `__session-unread` were removed along with it when the lists were unified.) */
 
 /* ---- Chat thread ---- */
 .mobile-chat-thread {
@@ -2534,22 +2576,27 @@
   gap: var(--mobile-space-3);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  /* 부모(홈챗·오버레이)의 24px 거터를 상쇄해 스크롤바가 화면 끝에 붙도록
-     스크롤러를 가장자리까지 넓히고, 콘텐츠 거터는 내부 패딩으로 복원한다. */
+  /* Offset the parent's (home chat / overlay) 24px gutter so the scrollbar
+     hugs the screen edge; the scroller stretches to the edge and the content
+     gutter is restored with inner padding. */
   margin: 0 -24px;
-  /* 상단 = 플로팅 탑바 버튼을 비키는 시작 패딩, 하단 = 플로팅 컴포저 높이만큼
-     확보 — 본문이 양쪽 글래스 밑으로 지나가되 처음/마지막 콘텐츠는 가려지지
-     않는다 (컴포저 높이는 ResizeObserver가 var 갱신). */
-  /* 하단 여백은 **다른 스크롤러와 같은 규약**이다: 컨트롤 높이 + 콘텐츠 여유.
-     컨트롤이 앉는 자리(floating-offset)는 부모가 이미 패딩으로 내주므로
-     (`.mobile-home-chat` / `.mobile-chat-inspector__panel`) 여기서는 컴포저
-     높이와 여유만 더한다.
+  /* Top = start padding clearing the floating top-bar buttons; bottom = room
+     for the floating composer height — content passes under the glass on both
+     ends, but the first/last content is never hidden (a ResizeObserver keeps
+     the composer-height var updated). */
+  /* The bottom margin follows the **same convention as other scrollers**:
+     control height + content clearance. The slot the control sits in
+     (floating-offset) is already provided as padding by the parent
+     (`.mobile-home-chat` / `.mobile-chat-inspector__panel`), so here we only
+     add the composer height plus clearance.
 
-     예전에는 `composer + 10px`이라 **여유가 10px뿐**이었다 — `.mobile-screen`·
-     `.mobile-lane__scroll`이 쓰는 96px 규약에서 이 스크롤러만 벗어나 있었고,
-     그래서 이슈카드 상세는 멀쩡한데 챗 화면(홈·보드·노트 세 레인 전부)만
-     마지막 항목이 컴포저에 붙어 잘린 것처럼 보였다. 브라우저에서는 하단
-     툴바가 그 차이를 가려 눈에 덜 띄었고, 툴바가 없는 PWA에서 드러났다. */
+     Previously this was `composer + 10px` — **only 10px of clearance** — so
+     this scroller alone deviated from the 96px convention used by
+     `.mobile-screen` and `.mobile-lane__scroll`. As a result, issue card
+     detail looked fine but chat screens (all three lanes: home, board, note)
+     had their last item pressed against the composer, looking clipped. In
+     browsers the bottom toolbar masked the difference, so it only showed up
+     in the toolbar-less PWA. */
   padding: var(--mobile-top-bar-clearance) 24px
     calc(var(--mobile-composer-height, 132px) + var(--mobile-content-clearance));
 }
@@ -2558,8 +2605,8 @@
   margin: auto 0;
 }
 
-/* '이전 대화 더보기' — 스레드의 첫 항목으로 흐른다(고정 행이 아니다).
-   말풍선이 아니라 조작이라 배경 없이 연한 한 줄로 둔다. */
+/* "Load earlier messages" — flows as the thread's first item (not a pinned row).
+   It's a control, not a bubble, so it stays a single muted line with no background. */
 .mobile-chat-thread__more {
   align-self: center;
   padding: var(--mobile-space-2) var(--mobile-space-4);
@@ -2595,9 +2642,9 @@
   overflow-wrap: anywhere;
 }
 
-/* 간격은 `md-*` 블록이 갖는다 — 위 노트 컨테이너와 같은 이유. */
+/* Spacing belongs to the `md-*` blocks — same reason as the note container above. */
 
-/* 어시스턴트 답변 — 버블·라벨 없이 본문 마크다운 플로우로 렌더 */
+/* Assistant reply — rendered as body markdown flow with no bubble or label */
 .mobile-chat-message {
   align-self: stretch;
   max-width: 100%;
@@ -2608,32 +2655,34 @@
   overflow-wrap: anywhere;
 }
 
-/* 간격은 `md-*` 블록이 갖는다 — 위 노트 컨테이너와 같은 이유. */
+/* Spacing belongs to the `md-*` blocks — same reason as the note container above. */
 
 .mobile-chat-message--typing {
   padding: var(--mobile-space-3) 0;
 }
 
-/* ── 음성으로 오간 발화 ─────────────────────────────────────────────────
-   음성 세션과 채팅 세션이 한 스레드에 섞인다(2026-08-08). 말풍선 구조는
-   그대로 두고 — 영수증 같은 시스템 각주가 아니라 진짜 대화 발화다 — 🎙️와
-   기울임으로 "이건 말로 오간 것"만 표시한다.
+/* ── Utterances spoken by voice ─────────────────────────────────────────
+   Voice sessions and chat sessions mix in one thread (2026-08-08). The bubble
+   structure stays as is — these are real conversational utterances, not
+   receipt-like system footnotes — and only the 🎙️ plus italics mark
+   "this was spoken."
 
-   기울임은 블록 전체에 건다. 마크다운 안의 굵게·링크·목록까지 함께 기울어야
-   한 덩어리로 읽히고, `<em>`만 쓰면 본문 안의 강조와 구분되지 않는다. */
+   The italics apply to the whole block. Bold, links, and lists inside the
+   markdown must slant together to read as one unit; using `<em>` alone would
+   be indistinguishable from emphasis within the body. */
 .mobile-chat-bubble.is-voice .mobile-chat-bubble__body,
 .mobile-chat-message.is-voice {
   font-style: italic;
 }
 
-/* 본문 안의 `<em>`은 되돌린다 — 블록이 이미 기울었으므로, 강조가 강조로
-   읽히려면 여기서만 곧게 서야 한다. */
+/* Revert `<em>` inside the body — the block is already italic, so for
+   emphasis to read as emphasis it must stand upright here only. */
 .mobile-chat-bubble.is-voice .mobile-chat-bubble__body em,
 .mobile-chat-message.is-voice em {
   font-style: normal;
 }
 
-/* 코드는 기울이지 않는다 — 등폭 글꼴이 기울면 읽기가 크게 나빠진다. */
+/* Code is never italicized — slanted monospace is much harder to read. */
 .mobile-chat-bubble.is-voice .mobile-chat-bubble__body code,
 .mobile-chat-bubble.is-voice .mobile-chat-bubble__body pre,
 .mobile-chat-message.is-voice code,
@@ -2642,22 +2691,25 @@
 }
 
 .mobile-chat-voice-mark {
-  /* 본문 첫 블록 **안에** 첫 글자로 들어간다(`markdown.ts`의 `prependLead`).
-     그러니 여기서 할 일은 글자 하나만큼의 자리를 잡는 것뿐이다.
+  /* Inserted as the first character **inside** the body's first block
+     (`prependLead` in `markdown.ts`). So the only job here is to reserve one
+     character's worth of space.
 
-     `float`은 쓰지 않는다 — 말풍선은 내용에 맞춰 줄어드는 상자라(`is-mine`은
-     `align-self: flex-end`) 뜬 요소가 폭 계산에서 빠지고, 그러면 "시작해" 세
-     글자가 "시 / 작해"로 쪼개진다(사용자 보고 2026-08-12: "이미지가 자리를
-     차지해 글자 간격이 깨진다"). 인라인 이모지 한 글자면 줄바꿈도 폭도 본문과
-     같이 계산된다. */
+     `float` is not used — a bubble is a box that shrinks to fit its content
+     (`is-mine` uses `align-self: flex-end`), so a floated element is excluded
+     from the width calculation, and a short word gets split across lines
+     (user report 2026-08-12: "the image takes up space and breaks the letter
+     spacing"). As a single inline emoji character, both line wrapping and
+     width are computed together with the body text. */
   margin-right: var(--mobile-space-1);
   font-size: 0.8em;
   line-height: inherit;
   opacity: 0.65;
 }
 
-/* 보조기기 전용 텍스트 — 화면에서만 감춘다(`display: none`은 스크린리더도
-   못 읽는다). 이 프로젝트에 시각적 숨김 유틸이 없어 여기서 만든다. */
+/* Assistive-technology-only text — hidden visually only (`display: none`
+   would hide it from screen readers too). This project has no visually-hidden
+   utility, so it is defined here. */
 .mobile-visually-hidden {
   position: absolute;
   width: 1px;
@@ -2670,9 +2722,10 @@
   border: 0;
 }
 
-/* 새로 도착한 답변의 블록 리빌 — 블록이 마운트될 때 한 번 페이드인한다.
-   (단어별 opacity 리빌은 전체 골격을 먼저 깔아 빈 불릿이 보이던 문제로 폐기:
-   지금은 아직 안 나온 블록을 렌더 자체를 안 해 레이아웃도 차지하지 않는다.) */
+/* Block reveal for newly arrived replies — each block fades in once when it
+   mounts. (Per-word opacity reveal was scrapped because it laid out the full
+   skeleton first, showing empty bullets: now blocks that haven't arrived are
+   simply not rendered, so they take up no layout space.) */
 .mobile-chat-block-reveal {
   animation: mobile-chat-block-reveal 0.22s ease-out both;
 }
@@ -2729,11 +2782,11 @@
 }
 
 /* ---- Chat composer ---- */
-/* ---- Chat composer shell — 데스크톱 /service footer-chat-shell 이식 ----
-   큰 textarea + 우상단 인라인 전송 버튼, 그 아래 divider로 구분된 액션 행
-   (좌: 탐색·첨부 / 우: 컨텍스트 피커). */
-/* 컴포저 셸 — 스레드 위에 떠 있는 플로팅 레이어. 글래스 박스 밑으로
-   본문이 스크롤되어 지나간다. 본문 카드 거터보다 좌우 8px 더 넓게. */
+/* ---- Chat composer shell — port of the desktop /service footer-chat-shell ----
+   Large textarea + inline send button at the top right, with an action row
+   below separated by a divider (left: explore/attach, right: context picker). */
+/* Composer shell — a floating layer above the thread. Body content scrolls
+   past under the glass box. 8px wider on each side than the body card gutter. */
 .mobile-chat-shell {
   position: absolute;
   left: -8px;
@@ -2746,7 +2799,7 @@
   padding-top: var(--mobile-space-3);
 }
 
-/* 컴포저 박스 — 글래스 라운드 컨테이너 하나에 입력·액션을 모두 담는다 */
+/* Composer box — a single glass rounded container holds both input and actions */
 .mobile-chat-composer-box {
   display: flex;
   flex-direction: column;
@@ -2760,13 +2813,13 @@
   transition: border-color var(--mobile-transition);
 }
 
-/* 포커스 = 외곽 보더 한 겹만 — 링/그림자 중첩 금지 */
+/* Focus = a single outer border only — no stacked rings/shadows */
 .mobile-chat-composer-box:focus-within {
   border-color: var(--mobile-accent);
 }
 
-/* 입력 행 — 텍스트 + 전송(·음성)을 한 줄에. 텍스트가 여러 줄로 늘면 버튼은
-   마지막 줄과 나란히(하단 정렬) 선다. */
+/* Input row — text + send (and voice) on one line. When the text grows to
+   multiple lines, the buttons align with the last line (bottom-aligned). */
 .mobile-chat-input-row {
   display: flex;
   align-items: flex-end;
@@ -2774,7 +2827,7 @@
   min-width: 0;
 }
 
-/* 전송/음성 묶음 — 입력 오른쪽에 인라인. */
+/* Send/voice group — inline to the right of the input. */
 .mobile-chat-input-row__send {
   display: flex;
   align-items: center;
@@ -2782,45 +2835,50 @@
   flex: 0 0 auto;
 }
 
-/* 입력 래퍼 — 미러와 textarea를 겹치는 relative 기둥 */
+/* Input wrapper — the relative column that stacks the mirror and the textarea */
 .mobile-chat-input-wrap {
   position: relative;
   display: flex;
-  /* .mobile-chat-input-row(플렉스 행) 안에서 전송 묶음을 뺀 나머지를 채운다.
-     이게 없으면 래퍼가 콘텐츠 폭으로 줄어 입력창이 좁아진다. */
+  /* Fills the space left after the send group inside .mobile-chat-input-row
+     (a flex row). Without this the wrapper shrinks to content width and the
+     input field narrows. */
   flex: 1 1 auto;
   min-width: 0;
 }
 
-/* 인라인 멘션 미러 — textarea와 픽셀 단위로 겹치는 표시층. 본문을 그대로
-   복제하되 `#제목`만 칩으로 감싼다(데스크톱 .footer-chat-mention-mirror 이식).
-   메트릭(폰트·행간·패딩·줄바꿈 규칙)이 .mobile-chat-input과 완전히 같아야
-   겹침이 어긋나지 않는다 — 아래 값은 .mobile-chat-input에서 1:1 복제한 것이다.
-   둘 중 하나만 고치면 글자가 어긋나므로 항상 같이 고쳐야 한다.
+/* Inline mention mirror — a display layer overlapping the textarea pixel for
+   pixel. It duplicates the body text verbatim but wraps only `#title` in a
+   chip (port of the desktop .footer-chat-mention-mirror).
+   The metrics (font, line-height, padding, wrapping rules) must match
+   .mobile-chat-input exactly or the overlay drifts — the values below are a
+   1:1 copy from .mobile-chat-input. Changing only one of the two misaligns
+   the glyphs, so always change them together.
 
-   실제로 한 번 어긋났다(2026-08-12 수리): 미러가 생길 때는 양쪽 다 space-1이었는데
-   이후 .mobile-chat-input만 space-2(+min-height 26→36px)로 바뀌어 미러가 2px 위에
-   그려졌다. 미러가 켜지면 textarea 글자는 투명이라, 멘션이 있는 화면에서만 컴포저
-   본문 전체가 캐럿보다 위로 뜨는 모양이었다. */
+   It actually drifted once (fixed 2026-08-12): when the mirror was added both
+   sides used space-1, but later only .mobile-chat-input changed to space-2
+   (+min-height 26→36px), so the mirror drew 2px too high. With the mirror on,
+   the textarea glyphs are transparent, so on screens with a mention the whole
+   composer body appeared to float above the caret. */
 .mobile-chat-input-mirror {
   position: absolute;
   inset: 0;
   z-index: 1;
   pointer-events: none;
   overflow: hidden;
-  /* ↓ .mobile-chat-input과 1:1 동일해야 하는 메트릭 */
+  /* ↓ metrics that must stay 1:1 identical with .mobile-chat-input */
   padding: var(--mobile-space-2) 0;
   font: inherit;
   line-height: var(--mobile-line-height-base);
   color: var(--mobile-fg-strong);
-  /* textarea의 소프트랩 규칙 복제(UA 기본: pre-wrap + break-word) */
+  /* Replicates the textarea's soft-wrap rules (UA default: pre-wrap + break-word) */
   white-space: pre-wrap;
   overflow-wrap: break-word;
 }
 
-/* 미러가 보이는 본문이 된다 — textarea 글자는 투명, 캐럿은 유지.
-   -webkit-text-fill-color를 함께 지정하는 이유: WebKit(iOS 사파리 포함)은
-   fill-color가 color보다 우선이라 color만으로는 글자가 남는다. */
+/* The mirror becomes the visible body — the textarea's glyphs go transparent
+   while the caret stays. -webkit-text-fill-color is set as well because in
+   WebKit (including iOS Safari) fill-color takes precedence over color, so
+   color alone leaves the glyphs visible. */
 .mobile-chat-input-wrap:has(.mobile-chat-input-mirror) .mobile-chat-input,
 .mobile-chat-input-wrap:has(.mobile-chat-input-mirror) .mobile-action-rail__answer {
   color: transparent;
@@ -2828,13 +2886,15 @@
   caret-color: var(--mobile-accent);
 }
 
-/* 워크벤치 Answer 입력의 미러 변형.
-   기본 .mobile-chat-input-mirror는 채팅 컴포저(.mobile-chat-input) 메트릭을
-   복제한 값이라 여기엔 맞지 않는다 — Answer 필드는 자체 패딩·보더·라운드를
-   갖는다. 보더는 '투명하게 같은 두께'로 둬야 안쪽 글자 시작점이 textarea와
-   일치한다(보더를 빼면 1px씩 밀린다).
-   아래 값은 .mobile-action-rail__answer에서 1:1 복제한 것이므로 둘 중 하나만
-   고치면 글자가 어긋난다 — 항상 같이 고칠 것. */
+/* Mirror variant for the workbench Answer input.
+   The base .mobile-chat-input-mirror copies the chat composer
+   (.mobile-chat-input) metrics, which don't fit here — the Answer field has
+   its own padding, border, and radius. The border must be kept 'transparent
+   at the same thickness' so the inner text start point matches the textarea
+   (removing the border shifts everything by 1px).
+   The values below are a 1:1 copy from .mobile-action-rail__answer, so
+   changing only one of the two misaligns the glyphs — always change them
+   together. */
 .mobile-action-rail__answer-mirror {
   padding: var(--mobile-space-3) var(--mobile-space-4);
   border: var(--mobile-border-width) solid transparent;
@@ -2842,24 +2902,26 @@
   line-height: inherit;
 }
 
-/* 래퍼가 액션 독 안에서 전송 버튼과 나란히 늘어나도록. */
+/* Lets the wrapper stretch alongside the send button inside the action dock. */
 .mobile-action-rail__answer-wrap {
   flex: 1 1 auto;
   min-width: 0;
 }
 
-/* IME 조합 구간(preedit) — **미러가 그린다.**
-   데스크톱 .chat-mention-composing과 같은 모델이다. 예전엔 이 구간을 투명
-   처리했는데, 그 전제("브라우저 preedit 페인트는 color: transparent를 무시한다")가
-   틀려서 textarea·미러 양쪽이 투명이 되는 바람에 조합 중 글자가 아예 안 보였다
-   (사용자 관찰 2026-07-27). textarea 글자는 항상 투명이고 보이는 본문은 미러
-   한 겹이므로 겹침이 없다 — 색을 되돌린다. span은 조합 구간 식별용으로 남긴다. */
+/* IME composition range (preedit) — **the mirror draws it.**
+   Same model as the desktop .chat-mention-composing. This range used to be
+   made transparent, but the premise ("browser preedit painting ignores
+   color: transparent") was wrong, so both the textarea and the mirror went
+   transparent and composing glyphs were invisible entirely (user observation
+   2026-07-27). The textarea glyphs are always transparent and the visible
+   body is the single mirror layer, so there is no double-draw — restore the
+   color. The span remains to identify the composition range. */
 .mobile-chat-composing {
   color: inherit;
   -webkit-text-fill-color: currentColor;
 }
 
-/* 드래프트 — 1줄에서 시작해 개행/줄바꿈만큼만 늘어난다 (JS 자동 리사이즈) */
+/* Draft — starts at one line and grows only with newlines/wrapping (JS auto-resize) */
 .mobile-chat-input {
   flex: 1 1 auto;
   width: 100%;
@@ -2900,7 +2962,7 @@
   min-width: 0;
 }
 
-/* 아이콘 단독 액션(첨부 등) */
+/* Icon-only actions (attach, etc.) */
 .mobile-chat-icon-btn {
   display: inline-flex;
   align-items: center;
@@ -2951,9 +3013,10 @@
   color: var(--mobile-danger);
 }
 
-/* `#카드제목` 칩 — 컴포저 미러(입력 중)와 스레드 본문(보낸 뒤)이 같은 클래스를
-   쓴다. 입력하던 모양 그대로 올라가는 게 이 통일의 핵심. 데스크톱
-   .chat-mention-chip / .chat-mention-token 대응. */
+/* `#card-title` chip — the composer mirror (while typing) and the thread body
+   (after sending) share the same class. The point of this unification is that
+   it posts looking exactly as it did while being typed. Desktop counterpart:
+   .chat-mention-chip / .chat-mention-token. */
 .mobile-chat-mention {
   display: inline;
   padding: 0 5px;
@@ -2965,10 +3028,11 @@
   -webkit-box-decoration-break: clone;
 }
 
-/* 미러 안에서는 글리프 메트릭을 건드리는 속성을 전부 되돌린다.
-   padding과 font-weight는 글자 폭·위치를 바꿔 아래 textarea의 실제 글자(캐럿·
-   선택 영역이 걸린 진짜 본문)와 어긋나게 만든다. 여백감은 레이아웃에 영향이
-   없는 box-shadow 확장으로만 낸다 — 데스크톱 .chat-mention-token과 같은 처방. */
+/* Inside the mirror, revert every property that touches glyph metrics.
+   padding and font-weight change glyph width/position and misalign them with
+   the real glyphs in the textarea beneath (the actual text carrying the caret
+   and selection). The sense of padding comes only from a box-shadow extension
+   that has no layout effect — same remedy as the desktop .chat-mention-token. */
 .mobile-chat-input-mirror .mobile-chat-mention {
   padding: 0;
   font-weight: inherit;
@@ -2976,13 +3040,14 @@
   box-shadow: 0 0 0 2px var(--mobile-accent-soft);
 }
 
-/* #태그 자동완성 패널 — 컴포저 바로 위.
-   기본 상태는 **불투명**이다. 글래스(반투명 + 블러)는 패널이 top layer에 있을
-   때만 실제로 그려진다 — 컴포저 박스가 이미 backdrop-filter를 쓰고 화면에 따라
-   그 위 조상(드로어·시트)도 글래스라, 중첩 backdrop-filter는 조상이 만든
-   backdrop root 안에서 합성되지 않는다. 그래서 ChatConversation이 Popover API로
-   이 패널을 top layer에 띄우고, 글래스는 :popover-open에서만 켠다.
-   데스크톱과 같은 규칙 — docs/sot/glass-top-layer.md. */
+/* #tag autocomplete panel — directly above the composer.
+   The default state is **opaque**. Glass (translucency + blur) only actually
+   renders when the panel is in the top layer — the composer box already uses
+   backdrop-filter and, depending on the screen, ancestors above it (drawer,
+   sheet) are also glass, and nested backdrop-filters don't composite inside a
+   backdrop root created by an ancestor. So ChatConversation promotes this
+   panel to the top layer via the Popover API, and glass is enabled only on
+   :popover-open. Same rule as desktop — docs/sot/glass-top-layer.md. */
 .mobile-chat-tags {
   display: flex;
   flex-direction: column;
@@ -2996,9 +3061,10 @@
   box-shadow: var(--mobile-shadow-nav);
 }
 
-/* top layer 승격 시 — UA popover 기본값(position: fixed; inset: 0; margin: auto;
-   border)을 우리 배치로 교정하고, 여기서만 글래스를 켠다. left/width/bottom은
-   훅이 컴포저 박스를 재서 인라인으로 넣는다(키보드로 뷰포트가 바뀌면 다시 잰다). */
+/* On top-layer promotion — correct the UA popover defaults (position: fixed;
+   inset: 0; margin: auto; border) to our placement, and enable glass only
+   here. left/width/bottom are set inline by a hook that measures the composer
+   box (re-measured when the keyboard changes the viewport). */
 .mobile-chat-tags:popover-open {
   position: fixed;
   inset: auto;
@@ -3032,9 +3098,10 @@
 }
 
 
-/* 완료·취소·보관된 카드 — 지우지 않고 물러나게 한다(데스크톱 멘션 드롭다운의
-   opacity-60과 같은 값). 흐림은 **항목에만** 건다: 패널(.mobile-chat-tags)에
-   걸면 backdrop-filter가 죽는다. */
+/* Done/cancelled/archived cards — recede instead of being removed (same value
+   as the desktop mention dropdown's opacity-60). The dimming applies to the
+   **items only**: putting it on the panel (.mobile-chat-tags) kills the
+   backdrop-filter. */
 .mobile-chat-tags__item.is-inactive {
   opacity: 0.6;
 }
@@ -3066,9 +3133,10 @@
   white-space: nowrap;
 }
 
-/* 탐색 토글(체크박스+라벨) — 데스크톱 leading 슬롯과 동일(아이콘 없음).
-   체크박스는 데스크톱 .field-checkbox 문법: unchecked = recessed inset,
-   checked = accent-soft 배경 + accent 체크(clip-path). */
+/* Explore toggle (checkbox + label) — same as the desktop leading slot
+   (no icon). The checkbox follows the desktop .field-checkbox grammar:
+   unchecked = recessed inset, checked = accent-soft background + accent
+   check (clip-path). */
 .mobile-chat-toggle {
   display: inline-flex;
   align-items: center;
@@ -3085,8 +3153,9 @@
 .mobile-manage-toggle input {
   width: 16px;
   height: 16px;
-  /* 어느 화면에 놓여도 정사각형을 유지한다 — 폼 필드 규칙이 높이·패딩을
-     덧씌워 세로로 늘어나던 회귀(로그인 '로그인 유지')를 막는 방어선. */
+  /* Stays square on any screen — a guard against the regression where form
+     field rules overrode height/padding and stretched it vertically
+     (the login "keep me signed in" case). */
   min-height: 0;
   padding: 0;
   box-sizing: border-box;
@@ -3129,7 +3198,7 @@
   cursor: default;
 }
 
-/* ---- 음성 컴포저 ---- */
+/* ---- Voice composer ---- */
 
 .mobile-chat-icon-btn.is-live,
 .mobile-chat-icon-btn.is-active {
@@ -3141,11 +3210,12 @@
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
-  /* 음성은 이 컴포저의 대표 진입점 — 아이콘을 액센트로 세운다. */
+  /* Voice is this composer's primary entry point — the icon stands in accent. */
   color: var(--mobile-accent);
 }
 
-/* 음성 큰 화면의 동의 대기 제안 — 흘끗 보고 탭 한 번으로 끝나는 밀도. */
+/* Consent-pending proposal on the voice stage — dense enough to glance at
+   and finish with a single tap. */
 .mobile-voice-stage__proposal {
   margin-top: 12px;
   padding: 12px 14px;
@@ -3168,8 +3238,9 @@
   justify-content: center;
 }
 
-/* 음성 동의는 운전 중에도 눌리는 크기여야 한다 — 두 버튼이 행을 나눠 갖고
-   컨트롤 높이보다 한 단계 크다. 좌(승인)가 기본값이라 더 넓다. */
+/* Voice consent must be tappable even while driving — the two buttons share
+   the row and are one step taller than control height. The left (approve) is
+   the default, so it is wider. */
 .mobile-voice-stage__proposal-actions .mobile-button {
   flex: 1 1 0;
   min-height: 56px;
@@ -3180,8 +3251,8 @@
   flex: 1.6 1 0;
 }
 
-/* 음성 베타 안내 시트의 베타 딱지 — 어드민 공용 feature chip과 같은 문법
-   (액센트 소프트 배경 + 액센트 글자, 소형 알약). */
+/* Beta badge on the voice beta info sheet — same grammar as the shared admin
+   feature chip (accent-soft background + accent text, small pill). */
 .mobile-voice-permission__badge {
   display: inline-flex;
   align-items: center;
@@ -3196,11 +3267,11 @@
   vertical-align: middle;
 }
 
-/* 대화가 열리면 상태 문구가 함께 들어오므로 원형에서 알약으로 늘어난다.
-   기본 .mobile-chat-icon-btn은 flex: 0 0 auto(줄어들지 않음)라, 오류 문구처럼
-   긴 텍스트("마이크 연결이 끊겼습니다")가 들어오면 옆 전송 버튼을 밀어내거나
-   화면 밖으로 넘친다 — 그래서 줄어들 수 있게(0 1 auto) 하고 위쪽에서 최대
-   너비를 못 박는다. */
+/* When the conversation opens, a status message comes along with it, so the
+   circle stretches into a pill. The base .mobile-chat-icon-btn is
+   flex: 0 0 auto (never shrinks), so long text like an error message
+   ("microphone disconnected") would push the send button aside or overflow
+   the screen — so allow it to shrink (0 1 auto) and pin a max width above. */
 .mobile-chat-icon-btn.is-live {
   position: relative;
   width: auto;
@@ -3218,9 +3289,10 @@
   flex-shrink: 0;
 }
 
-/* 목소리 크기에 반응하는 링. --mobile-mic-level은 VAD 루프가 50ms마다 DOM에
-   직접 쓰는 0~1 값이다(리렌더 없음). 맥동이 아니라 실제 음량을 쓰는 이유는
-   "살아 있다"보다 "내 말이 들어가고 있다"가 알고 싶은 것이기 때문이다. */
+/* Ring that responds to voice level. --mobile-mic-level is a 0-1 value the
+   VAD loop writes directly to the DOM every 50ms (no re-render). Real volume
+   is used instead of a pulse because what the user wants to know is "my words
+   are getting through," not just "it's alive." */
 .mobile-chat-icon-btn.is-live::before {
   content: "";
   position: absolute;
@@ -3233,7 +3305,7 @@
   pointer-events: none;
 }
 
-/* 조용할 때는 링이 거의 사라지므로, 마이크가 열려 있다는 것 자체는 아이콘이 알린다. */
+/* The ring nearly disappears when it's quiet, so the icon itself signals that the mic is open. */
 .mobile-chat-icon-btn.is-live .mobile-icon {
   position: relative;
   animation: mobile-chat-recording-pulse 2.4s ease-in-out infinite;
@@ -3287,8 +3359,8 @@
   animation: mobile-chat-searching-pulse 1.2s ease-in-out infinite;
 }
 
-/* 경고 변형 — 진행 중이 아니라 "끝났는데 안 됐다"이므로 맥동을 멈춘다.
-   계속 깜빡이면 아직 무언가 도는 줄 안다. */
+/* Warning variant — this means "finished but failed," not in-progress, so the
+   pulse stops. If it kept blinking, users would assume something is still running. */
 .mobile-chat-searching.is-warning {
   background: var(--mobile-surface-inset);
   color: var(--mobile-fg-muted);
@@ -3357,7 +3429,7 @@
   color: var(--mobile-fg-muted);
 }
 
-/* 코드베이스 탐색 원문 — 접힌 카드(데스크톱 아코디언의 모바일 짝). */
+/* Codebase exploration source text — a collapsed card (mobile counterpart of the desktop accordion). */
 .mobile-chat-receipt {
   display: flex;
   align-items: flex-start;
@@ -3379,11 +3451,13 @@
   color: var(--mobile-danger);
 }
 
-/* 되짚기 펼치개 — **영수증 줄 자체가 머리다.** 예전엔 영수증 아래에 "과정 보기"를
-   한 줄 더 뒀는데, 그 줄에는 사용자가 쓸 수 있는 사실이 0이라 각주만 두 줄로 늘었다
-   (사용자 지적 2026-08-16). 지금은 `<summary>`가 곧 `.mobile-chat-receipt`이므로 이
-   컨테이너는 모양을 만들지 않는다 — 여백·글자색을 여기서 또 주면 되짚기가 있는
-   영수증만 남들과 어긋난다(데스크톱 `.inspecting-chat-receipt-trace`와 같은 규칙). */
+/* Retrace disclosure — **the receipt line itself is the header.** There used
+   to be an extra "view process" line under the receipt, but it carried zero
+   facts the user could use, so the footnote just grew to two lines (user
+   feedback 2026-08-16). Now the `<summary>` IS `.mobile-chat-receipt`, so this
+   container adds no styling of its own — adding margins or text color here
+   again would make only receipts with a retrace look different from the rest
+   (same rule as the desktop `.inspecting-chat-receipt-trace`). */
 .mobile-chat-receipt-trace {
   color: var(--mobile-fg-muted);
 }
@@ -3397,8 +3471,9 @@
   display: none;
 }
 
-/* 캐럿은 **줄 끝**에 — 앞자리는 상태 아이콘(✓·ⓘ·⚠)이 이미 쓴다. summary가 flex라
-   의사요소도 flex 아이템이 되어 본문 바로 뒤에 선다. */
+/* The caret goes at the **end of the line** — the leading slot is already used
+   by the status icon (✓/ⓘ/⚠). Since the summary is flex, the pseudo-element
+   becomes a flex item and lines up right after the text. */
 .mobile-chat-receipt-trace > summary::after {
   content: "▸";
   opacity: 0.7;
@@ -3408,16 +3483,17 @@
   content: "▾";
 }
 
-/* 피드백은 캐럿에만 — 줄 색을 건드리면 실패 영수증의 빨강(`--error`)이 눌린다
-   (데스크톱과 같은 이유). */
+/* Feedback on the caret only — touching the line color would override the red
+   (`--error`) of a failed receipt (same reason as desktop). */
 .mobile-chat-receipt-trace > summary:active::after {
   opacity: 1;
 }
 
-/* 라운드 순서가 곧 읽는 순서다 — 번호를 지우면 "몇 단계였나"가 사라진다.
-   서버 상한이 40줄이라 길어질 수 있으므로 안쪽에서 스크롤시켜 스레드를
-   밀지 않는다(데스크톱과 같은 규칙). 들여쓰기는 여기서 준다 — 머리줄이 아이콘
-   자리를 갖고 있으므로 목록도 그만큼 물러나야 글자 아래에서 시작한다. */
+/* Round order is reading order — removing the numbers loses "how many steps
+   were there." The server cap is 40 lines so it can get long; it scrolls
+   internally instead of pushing the thread (same rule as desktop). The indent
+   is applied here — the header line reserves icon space, so the list must
+   step back by the same amount to start under the text. */
 .mobile-chat-receipt-trace > ol {
   margin: var(--mobile-space-1) 0 0
     calc(0.875rem + var(--mobile-space-2) + var(--mobile-space-1));
@@ -3473,10 +3549,11 @@
   flex: 1 1 auto;
 }
 
-/* ---- 제품 생성 제안 카드의 시드 선택 ----
-   데스크톱은 홈 화면이 갤러리를 모달로 띄우지만, 좁은 화면에서 모달을 겹치면
-   대화 맥락이 가려진다. 그래서 카드 자리에서 바로 펼친다. 토큰은 주변 제안
-   카드와 같은 것을 쓴다(새 값 만들지 않음). */
+/* ---- Seed selection in the product-creation proposal card ----
+   On desktop the home screen opens the gallery as a modal, but stacking a
+   modal on a narrow screen hides the conversation context. So it expands
+   right in the card's place. Tokens are the same as the surrounding proposal
+   cards (no new values). */
 .mobile-chat-proposal__seeds {
   display: flex;
   flex-direction: column;
@@ -3527,7 +3604,7 @@
   cursor: default;
 }
 
-/* 16:10 — 어드민이 그 비율로 올린다. object-fit으로 넘치는 부분만 자른다. */
+/* 16:10 — admins upload at that ratio. object-fit crops only the overflow. */
 .mobile-seed-card__thumb {
   flex: 0 0 auto;
   width: 96px;
@@ -3556,7 +3633,7 @@
   white-space: nowrap;
 }
 
-/* 한 줄 소개는 두 줄까지 — 그 이상은 자른다(SoT F: 긴 한/영 혼합 truncate). */
+/* The tagline runs up to two lines — anything beyond is truncated (SoT F: truncating long mixed Korean/English text). */
 .mobile-seed-card__tagline {
   color: var(--mobile-fg-muted);
   font-size: var(--mobile-font-size-caption);
@@ -3716,7 +3793,7 @@
   overflow-wrap: anywhere;
 }
 
-/* ---- Chat conversation (홈챗·모달 공용 스레드+컴포저 래퍼) ---- */
+/* ---- Chat conversation (thread + composer wrapper shared by home chat and modal) ---- */
 .mobile-chat-conversation {
   position: relative;
   display: flex;
@@ -3725,26 +3802,33 @@
   min-height: 0;
 }
 
-/* 홈챗 스코프 배너 — 보드가 특정되면 스레드 위에 떠서 "지금 그 보드로 이동"을
-   상시 제공한다. 이동 제안 카드는 대화를 더 이어가면 사라지므로(제안 슬롯이
-   턴마다 교체), 특정과 이동을 잇는 상설 통로는 이 배너다.
-   컨테이너는 클릭을 통과시키고(pointer-events: none) 버튼만 받는다 — 배너 좌우
-   빈 공간이 그 아래 메시지 스크롤을 가로채지 않게. */
-/* 스레드 **위 줄**로 흐른다(스레드 스크롤러 바깥이라 스크롤에 밀리지 않는다).
-   예전에는 position:absolute로 화면 상단에 띄웠는데, 그 자리엔 햄버거와 상단
-   메뉴가 있어서 서로 가렸다. 겹치는 자리를 피하는 대신 자리를 하나 내준다. */
-/* 배너는 스레드 **앞의 일반 흐름**이라, 떠 있는 탑앱바를 스스로 비켜야 한다.
-   예전에는 스레드만 `padding-top`으로 비켜서 배너가 제목 캡슐 밑으로 들어가
-   글자가 겹쳐 읽혔다(실기기 2026-08-08). 제목 아래로 한 칸 더 띄운다. */
-/* 스코프 배너는 **스레드 스크롤 콘텐츠의 첫 항목**이다(2026-08-12 전환).
-   예전에는 스크롤러 바깥 형제라 헤더 아래 고정 행이 되어, 대화를 아무리 내려도
-   자리를 계속 차지했다. 지금은 본문과 같이 흐른다 — 위로 올리면 첫 메시지 앞에
-   다시 나온다.
+/* Home chat scope banner — when a board is identified, it floats above the
+   thread offering "go to that board now" at all times. The navigation
+   proposal card disappears as the conversation continues (the proposal slot
+   is replaced each turn), so this banner is the permanent path from
+   identification to navigation.
+   The container lets clicks pass through (pointer-events: none) and only the
+   button receives them — so the empty space on either side of the banner
+   doesn't intercept scrolling of the messages beneath. */
+/* Flows as the **line above** the thread (outside the thread scroller, so it
+   isn't pushed by scrolling). It used to float at the top of the screen with
+   position:absolute, but the hamburger and top menu live there and they
+   obscured each other. Instead of dodging the overlap, it gets a slot of its own. */
+/* The banner is in **normal flow ahead of** the thread, so it must clear the
+   floating top app bar itself. Previously only the thread cleared it via
+   `padding-top`, so the banner slid under the title capsule and the text
+   overlapped illegibly (real device, 2026-08-08). Add one more step of space
+   below the title. */
+/* The scope banner is **the first item of the thread's scroll content**
+   (switched 2026-08-12). It used to be a sibling outside the scroller, making
+   it a fixed row under the header that kept its space no matter how far you
+   scrolled the conversation. Now it flows with the body — scroll back up and
+   it reappears before the first message.
 
-   상단 여백은 두지 않는다: 스레드가 이미 `--mobile-top-bar-clearance`를
-   padding-top으로 갖고 있어 플로팅 탑바를 비켜 준다. */
+   No top margin: the thread already has `--mobile-top-bar-clearance` as
+   padding-top, clearing the floating top bar. */
 .mobile-scope-banner {
-  /* 세로 플렉스(스레드) 안에서 눌리지 않게. 스크롤 콘텐츠라 줄어들 이유가 없다. */
+  /* Don't get squeezed inside the vertical flex (thread). As scroll content it has no reason to shrink. */
   flex: 0 0 auto;
   display: flex;
   justify-content: center;
@@ -3769,8 +3853,9 @@
   color: var(--mobile-scope-banner-fg);
   font-size: var(--mobile-scope-banner-font-size);
   font-weight: var(--mobile-scope-banner-font-weight);
-  /* 데스크톱 orb 배너와 같은 규칙: primary(accent) 배경 + on-accent 텍스트,
-     그림자 없음(평면). 이전의 짙은 그림자는 이 디자인 체계에 없던 것이다. */
+  /* Same rule as the desktop orb banner: primary (accent) background +
+     on-accent text, no shadow (flat). The earlier heavy shadow was foreign
+     to this design system. */
   cursor: pointer;
 }
 
@@ -3802,7 +3887,7 @@
   flex-wrap: wrap;
 }
 
-/* ---- Home chat (홈 = 채팅, 클로드/지피티 앱 문법) ---- */
+/* ---- Home chat (home = chat, the Claude/GPT app grammar) ---- */
 .mobile-home-chat {
   display: flex;
   flex-direction: column;
@@ -3823,9 +3908,9 @@
   flex: 1 1 auto;
 }
 
-/* 랜딩(빈 대화): 히어로가 스레드 한 화면을 채우고, 아래로 슬라이드하면
-   확인할 일 큐가 이어진다. min-height 100%는 스크롤 컨테이너(.mobile-chat-thread)의
-   가시 높이에 대해 해석된다. */
+/* Landing (empty conversation): the hero fills one thread screen, and sliding
+   down continues into the to-review queue. min-height 100% resolves against
+   the visible height of the scroll container (.mobile-chat-thread). */
 .mobile-home-chat__landing {
   display: flex;
   flex-direction: column;
@@ -3845,7 +3930,7 @@
   padding: var(--mobile-space-7) 0;
 }
 
-/* 히어로 하단의 스크롤 어포던스: 확인할 일 요약 + 아래 화살표. */
+/* Scroll affordance at the bottom of the hero: to-review summary + down arrow. */
 .mobile-home-chat__peek {
   display: flex;
   flex-direction: column;
@@ -3882,7 +3967,7 @@
   }
 }
 
-/* 랜딩 아래의 확인할 일 큐(원래 대시보드 섹션 문법 재사용). */
+/* To-review queue below the landing (reuses the original dashboard section grammar). */
 .mobile-home-chat__queue {
   display: flex;
   flex-direction: column;
@@ -3896,7 +3981,7 @@
   opacity: 0.9;
 }
 
-/* ---- 브랜드 블롭 (데스크톱 .brand-blob 이식 — transform/opacity 전용 애니메이션) ---- */
+/* ---- Brand blob (port of the desktop .brand-blob — transform/opacity-only animation) ---- */
 .mobile-brand-blob {
   position: relative;
   --mobile-blob-speed: 1;
@@ -3928,7 +4013,7 @@
   }
 }
 
-/* 코어 — 우윳빛 반투명 몸체. idle = 원형 진주(숨쉬기), thinking에서만 비정형 모핑. */
+/* Core — milky translucent body. idle = a circular pearl (breathing); amorphous morphing only while thinking. */
 .mobile-blob-core {
   position: absolute;
   inset: 7%;
@@ -3952,7 +4037,7 @@
   }
 }
 
-/* 내부 색 필드 — 느린 정방향 회전 드리프트 */
+/* Inner color field — slow forward rotational drift */
 .mobile-blob-core::before {
   content: "";
   position: absolute;
@@ -3994,7 +4079,7 @@
   will-change: transform, opacity;
 }
 
-/* 두 번째 색 레이어 — 역방향 회전 */
+/* Second color layer — reverse rotation */
 .mobile-blob-lobe.l1 {
   background:
     radial-gradient(66% 66% at 28% 62%, color-mix(in oklch, var(--mobile-blob-c2) 74%, white), transparent 62%),
@@ -4021,7 +4106,7 @@
   }
 }
 
-/* 흰빛 안개 — 아주 느린 역회전 보조 */
+/* White mist — very slow counter-rotating support layer */
 .mobile-blob-lobe.l2 {
   inset: -2%;
   background: conic-gradient(
@@ -4045,7 +4130,7 @@
   }
 }
 
-/* 비눗방울 하이라이트 — 정적 */
+/* Soap-bubble highlight — static */
 .mobile-blob-core::after {
   content: "";
   position: absolute;
@@ -4061,7 +4146,7 @@
     inset 0 14px 22px -10px rgb(255 255 255 / 0.75);
 }
 
-/* 생각 중 — 비정형 모핑 + 색 필드 고속 스월 */
+/* Thinking — irregular morphing + fast color-field swirl */
 .mobile-brand-blob[data-orb-state="thinking"] .mobile-blob-core {
   animation: mobile-blob-morph calc(3.6s * var(--mobile-blob-speed)) ease-in-out infinite;
 }
@@ -4103,7 +4188,7 @@
   animation-duration: calc(4s * var(--mobile-blob-speed));
 }
 
-/* 말하는 중 — 내부 블룸이 숨쉬고 파문 한 겹이 퍼진다 */
+/* Speaking — the inner bloom breathes and a single ripple spreads */
 .mobile-brand-blob[data-orb-state="speaking"] .mobile-blob-core {
   animation: mobile-blob-speak 1.15s ease-in-out infinite;
 }
@@ -4143,10 +4228,11 @@
   animation: mobile-blob-wave 1.3s ease-out infinite;
 }
 
-/* ---- making: 카드 생성 (데스크톱 `.brand-blob[data-orb-state="making"]` 이식)
-   씨앗에서 카드가 태어나 잠깐 머물고, 카드 자신이 빠르게 날아가 사라지면
-   새 카드가 다시 태어난다. 로브는 꺼진다 — 카드가 주인공인 구간이라
-   물방울 두 개가 같이 흔들리면 무엇이 만들어지는지 안 보인다. ---- */
+/* ---- making: card creation (port of desktop `.brand-blob[data-orb-state="making"]`)
+   A card is born from a seed, lingers briefly, then flies off and vanishes,
+   and a new card is born again. The lobes are turned off — the card is the star
+   of this phase, and two droplets wobbling alongside would obscure what is
+   being made. ---- */
 .mobile-brand-blob[data-orb-state="making"] .mobile-blob-lobe {
   opacity: 0;
   animation: none;
@@ -4218,9 +4304,9 @@
   }
 }
 
-/* PM Orb 스프라이트 스킨 — 데스크톱 .brand-orb-sprite의 모바일 이식.
-   시트(가로 스트립)를 background-position steps로 재생. 프레임 수·속도는
-   BrandBlob이 CSS 변수로 꽂는다. */
+/* PM Orb sprite skin — mobile port of the desktop .brand-orb-sprite.
+   Plays the sheet (horizontal strip) via background-position steps. Frame count
+   and speed are injected by BrandBlob as CSS variables. */
 .mobile-orb-sprite {
   display: inline-block;
   background-size: var(--mob-orb-size, 400% 100%);
@@ -4234,23 +4320,25 @@
   image-rendering: pixelated;
 }
 
-/* 칩(≤48px) — 1프레임 정지컷. 데스크톱 `.brand-blob-chip > .brand-orb-sprite`와
-   같은 규칙: 이 크기에서 프레임이 도는 것은 읽히지 않고 배터리만 쓴다. */
+/* Chip (≤48px) — single-frame still. Same rule as the desktop
+   `.brand-blob-chip > .brand-orb-sprite`: at this size cycling frames is
+   unreadable and only drains battery. */
 .mobile-orb-sprite--chip {
   animation: none;
   background-position-x: 0%;
 }
 
-/* 탭이 숨으면 정지 — 데스크톱 `[data-orb-paused]`와 같다. */
+/* Pause when the tab is hidden — same as desktop `[data-orb-paused]`. */
 .mobile-orb-sprite[data-orb-paused] {
   animation-play-state: paused;
 }
 
-/* 수채화 thinking = **팔레트 전환**. 데스크톱 app.css의
-   `:root[data-brand-style="watercolor"] #brand-blob-portal[data-orb-state="thinking"]`
-   과 같은 값이다. 수채화는 다른 스킨과 달리 thinking 시트가 따로 없어서
-   가속만으로는 "생각 중"이 읽히지 않는다 — 색이 그 자리를 대신한다.
-   모바일에는 이 규칙이 통째로 빠져 있어 수채화만 thinking 표현이 없었다. */
+/* Watercolor thinking = **palette shift**. Same values as the desktop app.css
+   `:root[data-brand-style="watercolor"] #brand-blob-portal[data-orb-state="thinking"]`.
+   Unlike the other skins, watercolor has no dedicated thinking sheet, so
+   acceleration alone does not read as "thinking" — color takes its place.
+   Mobile was missing this rule entirely, so watercolor alone had no thinking
+   expression. */
 .mobile-orb-sprite[data-orb-family="watercolor"][data-orb-state="thinking"] {
   filter: hue-rotate(-70deg) saturate(1.15);
 }
@@ -4264,7 +4352,7 @@
   object-fit: contain;
 }
 
-/* 설정 화면의 스타일 미리보기 — 현재 선택을 실물로 보여준다 */
+/* Style preview on the settings screen — shows the current selection for real */
 .mobile-orb-style-preview {
   display: grid;
   place-items: center;
@@ -4310,11 +4398,12 @@
   max-width: 300px;
 }
 
-/* ---- 채팅 스코프(프로덕트·보드·카드) 컨텍스트 칩 + 바텀시트 피커 ---- */
-/* 컨텍스트 트리거 — 칩(필) 대신 텍스트 + 캐럿만. 핀 시 액센트 텍스트.
-   세 레인이 **같은 칩**을 쓴다: 홈챗은 눌러서 핀을 바꾸고, 보드·카드 챗은
-   화면이 스코프를 정하므로 같은 칩을 읽기 전용(`is-static`, 캐럿 없음)으로
-   둔다. 예전에 보드·카드만 쓰던 `.mobile-chat-inspector__scope`는 지웠다. */
+/* ---- Chat scope (product / board / card) context chip + bottom sheet picker ---- */
+/* Context trigger — text + caret only, no chip (pill). Accent text when pinned.
+   All three lanes use the **same chip**: home chat presses it to change the pin,
+   while board and card chat get their scope from the screen, so they use the
+   same chip read-only (`is-static`, no caret). The old
+   `.mobile-chat-inspector__scope` that only board/card chat used was removed. */
 .mobile-home-chat__context-chip {
   display: inline-flex;
   align-items: center;
@@ -4327,8 +4416,9 @@
   font-size: var(--mobile-font-size-label);
   font-weight: var(--mobile-font-weight-semibold);
   cursor: pointer;
-  /* 컴포저 액션 행 안에서 너무 길어지지 않도록 말줄임 — 상한은 부모가 내준
-     폭(100%)이다. vw로 잡으면 좁은 화면에서 이웃 칩과 겹친다. */
+  /* Ellipsize so it never grows too long inside the composer action row — the
+     cap is the width the parent grants (100%). Using vw would overlap
+     neighboring chips on narrow screens. */
   max-width: 100%;
   min-width: 0;
   flex: 0 1 auto;
@@ -4350,12 +4440,12 @@
   color: var(--mobile-accent);
 }
 
-/* 읽기 전용 칩(보드·카드 챗) — 같은 칩이되 누를 수 없다. */
+/* Read-only chip (board/card chat) — the same chip, but not pressable. */
 .mobile-home-chat__context-chip.is-static {
   cursor: default;
 }
 
-/* 컨텍스트 바텀시트 — 프로덕트→보드 2단 선택 모달 */
+/* Context bottom sheet — two-level product→board selection modal */
 .mobile-context-sheet {
   position: fixed;
   inset: 0;
@@ -4368,7 +4458,7 @@
 .mobile-context-sheet__scrim {
   position: absolute;
   inset: 0;
-  background: var(--modal-scrim); /* 알파 0 — 딤 없음, 아래 블러가 분리를 만든다 */
+  background: var(--modal-scrim); /* alpha 0 — no dim; the blur below creates the separation */
   -webkit-backdrop-filter: var(--mobile-blur);
   backdrop-filter: var(--mobile-blur);
   border: 0;
@@ -4385,7 +4475,7 @@
   padding: var(--mobile-space-3) 24px calc(var(--mobile-space-7) + var(--mobile-safe-bottom));
   border-top: var(--mobile-border-width) solid var(--mobile-border);
   border-radius: var(--mobile-radius-lg) var(--mobile-radius-lg) 0 0;
-  /* 데스크톱 메뉴 계약의 모바일판(2026-08-09): 떠 있는 면 = 글라스 + 블러 */
+  /* Mobile version of the desktop menu contract (2026-08-09): floating surface = glass + blur */
   background: var(--mobile-glass-strong);
   -webkit-backdrop-filter: var(--mobile-blur);
   backdrop-filter: var(--mobile-blur);
@@ -4447,9 +4537,9 @@
   background: var(--mobile-accent-soft);
 }
 
-/* 시트 행의 비활성 상태 — 시트 머리말 버튼(`__head-button:disabled`)과 같은
-   규격. 이 규칙이 없어서 '고정 중'·'다음 쪽 불러오는 중'에 눌러도 되는 것처럼
-   보였다. */
+/* Disabled state for sheet rows — same spec as the sheet header button
+   (`__head-button:disabled`). Without this rule, rows looked pressable while
+   'pinning' or 'loading the next page'. */
 .mobile-home-chat__picker-item:disabled {
   opacity: 0.5;
   cursor: default;
@@ -4459,7 +4549,7 @@
   color: var(--mobile-fg-subtle);
 }
 
-/* 시트 타이틀 행 — 좌측 제목, 우측에 되돌리기·고정 해제 아이콘 */
+/* Sheet title row — title on the left, revert and unpin icons on the right */
 .mobile-context-sheet__head {
   display: flex;
   align-items: center;
@@ -4509,7 +4599,7 @@
   color: var(--mobile-fg-subtle);
 }
 
-/* ---- 워크벤치 활동 타임라인 — 세로 레일 + 상태색 도트 ---- */
+/* ---- Workbench activity timeline — vertical rail + status-colored dots ---- */
 .mobile-activity-list {
   position: relative;
   display: flex;
@@ -4615,8 +4705,9 @@
   flex: 0 0 auto;
 }
 
-/* 실행 흐름과 에이전트 로그는 **같은 층**이다(둘 다 지나간 기록) — 여는
-   손잡이도 같은 문법이어야 "둘 중 하나를 고르는 것"으로 읽힌다. */
+/* The execution flow and the agent log sit on the **same layer** (both are past
+   records) — their disclosure handles must share the same grammar to read as
+   "choosing one of the two". */
 .mobile-activity-flow summary,
 .mobile-activity-log summary {
   cursor: pointer;
@@ -4626,8 +4717,8 @@
   padding: var(--mobile-space-2) 0;
 }
 
-/* 펼친 내용은 손잡이에서 한 칸 띄운다 — 붙어 있으면 목록 첫 줄이 손잡이의
-   일부처럼 읽힌다. */
+/* Expanded content gets one step of spacing from the handle — flush against it,
+   the list's first line reads like part of the handle. */
 .mobile-activity-flow[open] > :not(summary) {
   margin-top: var(--mobile-space-3);
 }
@@ -4648,7 +4739,7 @@
   min-height: 72px;
 }
 
-/* ---- 챗 첨부 스테이징 ---- */
+/* ---- Chat attachment staging ---- */
 .mobile-chat-staged {
   display: flex;
   flex-wrap: wrap;
@@ -4701,7 +4792,7 @@
   border: var(--mobile-border-width) solid var(--mobile-border);
 }
 
-/* ---- 보드 레인 (데스크톱 칸반 레인의 가로 스와이프 번역) ---- */
+/* ---- Board lanes (horizontal-swipe translation of the desktop kanban lanes) ---- */
 .mobile-board {
   display: flex;
   flex-direction: column;
@@ -4720,14 +4811,15 @@
   padding: var(--mobile-space-7) 24px;
 }
 
-/* ---- 진화 물음 카드 (보드 상단) ----
-   데스크톱은 이 물음을 채팅 레이어 오른쪽 popover로 띄운다. 폰에는 상시 열린
-   채팅 레일이 없어 그 자리가 없으므로 보드 헤더에 얹는 독립 카드로 옮겼다.
-   `mobile-section`(목록 규격)이 아니라 테두리 카드인 이유가 이것이다 — 목록의
-   한 칸이 아니라 화면 위에 잠깐 서는 것이다.
+/* ---- Evolution ask card (top of the board) ----
+   Desktop shows this ask as a popover to the right of the chat layer. Phones
+   have no always-open chat rail, so that spot doesn't exist — it moved to a
+   standalone card sitting on the board header. That is why it is a bordered
+   card rather than a `mobile-section` (list spec) — not a slot in a list, but
+   something that briefly stands on top of the screen.
 
-   카드 안의 행 규격(`.mobile-evolution-ask`)은 components.css가 이미 갖고 있어
-   여기서 다시 만들지 않는다. */
+   The row spec inside the card (`.mobile-evolution-ask`) already lives in
+   components.css, so it is not recreated here. */
 .mobile-evolution-asks-card {
   display: flex;
   flex-direction: column;
@@ -4738,7 +4830,7 @@
   border-radius: var(--mobile-radius-sm);
 }
 
-/* 카드 안에서는 행의 위쪽 여백이 카드 padding과 겹쳐 두 번 들어간다. */
+/* Inside the card, the row's top spacing would double up with the card padding. */
 .mobile-evolution-asks-card .mobile-evolution-ask {
   padding-bottom: 0;
 }
@@ -4758,8 +4850,8 @@
   display: none;
 }
 
-/* 레인 = 한 화면에 하나, 다음 레인이 우측에 살짝 보이는 트렐로식 peek(88%).
-   스냅 계산(JS)은 레인 실제 폭 기준. */
+/* Lane = one per screen, with the next lane peeking on the right, Trello-style
+   (88%). Snap math (JS) is based on the lane's actual width. */
 .mobile-lane {
   display: flex;
   flex-direction: column;
@@ -4806,8 +4898,8 @@
   background: var(--mobile-accent-soft);
 }
 
-/* ---- 워크벤치 관리 폼 ---- */
-/* 체크 토글 — 48px 행 높이에 체크박스·라벨을 세로 중앙 정렬 */
+/* ---- Workbench management form ---- */
+/* Check toggle — vertically centers the checkbox and label in a 48px row */
 .mobile-manage-toggle {
   display: flex;
   align-items: center;
@@ -4826,9 +4918,9 @@
   color: var(--mobile-fg-muted);
 }
 
-/* 폼 안의 선택 트리거 — 네이티브 `<select>` 대신 쓰는 자리(ChoiceField).
-   생김새는 그 자리에 있던 select와 같게 두고(같은 높이·라운드·서피스),
-   여는 것만 시스템 휠에서 우리 바텀시트로 바꾼다. */
+/* Select trigger inside forms — stands in for the native `<select>` (ChoiceField).
+   It looks the same as the select it replaced (same height, radius, surface);
+   only the opening changes, from the system wheel to our bottom sheet. */
 .mobile-choice-field {
   display: flex;
   align-items: center;
@@ -4858,16 +4950,16 @@
   cursor: default;
 }
 
-/* 필드 안의 액션(이름 변경·기본값으로 되돌리기)은 **좌측**에 선다.
-   `--fit`은 본문 한가운데 놓이는 인라인 컨트롤용이라, 라벨 아래 필드에서
-   쓰면 버튼만 혼자 가운데로 떠 어긋나 보인다. */
+/* Actions inside a field (rename, reset to default) stand on the **left**.
+   `--fit` is meant for inline controls centered in body text; under a labeled
+   field it leaves the button floating alone in the middle, looking misaligned. */
 .mobile-manage-field__actions {
   display: flex;
   justify-content: flex-start;
   gap: var(--mobile-space-2);
 }
 
-/* ---- 워크벤치 플로팅 액션 독 (글래스, 스크롤 반응) ---- */
+/* ---- Workbench floating action dock (glass, scroll-reactive) ---- */
 .mobile-action-dock {
   position: fixed;
   left: 0;
@@ -4899,12 +4991,12 @@
   max-width: 520px;
 }
 
-/* 칩 행은 **가로 스크롤이 아니라 줄바꿈**이다(2026-08-09 수리).
-   스크롤 컨테이너(`overflow-x: auto`)는 그 안쪽 요소의 `backdrop-filter`가
-   샘플할 배경을 잘라 버려서, 칩에 블러가 걸려 있어도 **그려지지 않았다** —
-   실기기에서 카드 본문이 칩을 통과해 그대로 읽혔다. 게다가 넷째 칩이 화면
-   밖으로 밀려 있어 스크롤을 모르면 존재조차 몰랐다. 줄바꿈으로 바꾸면 둘 다
-   해소된다. */
+/* The chip row **wraps instead of scrolling horizontally** (2026-08-09 fix).
+   A scroll container (`overflow-x: auto`) clips the background that its inner
+   elements' `backdrop-filter` samples, so even with blur applied to the chips
+   it **was never drawn** — on real devices the card body read straight through
+   the chips. On top of that, the fourth chip was pushed off-screen, so unless
+   you knew to scroll you never knew it existed. Wrapping resolves both. */
 .mobile-action-dock__contextual {
   display: flex;
   flex-wrap: wrap;
@@ -4940,8 +5032,9 @@
   border-color: var(--mobile-danger-soft);
 }
 
-/* 독은 배경 패널 없이 버튼들만 떠 있다 — 글래스는 컨트롤 개별에 입힌다.
-   주 버튼은 화면을 다 가로지르지 않게 너비 상한을 두고 가운데 정렬한다. */
+/* The dock has no background panel — only the buttons float; glass is applied
+   to each control individually. The main button gets a width cap and is
+   centered so it doesn't span the whole screen. */
 .mobile-action-dock__main {
   display: flex;
   align-items: flex-end;
@@ -4961,7 +5054,7 @@
   box-shadow: var(--mobile-shadow-nav);
 }
 
-/* 독 안의 보조(채팅) 버튼 — 개별 글래스 원 */
+/* Secondary (chat) button in the dock — individual glass circle */
 .mobile-action-dock__main .mobile-button--secondary {
   background: var(--mobile-nav-bg);
   backdrop-filter: var(--mobile-blur-strong);
@@ -4970,7 +5063,7 @@
   box-shadow: var(--mobile-shadow-nav);
 }
 
-/* 독의 주 버튼도 FAB·칩과 같은 글래스 문법 — 액센트를 살짝 투과시키고 블러. */
+/* The dock's main button follows the same glass grammar as the FAB and chips — accent slightly translucent, plus blur. */
 .mobile-action-dock__main .mobile-button--primary {
   background: var(--mobile-accent-glass);
   backdrop-filter: var(--mobile-blur);
@@ -4978,11 +5071,12 @@
   box-shadow: var(--mobile-shadow-nav);
 }
 
-/* ---- 음성 모드 큰 화면 ---- */
+/* ---- Voice mode full screen ---- */
 
-/* 운전 중 신호 대기에 1~2초 흘끗 보는 화면이다. 대화 로그가 아니라 상태·방금
-   오간 말·멈추는 법만 담고, 탭할 수 있는 것을 둘로 줄여 흔들리는 거치대에서
-   잘못 눌릴 여지를 없앤다. */
+/* A screen glanced at for 1-2 seconds while waiting at a light while driving.
+   Not a conversation log — it holds only the status, what was just exchanged,
+   and how to stop, and cuts tappable things down to two so a shaky mount can't
+   cause mistaps. */
 .mobile-voice-stage {
   position: fixed;
   inset: 0;
@@ -5001,11 +5095,13 @@
   gap: var(--mobile-space-3);
 }
 
-/* 지금 범위 — 상단 한 줄. 스코프는 사건이 아니라 상태라 말로 반복하지 않고
-   여기가 계속 들고 있는다(사용자 확정 2026-08-08).
+/* Current scope — one line at the top. Scope is a state, not an event, so it is
+   not repeated in speech; this line holds it continuously (user confirmed
+   2026-08-08).
 
-   시선 중심(오브)과 경쟁하면 안 된다 — 흘끗 봤을 때 눈에 걸리되 읽으려고
-   멈추지는 않을 무게로 둔다. 그래서 톤 버튼과 같은 캡션 크기에 더 낮은 대비다. */
+   It must not compete with the visual center (the orb) — weighted to catch the
+   eye at a glance without making you stop to read. Hence the same caption size
+   as the tone button, at lower contrast. */
 .mobile-voice-stage__scope {
   display: flex;
   flex-direction: column;
@@ -5031,16 +5127,18 @@
   opacity: 0.7;
 }
 
-/* 해제 방법. 대화로만 풀리는 고정 문구라 어딘가 쓰여 있지 않으면 알 길이
-   없는데, 예전엔 음성이 이동할 때마다 말로 가르쳐서 안내방송이 됐다. */
+/* How to unpin. The fixed phrase can only be released through conversation, so
+   unless it is written somewhere there is no way to know it — previously the
+   voice taught it aloud on every move, which became a PA announcement. */
 .mobile-voice-stage__scope-hint {
   font-size: var(--mobile-font-size-caption);
   color: var(--mobile-fg-subtle, var(--mobile-fg-muted));
   opacity: 0.75;
 }
 
-/* 목소리 톤 버튼 — 우측 상단의 작은 유틸리티. 누르면 이름·설명 모달이 뜬다.
-   시선 중심(오브)과 경쟁하지 않게 낮은 대비로 눌러 둔다. */
+/* Voice tone button — small utility at the top right. Pressing it opens a modal
+   with the name and description. Kept at low contrast so it doesn't compete
+   with the visual center (the orb). */
 .mobile-voice-stage__tone-button {
   display: inline-flex;
   align-items: center;
@@ -5054,8 +5152,9 @@
   cursor: pointer;
 }
 
-/* 톤 선택 모달 — 스테이지 위에 얹는 바텀 시트. 고르면 즉시 인사말이 나오므로
-   열어 둔 채 여러 톤을 이어 들어볼 수 있다. */
+/* Tone selection modal — a bottom sheet laid over the stage. Picking one plays
+   a greeting immediately, so you can keep it open and audition several tones in
+   a row. */
 .mobile-voice-stage__tone-modal {
   position: fixed;
   inset: 0;
@@ -5066,7 +5165,7 @@
   background: var(--mobile-surface-canvas);
 }
 
-/* 풀스크린 목소리 픽커 — 한 곳에서 고르고(캐러셀) 조절하고 [완료]로 확정. */
+/* Full-screen voice picker — pick (carousel), adjust, and confirm with [Done], all in one place. */
 .mobile-voice-stage__picker {
   display: flex;
   flex-direction: column;
@@ -5167,7 +5266,7 @@
   text-align: left;
 }
 
-/* 응답 길이 세그먼트 — 간결/보통/자세히. 손가락 타깃을 넉넉히. */
+/* Reply length segments — concise/normal/detailed. Generous finger targets. */
 .mobile-voice-stage__reply-row {
   display: flex;
   gap: var(--mobile-space-3);
@@ -5207,16 +5306,18 @@
   cursor: pointer;
 }
 
-/* 고정 비율 그리드(실기기 2026-07-25 2차): 남는 공간을 위 1 : 아래 0.6으로
-   나눠 오브가 정중앙보다 살짝 아래의 **같은 자리**에 항상 선다 — 바닥에
-   박히지도, 자막이 자란다고 밀리지도 않는다. 자막(1행)은 자기 칸 안에서
-   아래 정렬로 위로만 자라고, 오브 아래(3행)는 최소 3줄을 예약하며, 4행이
-   바닥 여백이다. */
+/* Fixed-ratio grid (real device, 2026-07-25 round 2): splits the leftover space
+   1 above : 0.6 below so the orb always stands in the **same spot** slightly
+   below dead center — never pinned to the bottom, never pushed as the caption
+   grows. The caption (row 1) bottom-aligns within its cell and grows upward
+   only, the area under the orb (row 3) reserves at least 3 lines, and row 4 is
+   the bottom margin. */
 .mobile-voice-stage__body {
   flex: 1;
   display: grid;
-  /* 아래 예약(3행) = 상태 한 줄 + 들은 말 3줄 + 사이 간격. 위:아래 = 1:0.3
-     — 오브가 중앙보다 확실히 아래(사용자 지정), 그래도 바닥엔 여백이 남는다. */
+  /* Bottom reservation (row 3) = one status line + 3 lines of heard speech +
+     the gap between. Top:bottom = 1:0.3 — the orb sits clearly below center
+     (user-specified), yet margin still remains at the bottom. */
   grid-template-rows:
     minmax(0, 1fr)
     auto
@@ -5232,13 +5333,15 @@
   min-height: 0;
 }
 
-/* 목소리 반응은 브랜드 오브를 감싼 층에서만 준다 — halo/core/lobe의 자체
-   애니메이션은 그대로 두고 크기만 얹는다. --mobile-mic-level은 VAD 루프가
-   50ms마다 직접 쓰는 0~1 값이다. 막혔을 때는 이 층 자체가 <button>이 되므로
-   버튼 기본 스타일(테두리·배경·패딩)을 지운다. */
-/* 바깥 층 = 상태 크기. 듣는 중/생각 중/전사 중 사이를 오갈 때만 움직이며,
-   사람이 "부드럽다"고 느끼도록 느리고 감속되게 간다. 음량은 여기 태우지 않는다 —
-   한 transition이 둘을 겸하면 상태가 바뀔 때마다 툭 끊기듯 튄다. */
+/* Voice reactivity is applied only to the layer wrapping the brand orb — the
+   halo/core/lobe keep their own animations; only scale is layered on top.
+   --mobile-mic-level is a 0-1 value the VAD loop writes directly every 50ms.
+   When blocked, this layer itself becomes a <button>, so default button styles
+   (border, background, padding) are cleared. */
+/* Outer layer = state scale. Moves only when shifting between listening /
+   thinking / transcribing, slow and decelerating so it feels "smooth" to
+   people. Volume does not ride here — if one transition serves both, it snaps
+   with a jolt every time the state changes. */
 .mobile-voice-stage__orb {
   --mobile-mic-level: 0;
   flex: 0 0 auto;
@@ -5252,9 +5355,10 @@
     opacity 420ms ease;
 }
 
-/* 안쪽 층 = 음량 반응. 진폭은 작게(과하게 커지지 않게), 트랜지션은 넉넉히 주어
-   레벨이 50ms마다 튀어도 그 사이를 부드럽게 늘었다 줄이며 잇는다 — 빠르게
-   움직여도 톡톡 끊기지 않고 유연하게 흐르게. */
+/* Inner layer = volume response. Amplitude kept small (never balloons), and the
+   transition is given plenty of time so even levels jumping every 50ms are
+   bridged with smooth swelling and shrinking — fast movement flows fluidly
+   instead of ticking. */
 .mobile-voice-stage__orb-level {
   display: block;
   transform: scale(calc(1 + var(--mobile-mic-level) * 0.09));
@@ -5262,15 +5366,16 @@
   will-change: transform;
 }
 
-/* 마이크가 닫힌 구간(생각 중·대기)에서는 살짝 물러나 "지금은 내 차례가 아님"을
-   소리 없이 알린다. 오브의 thinking 모션이 이어받는다. */
+/* While the mic is closed (thinking, idle) it recedes slightly, silently
+   signaling "not my turn right now". The orb's thinking motion takes over. */
 .mobile-voice-stage__orb.is-idle-mic {
   transform: scale(0.92);
   opacity: 0.72;
 }
 
-/* 오디오가 막혀 재시도가 필요한 상태. 눌러야 풀린다는 게 보여야 하므로 흔들리는
-   조작이 아니라 뚜렷한 링과 커서로 "여기 누르세요"를 알린다. */
+/* Audio is blocked and needs a retry. It must be clear that tapping unblocks
+   it, so instead of wobbly motion, a distinct ring and cursor say "press
+   here". */
 .mobile-voice-stage__orb.is-blocked {
   cursor: pointer;
   transform: none;
@@ -5299,7 +5404,7 @@
   color: var(--mobile-fg-strong);
 }
 
-/* 오디오가 막혔을 때 상태 문구 아래 덧붙는 설명. 왜 눌러야 하는지를 말한다. */
+/* Explanation appended below the status line when audio is blocked. Says why you need to tap. */
 .mobile-voice-stage__hint {
   margin: 0;
   max-width: 30ch;
@@ -5307,9 +5412,11 @@
   color: var(--mobile-fg-muted);
 }
 
-/* 방금 이쪽에서 들은 말. 오인식을 알아채는 지점이라 띄우되, 주인공은 아니다. */
-/* 방금 들은 말 — 최대 3줄까지만 자리를 차지하고, 넘치면 스크롤(JS가 최신
-   줄로 붙여 둔다). 길게 말해도 오브·레이아웃이 밀리지 않는다. */
+/* What was just heard from this side. The spot where you catch
+   misrecognitions, so it is displayed — but it is not the star. */
+/* Just-heard speech — takes at most 3 lines, and scrolls beyond that (JS keeps
+   it pinned to the latest line). Speaking at length never pushes the orb or
+   layout. */
 .mobile-voice-stage__heard {
   margin: 0;
   max-width: 32ch;
@@ -5320,10 +5427,12 @@
   color: var(--mobile-fg-subtle);
 }
 
-/* 읽어주고 있는 문장. 흘끗 보고 읽히려면 이게 제일 커야 한다. */
-/* 자막 영역 — 스택이 바닥 앵커라 글이 늘어나면 위로만 자라고, 아래 오브는
-   고정이다. 상한을 넘으면 스크롤이 생기고(JS가 최신 줄로 붙여 둔다), 긴 답도
-   읽을 수 있되 오브를 밀지 않는다. */
+/* The sentence being read aloud. To be readable at a glance, this must be the
+   largest. */
+/* Caption area — the stack is bottom-anchored, so growing text only grows
+   upward and the orb below stays fixed. Past the cap a scrollbar appears (JS
+   keeps it pinned to the latest line): long answers stay readable without
+   pushing the orb. */
 .mobile-voice-stage__spoken-area {
   align-self: end;
   width: min(100%, 40ch);
@@ -5332,10 +5441,11 @@
   min-height: 0;
 }
 
-/* 오브 아래 예약 영역 — 행 최소 높이는 그리드가 쥐고, 내용은 행 상단부터
-   찬다(align-self: start): 오브-라벨 간격이 행 여유와 무관하게 항상 row-gap
-   하나 — 자막-오브 간격과 같아진다. 들은 말은 자기 상한(3줄) 안에서
-   스크롤되므로 행이 늘지 않는다. */
+/* Reserved area under the orb — the grid holds the row's min height, and
+   content fills from the row's top (align-self: start): the orb-label gap is
+   always exactly one row-gap regardless of row slack — the same as the
+   caption-orb gap. Heard speech scrolls within its own 3-line cap, so the row
+   never grows. */
 .mobile-voice-stage__under {
   display: flex;
   flex-direction: column;
@@ -5354,8 +5464,9 @@
   text-align: center;
 }
 
-/* 평상시 상태 피드백("듣는 중"·"생각 중") — 없애니 헷갈린다는 피드백으로
-   복원. 캡션은 너무 작다는 2차 피드백으로 본문 크기+볼드, 색은 연하게 유지. */
+/* Everyday status feedback ("listening", "thinking") — restored after feedback
+   that removing it was confusing. A second round said the caption was too
+   small, so body size + bold, with the color kept light. */
 .mobile-voice-stage__state {
   margin: 0;
   font-size: var(--mobile-font-size-body);
@@ -5363,8 +5474,8 @@
   color: var(--mobile-fg-subtle);
 }
 
-/* 동의 카드 등장 — 높이를 0에서 밀어 올려 오브가 데스크톱처럼 부드럽게
-   슬라이드해 자리를 내준다(툭 점프 방지). */
+/* Consent card entrance — pushes up from height 0 so the orb slides smoothly
+   out of the way like on desktop (no abrupt jump). */
 .mobile-voice-stage__proposal {
   overflow: hidden;
   animation: mobile-voice-proposal-in 260ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -5403,8 +5514,9 @@
   }
 }
 
-/* 낭독만 막혔을 때 뜨는 복구 버튼. 입력은 멀쩡하므로 오브를 뺏지 않고 한 줄로
-   끼어든다 — 탭이 곧 제스처라 그 자리에서 자물쇠가 풀린다. */
+/* Recovery button shown when only read-aloud is blocked. Input still works, so
+   it cuts in as a single line without taking over the orb — the tap itself is
+   the gesture, so the lock releases right there. */
 .mobile-voice-stage__unmute {
   display: inline-flex;
   align-items: center;
@@ -5419,9 +5531,10 @@
   cursor: pointer;
 }
 
-/* 동작/비동작 신호 — 막히거나 마이크를 잃으면 브랜드 오브의 모든 모션을 멈춘다.
-   이게 없으면 halo/core/lobe가 계속 살아 움직여서 "돌고 있다"고 거짓말을 한다.
-   멈춘 오브 + 링이 곧 "지금은 안 되고 있다"는 뜻이고, 탭하면 다시 산다. */
+/* Working/not-working signal — when blocked or the mic is lost, all brand-orb
+   motion stops. Without this the halo/core/lobe keep moving and lie that
+   "it's running". A stopped orb + ring means "not working right now", and a
+   tap brings it back to life. */
 .mobile-voice-stage__orb.is-blocked .mobile-voice-stage__orb-level {
   transform: none;
 }
@@ -5434,24 +5547,25 @@
   animation-play-state: paused;
 }
 
-/* 색까지 빠져야 "죽어 있다"가 한눈에 읽힌다. */
+/* The color has to drain too for "dead" to read at a glance. */
 .mobile-voice-stage__orb.is-blocked .mobile-brand-blob {
   filter: grayscale(0.85);
   opacity: 0.55;
 }
 
-/* 컴포저의 작은 마이크도 같은 규칙 — 막혔는데 맥동하면 그것도 거짓말이다. */
+/* Same rule for the composer's small mic — pulsing while blocked is also a lie. */
 .mobile-chat-icon-btn.is-live.is-stalled .mobile-icon {
   animation: none;
   opacity: 0.5;
 }
 
-/* ---- 마이크 권한 안내 시트 ---- */
+/* ---- Microphone permission sheet ---- */
 
-/* 스레드 위 인라인 알림이 아니라 시트인 이유: 플랫폼별 복구 경로는 두세 문장이라
-   좁은 flex 아이템에서 잘리고, 이건 기능을 막고 있는 상태라 사용자의 결정을
-   기다려야 한다. 웹에는 거부된 권한을 코드로 되돌릴 API가 없으므로 이 안내를
-   제대로 읽히게 하는 것이 유일한 탈출구다. */
+/* Why a sheet rather than an inline notice above the thread: platform-specific
+   recovery paths run two or three sentences and get clipped in a narrow flex
+   item, and since this state blocks the feature it must wait for the user's
+   decision. The web has no API to programmatically undo a denied permission,
+   so making this guidance properly readable is the only way out. */
 .mobile-voice-permission {
   position: fixed;
   inset: 0;
@@ -5495,7 +5609,7 @@
   color: var(--mobile-fg-strong);
 }
 
-/* 잘리지 않는 것이 이 시트의 존재 이유다 — 줄바꿈을 막지 않는다. */
+/* Not getting clipped is this sheet's reason to exist — line wrapping is not suppressed. */
 .mobile-voice-permission__body {
   margin: 0;
   font-size: var(--mobile-font-size-body);
@@ -5513,13 +5627,13 @@
   flex: 1 1 0;
 }
 
-/* "업데이트 예정"처럼 액션이 아닌 중립 딱지 — 액센트 대신 무채색으로 낮춘다. */
+/* Neutral tag that is not an action, like "Coming soon" — toned down to grayscale instead of accent. */
 .mobile-voice-permission__badge--muted {
   background: var(--mobile-surface-3);
   color: var(--mobile-fg-muted);
 }
 
-/* 마이크 탭 뒤 뜨는 모드 선택 목록(1:1 / 회의). */
+/* Mode selection list shown after tapping the mic (1:1 / meeting). */
 .mobile-voice-picker__options {
   display: flex;
   flex-direction: column;
@@ -5548,7 +5662,7 @@
   background: var(--mobile-accent-soft);
 }
 
-/* 준비 중인 모드 — 눌리지 않고, 시각적으로도 뒤로 물린다. */
+/* Mode still in preparation — not pressable, and visually stepped back. */
 .mobile-voice-picker__option--disabled {
   cursor: default;
   opacity: 0.55;
@@ -5588,8 +5702,9 @@
   }
 }
 
-/* 메시지 안의 첨부 — 마크다운 밖으로 빼내 데스크톱과 같은 모양으로 그린다.
-   이전에는 본문 마크다운 그대로라 이미지조차 평문 링크로 나왔다. */
+/* Attachments inside a message — pulled out of the markdown and drawn the same
+   as desktop. Previously they stayed raw body markdown, so even images came
+   out as plain-text links. */
 .mobile-chat-attachments {
   display: flex;
   flex-direction: column;
@@ -5616,8 +5731,9 @@
   border-radius: var(--mobile-radius-xs);
   background: var(--mobile-surface-inset);
 }
-/* 만료된 첨부는 링크를 죽인다 — 흐리게만 하고 클릭이 되면 나중에 실제
-   삭제를 켰을 때 404가 나면서 "보이는데 안 열리는" 상태가 된다. */
+/* Expired attachments get their links killed — if they were only dimmed but
+   still clickable, enabling real deletion later would 404 and leave a
+   "visible but won't open" state. */
 .mobile-chat-attachments__dead {
   display: inline-block;
   opacity: 0.4;
@@ -5630,7 +5746,7 @@
 }
 .mobile-chat-attachments__video video {
   display: block;
-  /* 말풍선 폭을 넘지 않게. 세로 영상이 화면을 다 먹지 않도록 높이도 묶는다. */
+  /* Never wider than the bubble. Height is capped too so portrait video doesn't eat the whole screen. */
   width: 100%;
   max-height: 320px;
   border-radius: var(--mobile-radius-xs);
@@ -5670,28 +5786,32 @@
   pointer-events: none;
 }
 
-/* 채팅 대기 줄 — **스레드의 마지막 줄**이다(2026-08-14). 데스크톱도 같은 자리
-   (`.inspecting-chat-messages` 끝의 `charlie_loading_indicator`). 말풍선이 아니라
-   영수증 계열의 한 줄이라 조수의 발화로 읽히지 않는다.
+/* Chat wait line — **the last line of the thread** (2026-08-14). Desktop uses
+   the same spot (`charlie_loading_indicator` at the end of
+   `.inspecting-chat-messages`). It is a single receipt-style line, not a
+   bubble, so it doesn't read as the assistant speaking.
 
-   좌우·아래 여백은 스레드가 준다(`.mobile-chat-thread`의 padding·gap) — 예전
-   컴포저 위 자리에서 쓰던 자체 패딩은 지웠다.
+   Horizontal and bottom spacing come from the thread (`.mobile-chat-thread`'s
+   padding and gap) — the self-padding from its old spot above the composer was
+   removed.
 
-   2단 구조: 1단은 기본 대기, 2단은 "한 단계 깊은 작업"(코드 탐색 / 영상).
-   데스크톱은 둘을 가로로 나란히 두지만 모바일은 폭이 없어 접힌다 — 대신
-   `└`로 매달아 같은 종속 관계를 세로로 만든다. */
+   Two tiers: tier 1 is the base wait, tier 2 is "one level deeper work" (code
+   exploration / video). Desktop lays the two side by side, but mobile lacks
+   the width so it folds — instead a `└` hangs tier 2 underneath, expressing
+   the same dependency vertically. */
 .mobile-chat-wait {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-/* 바로 위가 내 말풍선이면 그 아래에 바짝 붙지 않는다 — 한 줄 띄어 "여기서부터
-   에이전트 영역"이 개행으로 읽히게 한다(사용자 지시 2026-08-14, 데스크톱
-   `[data-turn-status]` 규칙과 같은 추상 기능). 안 띄우면 로딩이 방금 내가 보낸
-   말의 꼬리처럼 보인다. */
+/* If my bubble is directly above, don't sit flush beneath it — leave a line so
+   "the agent's area starts here" reads as a line break (user directive
+   2026-08-14, same abstract function as the desktop `[data-turn-status]`
+   rule). Without the gap, the loading looks like the tail of what I just
+   sent. */
 .mobile-chat-bubble.is-mine + .mobile-chat-wait {
-  /* 스레드 gap(8px)에 더해져 16px — 모바일 폭에서 데스크톱 24px과 같은 무게다. */
+  /* Added to the thread gap (8px) makes 16px — the same weight at mobile width as desktop's 24px. */
   margin-top: var(--mobile-space-3);
 }
 
@@ -5704,9 +5824,9 @@
   font-size: var(--mobile-font-size-label);
 }
 
-/* 데스크톱과 같은 점자 스피너 글리프 순환(⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏). 점자 글리프는
-   본문 크기로 두면 점 몇 개라 거의 안 보인다 — 한 단계 키우고 폭을 고정해
-   프레임마다 라벨이 흔들리지 않게 한다. */
+/* Same braille spinner glyph cycle as desktop (⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏). At body size the
+   braille glyphs are just a few dots and barely visible — bump them one size
+   up and fix the width so the label doesn't jitter every frame. */
 .mobile-chat-wait__spinner {
   flex-shrink: 0;
   display: inline-flex;
@@ -5718,9 +5838,9 @@
   color: var(--mobile-accent);
 }
 
-/* 데스크톱 `.thinking-indicator-orb`와 **같은 두 애니메이션**을 건다:
-   글리프 프레임(0.8s steps)과 호흡(2.4s). 프레임만 걸면 점자가 바뀌긴 해도
-   데스크톱처럼 살아 있는 느낌이 안 난다. */
+/* The **same two animations** as the desktop `.thinking-indicator-orb`: glyph
+   frames (0.8s steps) and breathing (2.4s). With frames alone the braille
+   changes but never feels alive the way desktop does. */
 .mobile-chat-wait__spinner::before {
   content: "⠋";
   animation:
@@ -5753,9 +5873,10 @@
   90% { content: "⠏"; }
 }
 
-/* 1단 라벨 — **한 톤 고정.** 그라데이션은 마지막 줄에만 건다. 두 줄 다 흐르면
-   어느 쪽이 지금 진행 중인 작업인지 눈이 못 고른다. 색은 오브와 같은 accent라
-   한 덩어리로 읽힌다. */
+/* Tier-1 label — **one fixed tone.** The gradient goes only on the last line.
+   If both lines flow, the eye can't pick which one is the work currently in
+   progress. The color is the same accent as the orb, so they read as one
+   unit. */
 .mobile-chat-wait__label {
   flex: 1;
   min-width: 0;
@@ -5766,7 +5887,7 @@
   white-space: nowrap;
 }
 
-/* 2단 트리 마커. 1단 스피너와 같은 폭을 차지해 아래로 정렬이 맞는다. */
+/* Tier-2 tree marker. Takes the same width as the tier-1 spinner so the lines align below. */
 .mobile-chat-wait__branch {
   flex-shrink: 0;
   width: 1em;
@@ -5777,8 +5898,9 @@
   opacity: 0.6;
 }
 
-/* 마지막 줄만 그라데이션이 흐른다 — 데스크톱 thinking 라벨과 같은 계열·같은
-   주기(1.8s linear)다. 흐르는 줄이 곧 "지금 도는 일"이다. */
+/* Only the last line flows with a gradient — same family and same period
+   (1.8s linear) as the desktop thinking label. The flowing line is "the job
+   running right now". */
 .mobile-chat-wait__label.is-deep {
   color: var(--mobile-glow-3);
   background-image: linear-gradient(
@@ -5812,7 +5934,7 @@
   color: var(--mobile-glow-3);
 }
 
-/* 움직임을 줄이는 설정: 프레임 순환·셔머·파형을 모두 멈추고 색만 남긴다. */
+/* Reduced-motion setting: stop frame cycling, shimmer, and waveform — leave only color. */
 @media (prefers-reduced-motion: reduce) {
   .mobile-chat-wait__spinner::before {
     content: "⠿";
@@ -5827,7 +5949,7 @@
   }
 }
 
-/* ── 외관(테마) 카드 — 데스크톱 외관 탭과 같은 구성 ─────────────────────── */
+/* ── Appearance (theme) cards — same composition as the desktop appearance tab ─────────────────────── */
 .mobile-section__note {
   margin: 0 0 var(--mobile-space-3);
   font-size: var(--mobile-font-size-caption);
@@ -5890,8 +6012,8 @@
   display: inline-flex;
 }
 
-/* 스와치 — 데스크톱 `.os-theme-preview-*`와 같은 그림. 테마와 무관하게
-   자기 색을 보여야 하므로 토큰이 아니라 고정값이다. */
+/* Swatches — same picture as the desktop `.os-theme-preview-*`. They must show
+   their own colors regardless of theme, so fixed values rather than tokens. */
 .mobile-theme-swatch--light {
   background: linear-gradient(115deg, #faf7f2 0 58%, #ea5a1f 58% 74%, #faf7f2 74%);
 }
@@ -5930,9 +6052,10 @@
     #fbf6ec;
 }
 
-/* ---- 미리 보내기: 아직 안 나간 말들 ----
-   보낸 말풍선과 같은 결이되 흐리게 — "아직 안 갔다"가 한눈에 보여야 한다.
-   ×는 왼쪽(말풍선이 오른쪽 정렬이라 바깥쪽이 왼쪽이다). */
+/* ---- Pre-send: messages not yet sent ----
+   Same grain as sent bubbles but dimmed — "hasn't gone out yet" must show at a
+   glance. The × sits on the left (bubbles are right-aligned, so the outside is
+   the left). */
 .mobile-chat-queued {
   display: flex;
   flex-direction: column;
@@ -5965,13 +6088,15 @@
   color: var(--mobile-text-tertiary);
 }
 
-/* ---- 백그라운드 배지 (모바일의 오브 자리) ----
-   모바일엔 오브가 없다. 진행 중임을 아는 것이 먼저라 배지는 도는 동안 늘 보이고,
-   자세한 것은 눌렀을 때 편다(데스크톱 오브 카드의 hover와 같은 규칙). */
+/* ---- Background badge (mobile's stand-in for the orb) ----
+   Mobile has no orb. Knowing work is in progress comes first, so the badge
+   stays visible while work runs, and details unfold on tap (same rule as the
+   desktop orb card's hover). */
 .mobile-chat-work {
-  /* 헤더 아래 **우측 상단**에 뜬다(사용자 지시). 컴포저 껍데기가
-     `position: absolute; bottom: 0`이라 그 안에 두면 하단으로 내려간다 —
-     그래서 껍데기 밖 형제이고, 화면 기준으로 붙인다. */
+  /* Floats at the **top right** below the header (user directive). The
+     composer shell is `position: absolute; bottom: 0`, so placing it inside
+     would drop it to the bottom — hence it is a sibling outside the shell,
+     anchored to the screen. */
   position: fixed;
   top: calc(env(safe-area-inset-top, 0px) + 3.75rem);
   right: var(--mobile-space-3);
@@ -6002,7 +6127,7 @@
   color: var(--mobile-text-primary);
 }
 
-/* 예약이 있으면 점 하나 — "뒤에 하나 더 있다"를 펴지 않고도 안다. */
+/* A single dot when something is queued — you know "one more is waiting" without unfolding. */
 .mobile-chat-work__dot {
   position: absolute;
   top: 0.25rem;
@@ -6035,8 +6160,9 @@
   opacity: 0.8;
 }
 
-/* 예약 줄의 제목 + × 한 줄. ×가 제목 오른쪽 끝에 붙어야 "이 줄을 뺀다"로
-   읽힌다 — 아래로 내려가면 무엇을 빼는 버튼인지 흐려진다. */
+/* Queued row's title + × on one line. The × must hug the right end of the
+   title to read as "remove this row" — pushed lower, what the button removes
+   becomes unclear. */
 .mobile-chat-work__head {
   display: flex;
   align-items: center;
@@ -6046,8 +6172,9 @@
 
 .mobile-chat-work__cancel {
   flex: none;
-  /* 글자 옆 아이콘 버튼이라 손가락 표적이 작아진다. 패널 안쪽 여백을 먹지
-     않도록 음수 마진으로 되물리면서 표적만 넓힌다. */
+  /* An icon button beside text, so the finger target shrinks. Negative margins
+     pull it back so it doesn't eat the panel's inner padding while widening
+     only the target. */
   margin: calc(var(--mobile-space-1) * -1);
   border: 0;
   background: none;
@@ -6068,7 +6195,7 @@
   .mobile-chat-work__badge { animation: none; }
 }
 
-/* 결과 카드의 대상 줄 — 제목 아래 한 단 작게. */
+/* Target line of the result card — one step smaller, below the title. */
 .mobile-chat-explore__target {
   display: block;
   color: var(--mobile-text-tertiary);

@@ -9,17 +9,18 @@ export interface UploaderEvents {
 }
 
 /**
- * 업로드 실행기.
+ * Upload runner.
  *
- * ## 순차 처리
+ * ## Sequential processing
  *
- * 한 번에 하나만 올린다. 동시에 여러 개를 올리면 모바일 회선에서
- * 서로 대역폭을 뺏어 전부 느려지고 타임아웃이 겹친다.
+ * Uploads one at a time. Parallel uploads on a mobile connection steal
+ * bandwidth from each other, slowing everything down and stacking timeouts.
  *
- * ## 자동 재개
+ * ## Automatic resume
  *
- * `online` 이벤트와 앱 시작 시점에 큐를 훑는다.
- * 비행기 모드에서 녹음한 것이 연결 복구 후 저절로 올라간다.
+ * Sweeps the queue on the `online` event and at app start.
+ * A recording made in airplane mode goes up by itself once connectivity
+ * returns.
  */
 export class Uploader {
   readonly queue = new UploadQueue();
@@ -51,17 +52,17 @@ export class Uploader {
       try {
         (listener as (p: UploaderEvents[K]) => void)(payload);
       } catch (error) {
-        console.error("[Uploader] 리스너 오류:", error);
+        console.error("[Uploader] listener error:", error);
       }
     }
   }
 
-  /** 온라인 복귀 감시를 켠다. 앱 시작 시 한 번 부른다. */
+  /** Starts watching for connectivity return. Called once at app start. */
   start(): void {
     if (this.#onlineHandler) return;
 
     this.#onlineHandler = () => {
-      // 연결이 막 붙은 직후에는 불안정하다. 조금 기다린다.
+      // A freshly restored connection is flaky. Wait a moment.
       setTimeout(() => void this.flush(), 1500);
     };
 
@@ -80,17 +81,18 @@ export class Uploader {
   }
 
   /**
-   * 녹음 결과를 큐에 넣고 바로 올려본다.
+   * Queues a recording result and immediately tries to upload it.
    *
-   * **저장이 먼저다.** 저장에 실패해도 업로드는 시도하지만,
-   * 그때는 실패 시 복구할 수단이 없다는 뜻이므로 경고를 남긴다.
+   * **Saving comes first.** If saving fails, the upload is still attempted,
+   * but that means there is no recovery path on failure — so a warning is
+   * logged.
    */
   async enqueue(item: Omit<PendingUpload, "retryCount" | "lastError" | "savedAt">): Promise<void> {
     if (UploadQueue.isSupported()) {
       try {
         await this.queue.save(item);
       } catch (error) {
-        console.error("[Uploader] 로컬 저장 실패 — 업로드가 실패하면 복구할 수 없습니다:", error);
+        console.error("[Uploader] local save failed — if the upload fails there is no recovery:", error);
       }
     }
 
@@ -98,7 +100,7 @@ export class Uploader {
     void this.flush();
   }
 
-  /** 큐를 순차로 비운다. 이미 돌고 있으면 아무것도 하지 않는다. */
+  /** Drains the queue sequentially. Does nothing if already running. */
   async flush(): Promise<void> {
     if (this.#running || !navigator.onLine) return;
     this.#running = true;
@@ -113,11 +115,11 @@ export class Uploader {
     }
   }
 
-  /** 실패 한도를 넘긴 항목을 사용자 요청으로 다시 시도한다. */
+  /** Retries items past the failure limit, at the user's request. */
   async retryFailed(): Promise<void> {
     for (const item of await this.queue.listFailed()) {
       await this.queue.remove(item.id);
-      await this.queue.save(item); // retryCount 를 0 으로 되돌린다
+      await this.queue.save(item); // resets retryCount to 0
     }
     await this.flush();
   }
@@ -129,7 +131,7 @@ export class Uploader {
     await this.#notifyQueueChange();
   }
 
-  // ── 내부 ───────────────────────────────────────────────
+  // ── Internal ───────────────────────────────────────────
 
   async #upload(item: PendingUpload): Promise<void> {
     try {
@@ -160,16 +162,17 @@ export class Uploader {
   }
 
   /**
-   * S3 에 직접 PUT.
+   * Direct PUT to S3.
    *
-   * `fetch` 대신 `XMLHttpRequest` 를 쓴다 — 업로드 진행률을 알 수 있는 건
-   * 아직 XHR 뿐이다. 수십 MB 를 올리는 동안 진행률이 없으면 사용자는 멈춘 줄 안다.
+   * Uses `XMLHttpRequest` instead of `fetch` — XHR is still the only way to
+   * get upload progress. Without progress on a tens-of-MB upload, the user
+   * assumes it froze.
    */
   #putToStorage(url: string, item: PendingUpload, contentType: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open("PUT", url, true);
-      // presign 서명에 포함된 값과 정확히 같아야 한다. 다르면 S3 가 거부한다.
+      // Must exactly match the value in the presign signature. S3 rejects otherwise.
       xhr.setRequestHeader("Content-Type", contentType);
 
       xhr.upload.onprogress = (event) => {
@@ -180,11 +183,11 @@ export class Uploader {
 
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) resolve();
-        else reject(new Error(`스토리지 업로드 실패 (${xhr.status})`));
+        else reject(new Error(`Storage upload failed (${xhr.status})`));
       };
 
-      xhr.onerror = () => reject(new Error("네트워크 오류"));
-      xhr.ontimeout = () => reject(new Error("업로드 시간 초과"));
+      xhr.onerror = () => reject(new Error("Network error"));
+      xhr.ontimeout = () => reject(new Error("Upload timed out"));
       xhr.timeout = 10 * 60 * 1000;
 
       xhr.send(item.blob);

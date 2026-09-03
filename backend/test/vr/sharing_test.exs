@@ -8,7 +8,7 @@ defmodule VR.SharingTest do
 
   setup do
     owner = account_fixture()
-    {:ok, meeting} = Meetings.create_meeting(owner, %{title: "공유할 회의"})
+    {:ok, meeting} = Meetings.create_meeting(owner, %{title: "Meeting to Share"})
 
     {:ok, meeting} =
       Meetings.update_permissions(meeting, %{guest_link_enabled: true})
@@ -21,18 +21,18 @@ defmodule VR.SharingTest do
     %{link: link, token: token, pin: pin}
   end
 
-  describe "발급" do
-    test "id 와 토큰에 접두사가 붙는다", ctx do
+  describe "issuing" do
+    test "id and token carry prefixes", ctx do
       %{link: link, token: token} = issue(ctx)
 
       assert String.starts_with?(link.id, "slnk_")
       assert String.starts_with?(token, "slt_")
     end
 
-    test "평문 토큰이 DB 어디에도 없다", ctx do
+    test "plaintext token appears nowhere in the DB", ctx do
       %{token: token} = issue(ctx)
 
-      # 토큰은 추가 인증 없이 통하는 자격증명이다. DB 를 본 사람이 곧 방문자가 되면 안 된다.
+      # The token is a credential that works without further auth. Reading the DB must not make you a visitor.
       raw = String.replace_prefix(token, "slt_", "")
 
       dumped =
@@ -44,7 +44,7 @@ defmodule VR.SharingTest do
       refute String.contains?(dumped, token)
     end
 
-    test "PIN 을 켜면 평문은 발급 응답에만 있다", ctx do
+    test "with PIN enabled, the plaintext exists only in the issue response", ctx do
       %{link: link, pin: pin} = issue(ctx, %{"with_pincode" => true})
 
       assert String.match?(pin, ~r/^\d{6}$/)
@@ -52,36 +52,36 @@ defmodule VR.SharingTest do
       refute String.contains?(link.pin_hash, pin)
     end
 
-    test "PIN 없이 발급하면 pin_hash 가 없다", ctx do
+    test "issuing without a PIN leaves pin_hash empty", ctx do
       %{link: link, pin: pin} = issue(ctx)
 
       assert is_nil(pin)
       assert is_nil(link.pin_hash)
     end
 
-    test "reviewer 역할은 줄 수 없다", ctx do
-      # 링크 하나로 삭제 권한까지 넘어가지 않는다
+    test "the reviewer role cannot be granted", ctx do
+      # A single link must not hand over delete-level permissions
       assert {:error, changeset} =
                Sharing.issue_link(ctx.meeting, ctx.owner, %{"granted_role" => "reviewer"})
 
       assert %{granted_role: _} = errors_on(changeset)
     end
 
-    test "요청 본문으로 사용 횟수나 토큰을 정할 수 없다", ctx do
+    test "the request body cannot set use counts or tokens", ctx do
       {:ok, link, _token, _pin} =
         Sharing.issue_link(ctx.meeting, ctx.owner, %{
           "use_count" => 99,
-          "token_hash" => "가짜",
-          "id" => "slnk_내가정한id",
-          "meeting_id" => "meet_남의회의"
+          "token_hash" => "fake",
+          "id" => "slnk_my_chosen_id",
+          "meeting_id" => "meet_someone_elses"
         })
 
       assert link.use_count == 0
-      assert link.id != "slnk_내가정한id"
+      assert link.id != "slnk_my_chosen_id"
       assert link.meeting_id == ctx.meeting.id
     end
 
-    test "지난 만료 시각은 거부한다", ctx do
+    test "rejects an expiry time in the past", ctx do
       past = DateTime.add(DateTime.utc_now(:second), -60, :second)
 
       assert {:error, _} =
@@ -89,10 +89,10 @@ defmodule VR.SharingTest do
     end
   end
 
-  describe "역할은 나중에 올릴 수 없다" do
-    test "update_link 로 granted_role 을 바꿔도 무시된다", ctx do
-      # 이미 배포된 viewer 링크를 contributor 로 올리면
-      # 그 링크를 받은 모두의 권한이 소급 상승한다
+  describe "role cannot be escalated later" do
+    test "changing granted_role via update_link is ignored", ctx do
+      # Upgrading an already-distributed viewer link to contributor would
+      # retroactively escalate permissions for everyone holding it
       %{link: link} = issue(ctx, %{"granted_role" => "viewer"})
 
       {:ok, updated} = Sharing.update_link(link, %{"granted_role" => "contributor"})
@@ -101,12 +101,12 @@ defmodule VR.SharingTest do
     end
   end
 
-  describe "사용 횟수" do
-    test "동시에 들어와도 max_uses 를 넘지 않는다", ctx do
+  describe "use count" do
+    test "concurrent entries do not exceed max_uses", ctx do
       %{link: link} = issue(ctx, %{"max_uses" => 1})
 
-      # ⚠ 샌드박스 소유자는 **테스트 프로세스**다. 태스크 안에서 `self()` 를 소유자로
-      # 넘기면 그 연결이 샌드박스 밖으로 나가 테스트 DB 에 실제로 커밋된다.
+      # ⚠ The sandbox owner is the **test process**. Passing `self()` as owner from
+      # inside a task lets that connection escape the sandbox and commit to the test DB for real.
       owner = self()
 
       results =
@@ -120,12 +120,12 @@ defmodule VR.SharingTest do
         )
         |> Enum.map(fn {:ok, result} -> result end)
 
-      # 검사와 증가가 한 문장이라 경합에서도 정확히 하나만 통과한다
+      # Check and increment are one statement, so exactly one passes even under contention
       assert Enum.count(results, &match?({:ok, _}, &1)) == 1
       assert Enum.count(results, &match?({:error, :gone}, &1)) == 7
     end
 
-    test "소진되면 더 못 들어온다", ctx do
+    test "no more entries once exhausted", ctx do
       %{link: link} = issue(ctx, %{"max_uses" => 1})
 
       assert {:ok, _} = Sharing.consume_use(link)
@@ -133,11 +133,11 @@ defmodule VR.SharingTest do
     end
   end
 
-  describe "입장" do
-    test "게스트 토큰을 받고 그 회의에만 묶인다", ctx do
+  describe "entering" do
+    test "receives a guest token bound to that meeting only", ctx do
       %{token: token} = issue(ctx, %{"granted_role" => "contributor"})
 
-      assert {:ok, result} = Sharing.enter(token, %{"display_name" => "손님"})
+      assert {:ok, result} = Sharing.enter(token, %{"display_name" => "Guest"})
       assert result.mode == :guest
       assert String.starts_with?(result.guest_token, "gst_")
       assert result.meeting_id == ctx.meeting.id
@@ -147,78 +147,78 @@ defmodule VR.SharingTest do
       assert session.granted_role == "contributor"
     end
 
-    test "이름이 필요하면 없이는 못 들어온다", ctx do
+    test "cannot enter without a name when one is required", ctx do
       %{token: token} = issue(ctx, %{"require_name" => true})
 
       assert {:error, changeset} = Sharing.enter(token, %{})
       assert %{display_name: _} = errors_on(changeset)
     end
 
-    test "이름을 안 받는 링크는 그냥 들어온다", ctx do
+    test "links that do not ask for a name let you straight in", ctx do
       %{token: token} = issue(ctx, %{"require_name" => false})
       assert {:ok, %{mode: :guest}} = Sharing.enter(token, %{})
     end
 
-    test "회의 스위치가 꺼져 있으면 404 (410 이 아니다)", ctx do
+    test "404 when the meeting switch is off (not 410)", ctx do
       {:ok, _} = Meetings.update_permissions(ctx.meeting, %{guest_link_enabled: false})
       %{token: token} = issue(ctx, %{"require_name" => false})
 
-      # 링크가 유효했다는 사실도 노출하지 않는다
+      # Does not even reveal that the link used to be valid
       assert {:error, :not_found} = Sharing.enter(token, %{})
     end
 
-    test "없는 토큰은 404", ctx do
+    test "unknown token is 404", ctx do
       _ = ctx
-      assert {:error, :not_found} = Sharing.enter("slt_없는토큰", %{})
-      assert {:error, :not_found} = Sharing.enter("형식도아님", %{})
+      assert {:error, :not_found} = Sharing.enter("slt_nonexistent", %{})
+      assert {:error, :not_found} = Sharing.enter("not-even-the-format", %{})
     end
 
-    test "폐기된 링크는 410", ctx do
+    test "revoked link is 410", ctx do
       %{link: link, token: token} = issue(ctx, %{"require_name" => false})
       {:ok, _} = Sharing.revoke_link(link)
 
       assert {:error, :gone} = Sharing.enter(token, %{})
     end
 
-    test "세션 생성이 실패하면 사용 횟수가 타지 않는다", ctx do
-      # 1회성 링크가 이름 누락 한 번으로 죽어버리면 안 된다
+    test "use count is not burned when session creation fails", ctx do
+      # A one-shot link must not die from a single missing-name attempt
       %{link: link, token: token} = issue(ctx, %{"max_uses" => 1, "require_name" => true})
 
       assert {:error, _} = Sharing.enter(token, %{})
       assert Sharing.get_link(link.id).use_count == 0
 
-      assert {:ok, %{mode: :guest}} = Sharing.enter(token, %{"display_name" => "손님"})
+      assert {:ok, %{mode: :guest}} = Sharing.enter(token, %{"display_name" => "Guest"})
       assert Sharing.get_link(link.id).use_count == 1
     end
 
-    test "로그인한 계정은 게스트 세션을 만들지 않는다", ctx do
+    test "logged-in accounts do not create guest sessions", ctx do
       %{token: token} = issue(ctx, %{"require_name" => false})
 
       assert {:ok, result} = Sharing.enter(token, %{}, account: ctx.owner)
       assert result.mode == :account
       assert is_nil(result.guest_token)
-      # 사용 횟수도 타지 않는다
+      # and the use count is not burned either
       assert Sharing.fetch_by_token(token) |> elem(1) |> Map.get(:use_count) == 0
     end
   end
 
   describe "PIN" do
-    test "맞으면 통과한다", ctx do
+    test "passes when correct", ctx do
       %{link: link, pin: pin} = issue(ctx, %{"with_pincode" => true})
       assert :ok = Sharing.verify_pincode(link, pin, "1.2.3.4")
     end
 
-    test "틀리면 거부한다", ctx do
+    test "rejects when wrong", ctx do
       %{link: link} = issue(ctx, %{"with_pincode" => true})
       assert {:error, :invalid_pincode} = Sharing.verify_pincode(link, "000000", "1.2.3.4")
     end
 
-    test "PIN 을 안 내도 거부한다", ctx do
+    test "rejects when no PIN is submitted", ctx do
       %{link: link} = issue(ctx, %{"with_pincode" => true})
       assert {:error, :invalid_pincode} = Sharing.verify_pincode(link, nil, "1.2.3.4")
     end
 
-    test "5회 틀리면 잠기고 정답도 안 통한다", ctx do
+    test "locks after 5 failures and even the correct PIN stops working", ctx do
       %{link: link, pin: pin} = issue(ctx, %{"with_pincode" => true})
 
       for _ <- 1..5 do
@@ -230,13 +230,13 @@ defmodule VR.SharingTest do
       assert {:error, :locked} = Sharing.verify_pincode(locked, pin, "9.9.9.9")
     end
 
-    test "PIN 없는 링크는 무엇을 내도 통과한다", ctx do
+    test "links without a PIN accept whatever is submitted", ctx do
       %{link: link} = issue(ctx)
       assert :ok = Sharing.verify_pincode(link, nil, "1.2.3.4")
-      assert :ok = Sharing.verify_pincode(link, "아무거나", "1.2.3.4")
+      assert :ok = Sharing.verify_pincode(link, "anything", "1.2.3.4")
     end
 
-    test "PIN 을 다시 켜면 값이 바뀌고 잠금이 풀린다", ctx do
+    test "re-enabling the PIN changes the value and clears the lock", ctx do
       %{link: link} = issue(ctx, %{"with_pincode" => true})
 
       {:ok, link, first} = Sharing.set_pincode(link, :on)
@@ -247,7 +247,7 @@ defmodule VR.SharingTest do
       assert is_nil(link.pin_locked_until)
     end
 
-    test "PIN 을 끄면 해시가 사라진다", ctx do
+    test "disabling the PIN removes the hash", ctx do
       %{link: link} = issue(ctx, %{"with_pincode" => true})
 
       {:ok, updated, pin} = Sharing.set_pincode(link, :off)
@@ -256,8 +256,8 @@ defmodule VR.SharingTest do
     end
   end
 
-  describe "폐기와 소진의 차이" do
-    test "폐기하면 이미 들어온 게스트도 끊긴다", ctx do
+  describe "revocation vs. exhaustion" do
+    test "revoking also cuts off guests who already entered", ctx do
       %{link: link, token: token} = issue(ctx, %{"require_name" => false})
       {:ok, %{guest_token: guest_token}} = Sharing.enter(token, %{})
 
@@ -268,9 +268,9 @@ defmodule VR.SharingTest do
       assert :error = Sharing.fetch_live_guest(guest_token)
     end
 
-    test "소진돼도 이미 들어온 게스트는 남는다", ctx do
-      # "더 못 들어온다"와 "들어온 사람을 내보낸다"는 다르다.
-      # 1회성 링크로 회의록을 받은 사람이 두 번째 요청에서 쫓겨나면 링크가 쓸모없다.
+    test "exhaustion keeps guests who already entered", ctx do
+      # "No new entries" and "evict those inside" are different things.
+      # If someone who got the minutes via a one-shot link were kicked on the second request, the link would be useless.
       %{token: token} = issue(ctx, %{"max_uses" => 1, "require_name" => false})
       {:ok, %{guest_token: guest_token}} = Sharing.enter(token, %{})
 
@@ -279,8 +279,8 @@ defmodule VR.SharingTest do
     end
   end
 
-  describe "재발급" do
-    test "옛 토큰은 죽고 게스트는 살아 있다", ctx do
+  describe "rotation" do
+    test "the old token dies, guests stay alive", ctx do
       %{link: link, token: old} = issue(ctx, %{"require_name" => false})
       {:ok, %{guest_token: guest_token}} = Sharing.enter(old, %{})
 
@@ -288,11 +288,11 @@ defmodule VR.SharingTest do
 
       assert {:error, :not_found} = Sharing.fetch_by_token(old)
       assert {:ok, _} = Sharing.fetch_by_token(new)
-      # 재발급은 "주소를 잃어버렸다"는 뜻이지 "쫓아낸다"가 아니다
+      # Rotation means "the address was lost", not "kick everyone out"
       assert {:ok, _} = Sharing.fetch_live_guest(guest_token)
     end
 
-    test "설정과 사용 횟수는 유지된다", ctx do
+    test "settings and use count are preserved", ctx do
       %{link: link} = issue(ctx, %{"max_uses" => 5, "granted_role" => "contributor"})
       {:ok, link} = Sharing.consume_use(link)
 
@@ -304,8 +304,8 @@ defmodule VR.SharingTest do
     end
   end
 
-  describe "게스트 권한 판정" do
-    test "묶인 회의만 열린다", ctx do
+  describe "guest authorization" do
+    test "only the bound meeting opens", ctx do
       %{token: token} = issue(ctx, %{"granted_role" => "viewer", "require_name" => false})
       {:ok, %{guest_token: guest_token}} = Sharing.enter(token, %{})
       {:ok, session} = Sharing.fetch_live_guest(guest_token)
@@ -313,25 +313,25 @@ defmodule VR.SharingTest do
       assert {:ok, meeting, :lv2} = Sharing.guest_authorize(session, :lv2)
       assert meeting.id == ctx.meeting.id
 
-      # Viewer 게스트가 Contributor 권한을 요구하면 404 (403 이 아니다)
+      # A viewer guest demanding contributor permission gets 404 (not 403)
       assert {:error, :not_found} = Sharing.guest_authorize(session, :lv1)
     end
 
-    test "다른 회의 id 를 세션에 심어도 통하지 않는다", ctx do
+    test "planting another meeting id in the session does not work", ctx do
       %{token: token} = issue(ctx, %{"require_name" => false})
       {:ok, %{guest_token: guest_token}} = Sharing.enter(token, %{})
       {:ok, session} = Sharing.fetch_live_guest(guest_token)
 
       other_owner = account_fixture()
-      {:ok, other} = Meetings.create_meeting(other_owner, %{title: "남의 회의"})
+      {:ok, other} = Meetings.create_meeting(other_owner, %{title: "Someone Else's Meeting"})
 
       tampered = %{session | meeting_id: other.id}
 
-      # 세션이 다른 회의를 가리켜도 그 회의의 게스트 스위치가 꺼져 있으면 못 연다
+      # Even when the session points at another meeting, it cannot open one whose guest switch is off
       assert {:error, :not_found} = Sharing.guest_authorize(tampered, :lv2)
     end
 
-    test "회의 스위치를 끄면 이미 들어온 게스트도 막힌다", ctx do
+    test "turning the meeting switch off also blocks guests who already entered", ctx do
       %{token: token} = issue(ctx, %{"require_name" => false})
       {:ok, %{guest_token: guest_token}} = Sharing.enter(token, %{})
       {:ok, session} = Sharing.fetch_live_guest(guest_token)
@@ -344,35 +344,35 @@ defmodule VR.SharingTest do
     end
   end
 
-  describe "PIN 생성" do
-    test "000000 도 나올 수 있고 늘 6자리다" do
+  describe "PIN generation" do
+    test "can produce 000000 and is always 6 digits" do
       pins = for _ <- 1..300, do: SharedLink.generate_pincode()
 
       assert Enum.all?(pins, &String.match?(&1, ~r/^\d{6}$/))
-      # sisyphus 는 100_001~999_999 라 앞자리 0 이 절대 안 나왔다
+      # sisyphus used 100_001..999_999, so a leading 0 could never appear
       assert Enum.uniq(pins) |> length() > 200
     end
   end
 
-  describe "적대적 검증에서 나온 것들" do
-    test "로그인만 하면 게스트 차단 스위치를 넘을 수 없다", ctx do
-      # 스위치는 "이 회의는 게스트를 받지 않는다"는 뜻이다.
-      # 로그인을 면제 조건으로 두면 아무나 가입해 우회하고, 1회성 링크를 대신 태워
-      # 정당한 수신자가 못 들어오게 만들 수 있다.
+  describe "findings from adversarial review" do
+    test "merely logging in cannot bypass the guest-block switch", ctx do
+      # The switch means "this meeting accepts no guests".
+      # Making login an exemption would let anyone sign up to bypass it, burning the
+      # one-shot link so the legitimate recipient can no longer get in.
       {:ok, _} = Meetings.update_permissions(ctx.meeting, %{guest_link_enabled: false})
       %{link: link, token: token} = issue(ctx, %{"max_uses" => 1, "require_name" => false})
 
       stranger = account_fixture()
 
       assert {:error, :not_found} = Sharing.enter(token, %{}, account: stranger)
-      # 사용 횟수도 타지 않는다
+      # and the use count is not burned either
       assert Sharing.get_link(link.id).use_count == 0
     end
 
-    test "권한 없는 계정도 PIN 을 통과해야 한다", ctx do
-      # 이전에는 계정 진입 경로가 요청 본문을 통째로 버려서
-      # (a) 로그인한 사람은 PIN 링크에 영원히 못 들어가고
-      # (b) 그 실패가 잠금 카운터를 태워 정당한 손님까지 막았다
+    test "accounts without permission must still pass the PIN", ctx do
+      # The account entry path used to discard the request body entirely, so
+      # (a) logged-in users could never enter PIN-protected links, and
+      # (b) those failures burned the lock counter, blocking legitimate guests too
       %{token: token, pin: pin} =
         issue(ctx, %{"with_pincode" => true, "require_name" => false})
 
@@ -385,17 +385,17 @@ defmodule VR.SharingTest do
                Sharing.enter(token, %{"pincode" => pin}, account: stranger)
     end
 
-    test "권한 없는 계정도 이름을 낼 수 있다", ctx do
+    test "accounts without permission can still submit a name", ctx do
       %{token: token} = issue(ctx, %{"require_name" => true})
       stranger = account_fixture()
 
       assert {:ok, %{mode: :guest}} =
-               Sharing.enter(token, %{"display_name" => "손님"}, account: stranger)
+               Sharing.enter(token, %{"display_name" => "Guest"}, account: stranger)
     end
 
-    test "PIN 잠금이 동시 요청에 무너지지 않는다", ctx do
-      # 읽어서 +1 하면 동시 요청들이 서로의 증가를 덮어써(lost update) 잠금이 안 걸린다.
-      # 6자리 PIN 은 그 순간 대입 가능해진다.
+    test "PIN lockout does not collapse under concurrent requests", ctx do
+      # Read-then-+1 lets concurrent requests overwrite each other's increments (lost
+      # update), so the lock never engages. A 6-digit PIN becomes brute-forceable then.
       %{link: link, pin: pin} = issue(ctx, %{"with_pincode" => true})
       owner = self()
 
@@ -412,12 +412,12 @@ defmodule VR.SharingTest do
       locked = Sharing.get_link(link.id)
       assert locked.failed_pin_attempts >= SharedLink.pin_max_failures()
       assert SharedLink.pin_locked?(locked)
-      # 잠긴 뒤에는 정답도 통하지 않는다
+      # Once locked, even the correct PIN does not pass
       assert {:error, :locked} = Sharing.verify_pincode(locked, pin, nil)
     end
 
-    test "링크를 비활성화하면 이미 들어온 게스트도 끊긴다", ctx do
-      # Reviewer 가 "껐다"고 믿는 조작이 아무 일도 안 하면 안 된다
+    test "deactivating the link also cuts off guests who already entered", ctx do
+      # A control the reviewer believes "turned it off" must not be a no-op
       %{link: link, token: token} = issue(ctx, %{"require_name" => false})
       {:ok, %{guest_token: guest_token}} = Sharing.enter(token, %{})
 
@@ -428,19 +428,19 @@ defmodule VR.SharingTest do
       assert :error = Sharing.fetch_live_guest(guest_token)
     end
 
-    test "링크 만료를 앞당기면 이미 들어온 게스트도 끊긴다", ctx do
+    test "moving the link expiry earlier also cuts off guests who already entered", ctx do
       %{link: link, token: token} = issue(ctx, %{"require_name" => false})
       {:ok, %{guest_token: guest_token}} = Sharing.enter(token, %{})
 
-      # 이미 지난 시각은 changeset 이 막으므로 DB 를 직접 바꾼다 (운영자가 짧게 잡은 뒤 시간이 지난 상황)
+      # The changeset rejects past times, so change the DB directly (operator set it short, then time passed)
       past = DateTime.add(DateTime.utc_now(:second), -60, :second)
       link |> Ecto.Changeset.change(%{expires_at: past}) |> Repo.update!()
 
       assert :error = Sharing.fetch_live_guest(guest_token)
     end
 
-    test "소진은 여전히 이미 들어온 게스트를 내보내지 않는다", ctx do
-      # 위 두 개를 고치면서 이 구분이 무너지면 1회성 링크가 쓸모없어진다
+    test "exhaustion still does not evict guests who already entered", ctx do
+      # If fixing the two above breaks this distinction, one-shot links become useless
       %{token: token} = issue(ctx, %{"max_uses" => 1, "require_name" => false})
       {:ok, %{guest_token: guest_token}} = Sharing.enter(token, %{})
 

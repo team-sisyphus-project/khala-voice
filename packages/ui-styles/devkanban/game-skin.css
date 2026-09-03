@@ -1,33 +1,33 @@
 /* ============================================================================
-   모바일 게임 스킨 — 데스크톱 assets/css/themes/game.css의 선 문법을
-   모바일 컴포넌트 어휘로 옮긴 것. 색 토큰만으로는 "픽셀"이 되지 않는다 —
-   모서리·선·그림자가 형태를 만든다.
+   Mobile game skin — the line grammar of desktop assets/css/themes/game.css,
+   translated into the mobile component vocabulary. Color tokens alone do not make
+   "pixels" — corners, lines, and shadows create the form.
 
-   ── 선 문법 (데스크톱과 동일) ──────────────────────────────────────────
-   선은 **어느 층인가**를, 채움은 **무슨 일을 하나**를 말한다.
-   빨강   = 최상위 계층의 구분. 탑앱바 아래선 · 시트/드로어/독 · FAB 테두리 ·
-            오브 모니터 프레임. 본문 위에 얹히면 빨강이다.
-   초록   = 그 안의 오브젝트·위젯. 버튼 · 카드 · 행.
-   선 없음 = 그냥 내용. 화면·섹션 컨테이너.
-   앰버   = 채움. 프라이머리 · FAB.
-   그림자 = 없음(2026-08-17 판정). 깊이는 표면 밝기 차이로만.
+   ── Line grammar (same as desktop) ──────────────────────────────────────
+   Lines say **which layer this is**; fills say **what it does**.
+   Red    = top-layer separation. Line under the top app bar · sheets/drawers/dock ·
+                     FAB border · orb monitor frame. Anything laid over the content is red.
+   Green  = objects and widgets inside. Buttons · cards · rows.
+   No line = plain content. Screens and section containers.
+   Amber  = fill. Primary · FAB.
+   Shadows = none (ruled 2026-08-17). Depth comes only from surface brightness differences.
 
-   ── 토큰 ─────────────────────────────────────────────────────────────
-   **이 파일에는 색·치수 리터럴이 없다.** 전부 tokens.css의
-   `[data-theme="game"]` 블록(--mobile-game-* 및 공용 --mobile-*)을 참조한다.
-   값을 바꾸려면 거기 한 곳만 고친다.
+   ── Tokens ─────────────────────────────────────────────────────────────
+   **This file contains no color or dimension literals.** Everything references the
+   `[data-theme="game"]` block in tokens.css (--mobile-game-* and shared --mobile-*).
+   To change a value, edit that one place.
 
-   ── 격리 ─────────────────────────────────────────────────────────────
-   **모든 규칙이 [data-theme="game"] 안에 있다.** 이 파일이 다른 테마의
-   픽셀 하나도 건드리지 않는 것이 조건이다(사용자 2026-08-17).
-   모바일엔 data-surface 태깅이 없어 컴포넌트 클래스를 직접 겨냥한다
-   (media-skin.css와 같은 방식). 특이도는 :not(#_)로 올린다 — 컴포넌트
-   규칙이 3클래스인 곳이 있어 동점이면 뒤에 오는 쪽이 이긴다.
+   ── Isolation ─────────────────────────────────────────────────────────
+   **Every rule lives inside [data-theme="game"].** The condition is that this file
+   touches not a single pixel of any other theme (user, 2026-08-17).
+   Mobile has no data-surface tagging, so component classes are targeted directly
+   (same approach as media-skin.css). Specificity is raised with :not(#_) — some
+   component rules carry 3 classes, and on a tie the later rule wins.
    ========================================================================== */
 
-/* 도트 글꼴. mobile/public/fonts에서 자기 오리진으로 받는다(스프라이트와 달리
-   Phoenix static이 아니다). font-display: swap이라 이 테마를 켠 사람만
-   내려받는다 — 다른 테마 사용자는 요청조차 하지 않는다. */
+/* Dot font. Served from its own origin at mobile/public/fonts (unlike the sprites,
+      not Phoenix static). With font-display: swap, only people who turn this theme on
+      download it — users of other themes never even request it. */
 @font-face {
   font-family: "DungGeunMo";
   src: url("/fonts/DungGeunMo.woff") format("woff");
@@ -41,7 +41,7 @@
   font-family: var(--mobile-game-font);
 }
 
-/* CRT 주사선 — 화면 위 한 겹. 데스크톱과 같은 규격(2px 주기). */
+/* CRT scanlines — one layer over the screen. Same spec as desktop (2px period). */
 [data-theme="game"]::after {
   content: var(--mobile-game-overlay-content);
   position: var(--mobile-game-overlay-position);
@@ -59,7 +59,7 @@
 }
 
 /* =============================================================
-   빨강 = 최상위 계층의 구분
+   Red = top-layer separation
    ============================================================= */
 [data-theme="game"]:not(#_) .mobile-top-app-bar {
   border-bottom: var(--mobile-game-border-width) solid var(--mobile-game-red);
@@ -67,7 +67,7 @@
   backdrop-filter: var(--mobile-game-backdrop-filter);
 }
 
-/* 떠 있는 것도 최상위 계층이다 — 시트·드로어·독처럼 본문 위에 얹히면 빨강. */
+/* Floating things are top-layer too — sheets, drawers, the dock: laid over the content, so red. */
 [data-theme="game"]:not(#_)
   :is(.mobile-context-sheet, .mobile-drawer, .mobile-action-dock) {
   border: var(--mobile-game-border-width) solid var(--mobile-game-red);
@@ -78,7 +78,7 @@
 }
 
 /* =============================================================
-   초록 = 그 안의 오브젝트·위젯
+   Green = objects and widgets inside
    ============================================================= */
 [data-theme="game"]:not(#_)
   :is(
@@ -97,11 +97,11 @@
   box-shadow: var(--mobile-game-shadow);
 }
 
-/* 구역에는 선을 긋지 않는다 — 안에 또 다른 표면을 품은 것은 '물건'이 아니라
-   '구역'이다(헤더 바·탭 그룹·푸터·섹션 래퍼). 여기에 선을 그으면 안쪽 물건의
-   선과 나란히 붙어 겹선이 되고 화면이 격자로 읽힌다. 데스크톱 game.css의
-   같은 규칙과 짝이다. 자식 두 단계까지만 본다 — 무한 깊이로 잡으면 버튼 하나를
-   품은 카드까지 선을 잃는다. */
+/* No lines on regions — anything that holds another surface inside is a 'region', not
+      an 'object' (header bar, tab group, footer, section wrappers). A line here would sit
+      right next to the inner object's line, doubling up so the screen reads as a grid.
+      Pairs with the same rule in desktop game.css. Only two levels of children are
+      checked — matching at unlimited depth would strip the line from a card holding a single button. */
 [data-theme="game"]:not(#_)
   :is(
     .mobile-row,
@@ -126,7 +126,7 @@
   border-radius: var(--mobile-radius-md);
   color: var(--mobile-fg-default);
   box-shadow: var(--mobile-game-shadow);
-  /* 도트 매체라 부드러운 보간 대신 2단 계단으로 갈아탄다 */
+  /* Dot medium: trade smooth interpolation for a 2-step staircase */
   transition:
     background-color var(--mobile-game-step) var(--mobile-game-steps),
     border-color var(--mobile-game-step) var(--mobile-game-steps),
@@ -139,25 +139,25 @@
   color: var(--mobile-game-green-bright);
 }
 
-/* 누름 = **아래로 2px**. 대각선으로 밀지 않는다(데스크톱과 같은 규칙).
-   시스템 누름(press.css)은 `transform: scale()` + brightness인데, 배율·밝기는
-   토큰을 1로 눌러 껐고 여기서 transform 자체를 내림으로 갈아 끼운다.
-   `translate` 속성으로는 scale이 남아 함께 걸리므로 반드시 transform이다.
-   상태 표식은 press.ts가 다는 [data-pressed] — 터치에서 :active보다 정확하다.
-   (:active는 키보드 활성화 대비로 같이 둔다.) */
+/* Press = **2px downward**. No diagonal push (same rule as desktop).
+      The system press (press.css) is `transform: scale()` + brightness; scale and
+      brightness were turned off by pinning their tokens to 1, and here the transform itself is swapped for the downward shift.
+      The `translate` property would leave scale still applied alongside, so it must be transform.
+      The state marker is [data-pressed] set by press.ts — more accurate than :active on touch.
+      (:active is kept alongside as a fallback for keyboard activation.) */
 [data-theme="game"]:not(#_) :is([data-pressed], .mobile-button:active) {
   transform: translateY(var(--mobile-game-press-shift));
   filter: var(--mobile-game-press-filter);
 }
 
-/* 고스트 = 선 없음 */
+/* Ghost = no line */
 [data-theme="game"]:not(#_) .mobile-button--ghost {
   background: var(--mobile-game-background-clear);
   border-color: var(--mobile-game-border-clear);
 }
 
 /* =============================================================
-   앰버 = 채움 (프라이머리 · FAB)
+   Amber = fill (primary · FAB)
    ============================================================= */
 [data-theme="game"]:not(#_) :is(.mobile-button--primary, .mobile-fab) {
   background: var(--mobile-game-amber);
@@ -167,7 +167,7 @@
   box-shadow: var(--mobile-game-shadow);
 }
 
-/* FAB는 떠 있으므로 채움은 앰버로 두고 **테두리만** 최상위 계층 색으로 */
+/* The FAB floats, so keep the amber fill and use the top-layer color for the **border only** */
 [data-theme="game"]:not(#_) .mobile-fab {
   border-color: var(--mobile-game-red);
 }
@@ -178,7 +178,7 @@
   color: var(--mobile-game-on-fill);
 }
 
-/* 위험 = 빨강 채움 — 틀의 빨강과 같은 색이지만 여기선 선이 아니라 면이다 */
+/* Danger = red fill — same color as the frame red, but here it is a surface, not a line */
 [data-theme="game"]:not(#_) .mobile-button--danger {
   background: var(--mobile-game-red);
   border-color: var(--mobile-game-red);
@@ -186,7 +186,7 @@
 }
 
 /* =============================================================
-   입력 = 밑줄 한 줄
+   Input = a single underline
    ============================================================= */
 [data-theme="game"]:not(#_)
   :is(
@@ -218,7 +218,7 @@
 }
 
 /* =============================================================
-   선 없음 = 그냥 내용
+   No line = plain content
    ============================================================= */
 [data-theme="game"]:not(#_)
   :is(.mobile-screen, .mobile-section, .mobile-issue-card-grid) {
@@ -227,11 +227,11 @@
 }
 
 /* =============================================================
-   오브 = 모니터
+   Orb = monitor
 
-   데스크톱 game.css '오브 = 모니터'와 같은 규격: 검은 화면 + 빨간 프레임 +
-   안쪽 인광. 시트 주소·프레임 수(19)·속도는 BrandBlob이 orbStyle.ts를 통해
-   꽂는다 — 여기서는 액자만 그린다.
+   Same spec as desktop game.css 'orb = monitor': black screen + red frame +
+   inner phosphor glow. Sheet address, frame count (19), and speed are injected by
+   BrandBlob via orbStyle.ts — here we only draw the frame.
    ============================================================= */
 [data-theme="game"]:not(#_) .mobile-orb-sprite {
   background-color: var(--mobile-game-screen);
@@ -239,14 +239,14 @@
   border-radius: var(--mobile-game-orb-radius);
   box-sizing: var(--mobile-game-orb-box-sizing);
   overflow: var(--mobile-game-orb-overflow);
-  /* 켜져 있는 브라운관. 주사선은 위 전역 오버레이가 이미 오브 위까지
-     덮으므로 여기서 또 긋지 않는다(겹치면 모아레). */
+  /* A powered-on CRT. The global overlay above already draws scanlines over the orb,
+        so none are drawn here (overlapping causes moiré). */
   box-shadow: var(--mobile-game-orb-inner-glow);
   image-rendering: var(--mobile-game-orb-rendering);
 }
 
-/* 칩(≤48px) — 프레임이 얇아야 화면이 남고, 24px 곡률은 30px 상자에서
-   거의 원이 되므로 같이 줄인다 */
+/* Chips (≤48px) — the frame must stay thin to leave screen room, and the 24px radius
+      is nearly a circle on a 30px box, so both are reduced together */
 [data-theme="game"]:not(#_) .mobile-orb-sprite--chip {
   border-width: var(--mobile-game-border-width-chip);
   border-radius: var(--mobile-game-orb-radius-chip);

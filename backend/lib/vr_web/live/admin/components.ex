@@ -1,9 +1,9 @@
 defmodule VRWeb.Admin.Components do
   @moduledoc """
-  어드민 화면 공용 컴포넌트.
+  Shared components for the admin screens.
 
-  스타일은 sisyphus 디자인 시스템을 따른다 (`assets/css/tokens.css`).
-  색 리터럴을 쓰지 말고 `.vr-*` 클래스나 토큰 변수를 쓴다.
+  Styling follows the sisyphus design system (`assets/css/tokens.css`).
+  Use `.vr-*` classes or token variables instead of color literals.
   """
   use Phoenix.Component
   use VRWeb, :verified_routes
@@ -34,44 +34,44 @@ defmodule VRWeb.Admin.Components do
           style="border-right: 1px solid var(--border-subtle); min-height: calc(100vh - 3.5rem);"
         >
           <nav class="flex flex-col gap-0.5">
-            <.nav_item active={@active} id={:dashboard} path={~p"/_admin"} label="대시보드" />
-            <.nav_item active={@active} id={:accounts} path={~p"/_admin/accounts"} label="계정" />
-            <.nav_item active={@active} id={:security} path={~p"/_admin/security"} label="보안" />
-            <.nav_item active={@active} id={:billing} path={~p"/_admin/billing"} label="요금" />
-            <span class="vr-nav__title">설정</span>
+            <.nav_item active={@active} id={:dashboard} path={~p"/_admin"} label="Dashboard" />
+            <.nav_item active={@active} id={:accounts} path={~p"/_admin/accounts"} label="Accounts" />
+            <.nav_item active={@active} id={:security} path={~p"/_admin/security"} label="Security" />
+            <.nav_item active={@active} id={:billing} path={~p"/_admin/billing"} label="Billing" />
+            <span class="vr-nav__title">Settings</span>
             <.nav_item
               active={@active}
               id={:storage}
               path={~p"/_admin/settings/storage"}
-              label="스토리지"
+              label="Storage"
             />
             <.nav_item
               active={@active}
               id={:stt}
               path={~p"/_admin/settings/stt"}
-              label="전사 (STT)"
+              label="Transcription (STT)"
             />
             <.nav_item active={@active} id={:llm} path={~p"/_admin/llm"} label="LLM" />
             <.nav_item
               active={@active}
               id={:social}
               path={~p"/_admin/social"}
-              label="소셜 로그인"
+              label="Social sign-in"
             />
-            <.nav_item active={@active} id={:mail} path={~p"/_admin/settings/mail"} label="메일" />
+            <.nav_item active={@active} id={:mail} path={~p"/_admin/settings/mail"} label="Mail" />
             <.nav_item
               active={@active}
               id={:push}
               path={~p"/_admin/settings/push"}
-              label="웹 푸시"
+              label="Web push"
             />
             <.nav_item
               active={@active}
               id={:policy}
               path={~p"/_admin/settings/policy"}
-              label="정책"
+              label="Policy"
             />
-            <.nav_item active={@active} id={:app} path={~p"/_admin/settings/app"} label="앱" />
+            <.nav_item active={@active} id={:app} path={~p"/_admin/settings/app"} label="App" />
           </nav>
         </aside>
 
@@ -103,7 +103,7 @@ defmodule VRWeb.Admin.Components do
     """
   end
 
-  @doc "알림 배너. sisyphus는 단색 채움 대신 파스텔 배경 + 진한 글자를 쓴다."
+  @doc "Notice banner. sisyphus uses a pastel background with dark text instead of a solid fill."
   attr :kind, :atom, default: :info, values: [:info, :warn, :error, :ok]
   attr :icon, :string, default: nil
   attr :title, :string, default: nil
@@ -122,19 +122,19 @@ defmodule VRWeb.Admin.Components do
     """
   end
 
-  @doc "값의 출처 배지 — DB에서 왔는지 환경변수에서 왔는지."
+  @doc "Value source badge — whether it came from the DB or an environment variable."
   attr :source, :atom, required: true
   attr :present, :boolean, default: true
 
   def source_badge(assigns) do
     ~H"""
     <span :if={@present and @source == :db} class="vr-chip vr-chip--ok">DB</span>
-    <span :if={@present and @source == :env} class="vr-chip vr-chip--info">환경변수</span>
-    <span :if={not @present} class="vr-chip vr-chip--neutral">미설정</span>
+    <span :if={@present and @source == :env} class="vr-chip vr-chip--info">Env var</span>
+    <span :if={not @present} class="vr-chip vr-chip--neutral">Not set</span>
     """
   end
 
-  @doc "기능 준비 상태 경고 배너."
+  @doc "Warning banner for feature readiness."
   attr :statuses, :list, required: true
 
   def readiness_banner(assigns) do
@@ -145,23 +145,23 @@ defmodule VRWeb.Admin.Components do
       :if={@blocked != []}
       kind={:warn}
       icon="pending"
-      title="아직 동작하지 않는 기능이 있습니다"
+      title="Some features are not working yet"
       class="mb-4"
     >
       <ul class="mt-1.5 space-y-1">
         <li :for={s <- @blocked}>
           <span class="font-semibold">{feature_label(s.feature)}</span>
-          — 필요: {s.missing |> Enum.map(& &1.label) |> Enum.join(", ")}
+          — requires: {s.missing |> Enum.map(& &1.label) |> Enum.join(", ")}
         </li>
       </ul>
     </.notice>
     """
   end
 
-  def feature_label(:storage), do: "녹음 업로드"
-  def feature_label(:transcription), do: "전사"
-  def feature_label(:summary), do: "AI 요약"
-  def feature_label(:mail), do: "메일 발송"
-  def feature_label(:push), do: "웹 푸시"
+  def feature_label(:storage), do: "Recording upload"
+  def feature_label(:transcription), do: "Transcription"
+  def feature_label(:summary), do: "AI summary"
+  def feature_label(:mail), do: "Mail delivery"
+  def feature_label(:push), do: "Web push"
   def feature_label(other), do: to_string(other)
 end

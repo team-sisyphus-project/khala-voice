@@ -2,25 +2,29 @@ defmodule VR.Repo.Migrations.CreateSharing do
   use Ecto.Migration
 
   @moduledoc """
-  공유 링크 · 게스트 세션 · PIN 시도 기록.
+  Shared links · guest sessions · PIN attempt log.
 
-  ## 토큰과 PIN 을 평문으로 두지 않는다
+  ## Tokens and PINs are never stored in plaintext
 
-  공유 토큰은 **추가 인증 없이 즉시 통하는 자격증명**이다. DB 백업 · 리플리카 ·
-  로그 · `SELECT *` 덤프 어디에서든 본 사람이 곧바로 그 회의에 들어온다.
-  그래서 `AccountSession` 과 같이 sha256 해시만 저장하고, 원본은 발급 응답에서
-  **한 번만** 내보낸다. 잃어버리면 재발급(`rotate`)한다.
+  A share token is a **credential that works immediately, with no further
+  auth**. Whoever sees it — in a DB backup, a replica, logs, or a `SELECT *`
+  dump — walks straight into that meeting. So, like `AccountSession`, we store
+  only the sha256 hash, and the original leaves us **exactly once**, in the
+  issuing response. If lost, it is reissued (`rotate`).
 
-  PIN 은 6자리(10^6)라 sha256 해시는 유출 시 몇 초 만에 역산된다. Bcrypt 를 쓴다.
+  PINs are 6 digits (10^6), so a leaked sha256 hash is reversed in seconds.
+  We use Bcrypt for those.
 
-  Cloak(AES-GCM)은 여기에 쓸 수 없다 — IV 가 매번 달라 `WHERE token_hash = ?` 조회가
-  불가능하고, `CLOAK_KEY` 는 DB 자격증명 옆에 살아 함께 유출된다.
+  Cloak (AES-GCM) cannot be used here — the IV differs every time, making
+  `WHERE token_hash = ?` lookups impossible, and `CLOAK_KEY` lives next to the
+  DB credentials and leaks together with them.
 
-  ## sisyphus 와 다른 점
+  ## How this differs from sisyphus
 
-  sisyphus 는 `token` · `pincode` 를 평문 컬럼에 넣었고, PIN 생성에 `:rand.uniform`
-  (CSPRNG 아님)을 쓰면서 범위도 어긋나 `100000` 이 나오지 않았다.
-  게스트 세션 테이블은 아예 없었다 — 게스트 신원이 브라우저 JS 변수였다.
+  sisyphus put `token` · `pincode` in plaintext columns and generated PINs with
+  `:rand.uniform` (not a CSPRNG), with a range bug that could never produce
+  `100000`. There was no guest session table at all — guest identity was a
+  browser-side JS variable.
   """
 
   def change do
@@ -31,10 +35,10 @@ defmodule VR.Repo.Migrations.CreateSharing do
 
       add :token_hash, :binary, null: false
 
-      # 앞 8자. 목록에서 어느 링크인지 알아보기만 한다. 이것만으로는 못 들어온다.
+      # First 8 chars. Only for telling links apart in lists. Not enough to get in.
       add :token_prefix, :string, null: false
       add :granted_role, :string, null: false, default: "viewer"
-      # Bcrypt. nil = PIN 없음
+      # Bcrypt. nil = no PIN
       add :pin_hash, :string
 
       add :max_uses, :integer
@@ -61,7 +65,7 @@ defmodule VR.Repo.Migrations.CreateSharing do
     create index(:shared_links, [:created_by_id])
     create index(:shared_links, [:meeting_id, :is_active], where: "deleted_at IS NULL")
 
-    # 애플리케이션 검증이 새어도 "reviewer" 링크가 만들어지지 않게 DB 에도 박는다
+    # Baked into the DB too, so a "reviewer" link cannot appear even if app validation leaks
     create constraint(:shared_links, :shared_links_granted_role_check,
              check: "granted_role IN ('viewer','contributor')"
            )
@@ -78,14 +82,14 @@ defmodule VR.Repo.Migrations.CreateSharing do
       add :shared_link_id, references(:shared_links, type: :string, on_delete: :delete_all),
         null: false
 
-      # **회의 하나에만 접근한다**는 제약을 행에 박아 둔다.
-      # 컨트롤러가 아니라 데이터가 범위를 들고 있어야 한다.
+      # The **single-meeting access** constraint is baked into the row.
+      # The data, not the controller, must carry the scope.
       add :meeting_id, references(:meetings, type: :string, on_delete: :delete_all), null: false
       add :account_id, references(:accounts, type: :string, on_delete: :delete_all)
 
       add :token_hash, :binary, null: false
 
-      # 링크에서 복사해 굳힌다. 링크의 역할이 나중에 바뀌어도 이 세션은 그대로다.
+      # Copied from the link and frozen. If the link's role changes later, this session keeps its own.
       add :granted_role, :string, null: false
       add :display_name, :string
       add :email, :string
@@ -108,8 +112,8 @@ defmodule VR.Repo.Migrations.CreateSharing do
              check: "granted_role IN ('viewer','contributor')"
            )
 
-    # PIN 대입 방어용 시도 기록.
-    # `login_attempts` 를 재사용하지 않는다 — 그 테이블의 email 컬럼 의미가 흐려진다.
+    # Attempt log for PIN brute-force defense.
+    # We do not reuse `login_attempts` — it would blur the meaning of that table's email column.
     create table(:share_attempts, primary_key: false) do
       add :id, :binary_id, primary_key: true
       add :token_hash, :binary

@@ -1,8 +1,9 @@
 /**
- * **출처: devkanban** `mobile/src/components/Button.tsx` — 그대로 가져왔다.
+ * **Source: devkanban** `mobile/src/components/Button.tsx` — brought over verbatim.
  *
- * 버튼의 누름 반응 · 헤더 표현 · 인풋 · 모달의 표현 방식을 그대로 쓰기 위해
- * 마크업(클래스 이름)까지 원본과 같게 둔다. CSS 가 이 이름에 걸려 있다.
+ * To reuse the button press feedback, header treatment, inputs, and modal
+ * styling as-is, even the markup (class names) matches the original. The CSS
+ * is keyed to these names.
  */
 
 import type { ReactNode } from "react"
@@ -16,18 +17,19 @@ type ButtonProps = {
   icon?: string
   trailingIcon?: string
   full?: boolean
-  // 본문 안 버튼은 섹션 flex-column의 stretch를 받지 않고 내용 너비만 차지한다.
+  // In-body buttons don't take the section flex-column's stretch; they only span their content width.
   fit?: boolean
   square?: boolean
-  // square와 함께 쓰면 원형 버튼(라운드 사각 대신). 예: 이슈카드 상세의 채팅 버튼.
+  // Combined with square, makes a circular button (instead of a rounded square). E.g. the chat button on the issue-card detail.
   round?: boolean
   disabled?: boolean
   pending?: boolean
   loadingLabel?: string
-  // 면 전체 선형 프로그레스 — variant와 직교하는 옵션이다. 켜면 버튼 배경이
-  // progress(0~1)만큼 왼쪽부터 채워지듯 물들고(프라이머리는 색이 진해지는
-  // 방향), 남은 초를 라벨 우측에 숫자로 보여준다. "가만히 있으면 이게 된다"를
-  // 버튼 자체로 알리는 카운트다운 문법(음성 동의 기본값 승인, 2026-07-30).
+  // Full-face linear progress — an option orthogonal to variant. When on, the
+  // button background tints as if filling from the left by progress (0–1)
+  // (primary deepens in color), with remaining seconds shown as a number right
+  // of the label. A countdown grammar where the button itself says "do nothing
+  // and this happens" (voice-consent default approval, 2026-07-30).
   fillProgress?: number | null
   fillSeconds?: number | null
   type?: "button" | "submit"
@@ -71,8 +73,9 @@ export function Button({
       type={type}
     >
       {filling ? (
-        // 채움 층은 콘텐츠 아래에 절대배치로 깔린다 — 텍스트·아이콘은 그대로
-        // 두고 배경만 왼쪽부터 차오른다. width 전환은 틱 간격만큼만 부드럽게.
+        // The fill layer sits absolutely positioned under the content — text and
+        // icons stay put while only the background fills from the left. The width
+        // transition is smoothed only across one tick interval.
         <span
           aria-hidden="true"
           className="mobile-button__fill"

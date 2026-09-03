@@ -1,12 +1,12 @@
 defmodule VR.Meetings do
   @moduledoc """
-  회의와 녹음 세션.
+  Meetings and recording sessions.
 
-  ## 권한
+  ## Permissions
 
-  조회·수정 함수는 **계정을 함께 받아** 권한을 계산한다.
-  권한이 없으면 `{:error, :not_found}` — 403이 아니라 404로 응답하기 위해서다.
-  존재 여부 자체를 노출하지 않는다.
+  Read and update functions **take the account along** and compute permissions.
+  Without permission, `{:error, :not_found}` — so we can respond with 404, not
+  403. Existence itself is never exposed.
   """
 
   import Ecto.Query, warn: false
@@ -18,9 +18,9 @@ defmodule VR.Meetings do
   alias VR.Repo
   alias VR.Taxonomy
 
-  # ── 권한 ─────────────────────────────────────────────────
+  # ── Permissions ──────────────────────────────────────────
 
-  @doc "이 계정이 이 회의에 대해 갖는 권한 레벨."
+  @doc "The permission level this account has for this meeting."
   @spec level(Meeting.t(), Account.t() | nil, keyword()) :: AccessLevel.level()
   def level(%Meeting{} = meeting, account, opts \\ []) do
     AccessLevel.resolve(
@@ -36,7 +36,7 @@ defmodule VR.Meetings do
     )
   end
 
-  @doc "최소 권한을 만족하면 회의를 준다. 아니면 `{:error, :not_found}`."
+  @doc "Returns the meeting when the minimum permission is met. Otherwise `{:error, :not_found}`."
   @spec authorize(String.t(), Account.t() | nil, AccessLevel.level(), keyword()) ::
           {:ok, Meeting.t(), AccessLevel.level()} | {:error, :not_found}
   def authorize(meeting_id, account, required, opts \\ []) do
@@ -49,7 +49,7 @@ defmodule VR.Meetings do
     end
   end
 
-  # ── 회의 ─────────────────────────────────────────────────
+  # ── Meetings ─────────────────────────────────────────────
 
   def get_meeting(id) when is_binary(id) do
     Repo.one(from m in Meeting, where: m.id == ^id and is_nil(m.deleted_at))
@@ -65,11 +65,12 @@ defmodule VR.Meetings do
   end
 
   @doc """
-  내가 볼 수 있는 회의 목록.
+  The list of meetings I can see.
 
-  Reviewer·Contributor 인 것과, 친구 공개 범위로 열린 것을 합친다.
-  친구 목록을 매번 조인하지 않고 미리 뽑아 `IN` 으로 넣는다 —
-  친구 수는 많아야 수백이라 이쪽이 단순하고 빠르다.
+  Combines the ones where I am Reviewer or Contributor with the ones opened to
+  friends. Instead of joining the friends list each time, we pre-fetch it and
+  pass it via `IN` — a friends list is a few hundred at most, so this way is
+  simpler and faster.
   """
   def list_meetings(%Account{} = account, opts \\ []) do
     account
@@ -82,9 +83,9 @@ defmodule VR.Meetings do
   end
 
   @doc """
-  같은 조건의 전체 개수. 필터 화면이 "N개" 를 보여주려면 필요하다.
+  The total count for the same conditions. Needed for the filter screen to show "N results".
 
-  **목록과 같은 술어를 쓴다.** 복붙하면 반드시 어긋난다.
+  **Uses the same predicates as the list.** Copy-pasting them guarantees drift.
   """
   def count_meetings(%Account{} = account, opts \\ []) do
     account
@@ -95,11 +96,12 @@ defmodule VR.Meetings do
     |> Repo.one()
   end
 
-  # 내가 볼 수 있는 회의.
+  # Meetings I can see.
   #
-  # **`owner_id` 를 넣지 않는다.** `AccessLevel.resolve/3` 가 owner 를 보지 않기 때문이다.
-  # 넣으면 Reviewer 를 남에게 넘긴 회의가 **목록엔 보이는데 열면 404** 가 된다.
-  # 반대로 `resolve` 에 owner 를 넣으면 양도 자체가 무의미해진다.
+  # **Do not include `owner_id`.** `AccessLevel.resolve/3` does not look at the owner.
+  # Including it makes a meeting whose Reviewer role was handed to someone else
+  # **appear in the list but 404 when opened**. Conversely, teaching `resolve`
+  # about the owner would make the handover itself meaningless.
   defp base_query(%Account{} = account) do
     friend_ids = Enum.map(Friends.list_friends(account.id), & &1.id)
 
@@ -123,14 +125,14 @@ defmodule VR.Meetings do
     |> filter_query(opts[:q])
   end
 
-  # 아카이브 화면은 보관한 순서로 본다
+  # The archive screen sorts by when items were archived
   defp apply_order(query, "archived_desc"),
     do: order_by(query, [m], desc_nulls_last: m.archived_at, desc: m.inserted_at)
 
   defp apply_order(query, _default),
     do: order_by(query, [m], desc: m.started_at, desc: m.inserted_at)
 
-  # 기본은 아카이브를 숨긴다. 아카이브 검색 화면에서만 명시적으로 켠다.
+  # Archived meetings are hidden by default. Only the archive search screen turns them on explicitly.
   defp filter_status(query, nil), do: where(query, [m], m.status != "archived")
   defp filter_status(query, "all"), do: query
   defp filter_status(query, status), do: where(query, [m], m.status == ^status)
@@ -141,16 +143,17 @@ defmodule VR.Meetings do
   defp filter_labels(query, nil, _mode), do: query
   defp filter_labels(query, [], _mode), do: query
 
-  # 배열 파라미터의 타입을 명시한다. `^ids` 만 쓰면 Postgrex 가 타입을 추론하지 못해
-  # 쿼리가 통째로 실패할 수 있다.
+  # Make the array parameter type explicit. With bare `^ids`, Postgrex may fail
+  # to infer the type and the whole query can fail.
   defp filter_labels(query, ids, "or"),
     do: where(query, [m], fragment("? && ?", m.label_ids, type(^ids, {:array, :string})))
 
   defp filter_labels(query, ids, _and),
     do: where(query, [m], fragment("? @> ?", m.label_ids, type(^ids, {:array, :string})))
 
-  # 특정 인물이 낀 회의. **출처: sisyphus** `lib/sisyphus/archives.ex` 의 참여자 필터 —
-  # 조직·author 개념을 걷어내고 Reviewer / owner / Contributor 세 자리로 줄였다.
+  # Meetings a given person is part of. **Source: sisyphus** — the participant filter
+  # in `lib/sisyphus/archives.ex`, with the org/author concepts stripped and reduced
+  # to the three seats Reviewer / owner / Contributor.
   defp filter_participant(query, nil), do: query
   defp filter_participant(query, ""), do: query
 
@@ -173,9 +176,9 @@ defmodule VR.Meetings do
   defp filter_query(query, nil), do: query
   defp filter_query(query, ""), do: query
 
-  # `%` 와 `_` 를 이스케이프한다. 안 하면 사용자가 `%` 한 글자를 쳤을 때
-  # 전체가 매치돼 "검색했는데 전부 나온다" 가 된다.
-  # PostgreSQL 의 LIKE 기본 이스케이프 문자가 백슬래시라 ESCAPE 절이 필요 없다.
+  # Escape `%` and `_`. Otherwise a user typing a single `%` matches everything —
+  # "I searched and got every result".
+  # PostgreSQL's default LIKE escape character is backslash, so no ESCAPE clause is needed.
   defp filter_query(query, q) do
     pattern = "%" <> escape_like(q) <> "%"
 
@@ -200,7 +203,7 @@ defmodule VR.Meetings do
   defp maybe_offset(query, 0), do: query
   defp maybe_offset(query, n), do: offset(query, ^n)
 
-  @doc "회의를 만든다. 만든 사람이 Reviewer가 된다."
+  @doc "Create a meeting. The creator becomes the Reviewer."
   def create_meeting(%Account{} = account, attrs \\ %{}) do
     attrs =
       attrs
@@ -221,8 +224,8 @@ defmodule VR.Meetings do
     end
   end
 
-  # 회의에 붙는 분류는 **회의 owner 의 것**이어야 한다.
-  # Contributor 가 자기 라벨을 붙이면 owner 의 아카이브 검색에 걸리지 않는다.
+  # Taxonomy attached to a meeting must belong to **the meeting's owner**.
+  # If a Contributor attaches their own labels, the owner's archive search will not find them.
   defp validate_taxonomy(owner_id, attrs) do
     if Map.has_key?(attrs, :topic_id) or Map.has_key?(attrs, :label_ids) do
       Taxonomy.validate_assignment(
@@ -236,10 +239,10 @@ defmodule VR.Meetings do
   end
 
   @doc """
-  요약 결과를 저장한다.
+  Store a summary result.
 
-  실패 기록만 남기는 경우(`last_summary_error` 만 전달)에도 같은 경로를 쓴다 —
-  기존 `summary_data` 를 지우지 않기 위해서다.
+  The same path is used when only recording a failure (passing just
+  `last_summary_error`) — so the existing `summary_data` is not wiped.
   """
   def update_summary(%Meeting{} = meeting, attrs) do
     meeting |> Meeting.summary_changeset(normalize(attrs)) |> Repo.update()
@@ -259,7 +262,7 @@ defmodule VR.Meetings do
     |> Repo.update()
   end
 
-  @doc "세션 합계를 다시 계산해 회의에 캐시한다."
+  @doc "Recalculate session totals and cache them on the meeting."
   def recalculate_totals(%Meeting{} = meeting) do
     %{duration: duration, credits: credits} =
       Repo.one(
@@ -276,7 +279,7 @@ defmodule VR.Meetings do
     |> Repo.update()
   end
 
-  # ── 녹음 세션 ────────────────────────────────────────────
+  # ── Recording sessions ───────────────────────────────────
 
   def list_sessions(meeting_id) do
     Repo.all(
@@ -287,13 +290,14 @@ defmodule VR.Meetings do
   end
 
   @doc """
-  아직 전사가 끝나지 않은 세션이 남아 있는가.
+  Are there sessions whose transcription has not finished yet?
 
-  긴 회의는 20분마다 쪼개져 세션이 여럿이 되고, 청크마다 몇 분씩 시차를 두고
-  끝난다. **하나라도 남아 있으면 요약을 시작하면 안 된다** — 먼저 끝난 청크만으로
-  만든 반쪽 요약이 저장되고, 나중 청크의 자동 요약은 "이미 요약이 있음"으로
-  건너뛰어 영영 갱신되지 않는다. 사용자가 [다시 요약]으로 크레딧을 한 번 더
-  써야 온전한 요약을 얻는다.
+  A long meeting is split every 20 minutes into multiple sessions, and each
+  chunk finishes minutes apart. **If even one remains, summarization must not
+  start** — a half summary built from only the chunks that finished first would
+  be stored, and the later chunks' auto-summarization would skip with "a summary
+  already exists" and never update it. The user would have to spend credits
+  again via [Re-summarize] to get a complete summary.
   """
   def transcription_pending?(meeting_id) when is_binary(meeting_id) do
     Repo.exists?(
@@ -310,10 +314,11 @@ defmodule VR.Meetings do
   def get_session(_), do: nil
 
   @doc """
-  녹음 세션을 만든다.
+  Create a recording session.
 
-  `session_index`는 회의 안에서 이어 붙인다. 유니크 제약이 걸려 있어
-  동시 요청이 같은 번호를 받으면 하나가 실패한다 — 그때 한 번 다시 시도한다.
+  `session_index` continues sequentially within a meeting. A unique constraint
+  covers it, so if concurrent requests get the same number, one fails — and is
+  then retried once.
   """
   def create_session(%Meeting{} = meeting, attrs \\ %{}) do
     do_create_session(meeting, normalize(attrs), 0)
@@ -351,16 +356,17 @@ defmodule VR.Meetings do
   end
 
   @doc """
-  업로드 완료 등록.
+  Register upload completion.
 
-  `audio_url` 은 **서버가 `storage_key` 에서 만든다.** 클라이언트가 보낸 값은 버린다 —
-  그 값이 전사 워커의 다운로드로 들어가므로 믿으면 SSRF 가 된다.
+  `audio_url` is **built by the server from `storage_key`.** Whatever the client
+  sent is discarded — that value feeds the transcription worker's download, so
+  trusting it means SSRF.
   """
   def register_upload(%RecordingSession{} = session, attrs) do
     session
     |> RecordingSession.upload_changeset(normalize(attrs))
     |> put_audio_url(session)
-    # changeset 이 아니라 여기서 검증한다 — 값을 채우는 것이 컨텍스트이기 때문이다
+    # Validated here rather than in the changeset — because the context is what fills the value in
     |> Ecto.Changeset.validate_required([:audio_url])
     |> Repo.update()
   end
@@ -369,10 +375,10 @@ defmodule VR.Meetings do
     Ecto.Changeset.put_change(changeset, :audio_url, VR.Storage.public_url(key))
   end
 
-  # presign 을 거치지 않은 세션(개발용 시드 등)은 키가 없다. 그대로 둔다.
+  # Sessions that skipped presign (dev seeds, etc.) have no key. Leave them as is.
   defp put_audio_url(changeset, _session), do: changeset
 
-  @doc "presign 단계에서 서버가 정한 저장 키를 기록한다."
+  @doc "Record the storage key the server chose during the presign step."
   def set_storage_key(%RecordingSession{} = session, key) do
     session |> RecordingSession.storage_key_changeset(key) |> Repo.update()
   end
@@ -395,9 +401,9 @@ defmodule VR.Meetings do
     |> Repo.update()
   end
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
-  # 컨트롤러에서 오는 문자열 키와 내부 호출의 아톰 키를 모두 받는다
+  # Accepts both string keys from controllers and atom keys from internal calls
   defp normalize(attrs) when is_map(attrs) do
     Map.new(attrs, fn
       {k, v} when is_binary(k) -> {String.to_existing_atom(k), v}

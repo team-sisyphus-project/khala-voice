@@ -304,7 +304,7 @@ export const ko: UiCatalog = {
     srStopping: "녹음을 마무리하는 중입니다",
     srError: "녹음이 중단되었습니다",
 
-    // 마이크 안내 문안. core(@core/recorder)가 낸 로케일-프리 키를 셸이 번역한다.
+    // Mic guidance copy. The shell translates the locale-free keys emitted by core (@core/recorder).
     guide: {
       title: {
         permission_blocked: "마이크가 차단되어 있습니다",

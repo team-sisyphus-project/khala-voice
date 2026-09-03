@@ -1,18 +1,20 @@
 defmodule VR.Taxonomy.Color do
   @moduledoc """
-  토픽·라벨 색 팔레트.
+  Color palette for topics and labels.
 
-  **출처: sisyphus** `assets/shared/utils/color-picker-utils.js` `DEFAULT_PALETTE` +
-  `lib/sisyphus/accounts/onboarding_templates.ex` 의 기본 라벨 색. HEX 값을 가져왔다.
+  **Source: sisyphus** — `DEFAULT_PALETTE` in
+  `assets/shared/utils/color-picker-utils.js` plus the default label colors in
+  `lib/sisyphus/accounts/onboarding_templates.ex`. The HEX values were taken from there.
 
-  ## 바꾼 것 — 자유 HEX 대신 팔레트 키
+  ## What changed — palette keys instead of free-form HEX
 
-  sisyphus 는 `~r/^#[0-9A-Fa-f]{6}$/` 로 아무 색이나 받았다. 이 앱은 테마가
-  light · dark · pencil · game 넷이라, 사용자가 고른 HEX 하나가 네 배경 모두에서
-  읽히리라는 보장이 없다. **DB 에는 키를 저장하고 실제 색은 테마가 정한다.**
-  (sisyphus 는 자유 HEX 때문에 팔레트가 결국 네 벌로 갈라졌다.)
+  sisyphus accepted any color via `~r/^#[0-9A-Fa-f]{6}$/`. This app has four
+  themes — light, dark, pencil, game — so there is no guarantee a single
+  user-picked HEX reads well against all four backgrounds. **The DB stores the
+  key; the actual color is decided by the theme.**
+  (In sisyphus, free-form HEX eventually split the palette into four copies.)
 
-  컬럼은 `color :string` 그대로다.
+  The column stays `color :string`.
   """
 
   @palette [
@@ -30,18 +32,18 @@ defmodule VR.Taxonomy.Color do
 
   @keys Enum.map(@palette, &elem(&1, 0))
 
-  @doc "쓸 수 있는 색 키."
+  @doc "The available color keys."
   def keys, do: @keys
 
-  @doc "키 → 기준 HEX. 실제 표시는 테마가 덮을 수 있다."
+  @doc "Key → reference HEX. The actual display may be overridden by the theme."
   def hex(key), do: Enum.find_value(@palette, fn {k, hex} -> if k == key, do: hex end)
 
-  @doc "색을 고르지 않았을 때."
+  @doc "When no color was chosen."
   def default, do: "blue"
 
-  @doc "키와 HEX 쌍 전체. 디자인 토큰을 만들 때 쓴다."
+  @doc "All key-HEX pairs. Used when building design tokens."
   def palette, do: @palette
 
-  @doc "쓸 수 있는 키인가."
+  @doc "Is this a usable key?"
   def valid?(key), do: key in @keys
 end

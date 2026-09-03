@@ -1,43 +1,43 @@
-# gitleaks 설정 — 이 리포는 오픈소스로 공개된다.
+# gitleaks configuration — this repo is published as open source.
 # pre-commit:  gitleaks protect --staged --config .gitleaks.toml
 # CI:          gitleaks detect --config .gitleaks.toml --redact
 
 [extend]
 useDefault = true
 
-# 워크플로 export · 설정 JSON은 가장 흔한 유출 경로다.
-# (sisyphus에서 n8n export JSON에 AWS 키가 평문 커밋된 전례가 있다)
+# Workflow exports and config JSON are the most common leak paths.
+# (Precedent: in sisyphus, an AWS key was committed in plaintext inside an n8n export JSON)
 [[rules]]
 id = "aws-access-key-anywhere"
-description = "AWS Access Key ID (모든 파일 형식)"
+description = "AWS Access Key ID (any file type)"
 regex = '''(A3T[A-Z0-9]|AKIA|ASIA|ABIA|ACCA)[A-Z0-9]{16}'''
 
 [[rules]]
 id = "gcp-service-account-json"
-description = "GCP 서비스 계정 개인키"
+description = "GCP service account private key"
 regex = '''"type"\s*:\s*"service_account"'''
 
-# 이 앱이 발급하는 자격증명. 공유 토큰은 **추가 인증 없이 즉시 통한다** —
-# 실수로 커밋되면 그 회의가 통째로 열린다.
+# Credentials issued by this app. Share tokens **work immediately without any
+# further authentication** — committing one by accident opens up the whole meeting.
 [[rules]]
 id = "vr-share-token"
-description = "회의 공유 링크 토큰 (slt_)"
+description = "Meeting share link token (slt_)"
 regex = '''\bslt_[A-Za-z0-9_\-]{40,}'''
 
 [[rules]]
 id = "vr-guest-token"
-description = "게스트 세션 토큰 (gst_)"
+description = "Guest session token (gst_)"
 regex = '''\bgst_[A-Za-z0-9_\-]{40,}'''
 
 [[rules]]
 id = "generic-api-key-assignment"
-description = "코드에 하드코딩된 키 할당"
+description = "Hardcoded key assignment in code"
 regex = '''(?i)(api[_-]?key|secret[_-]?key|access[_-]?key|client[_-]?secret|password|token)\s*[:=]\s*["'][A-Za-z0-9_\-/+]{16,}["']'''
 
 [[allowlists]]
-description = "예제 · 문서 · 테스트 픽스처"
-# ⚠ targetRules 를 반드시 둔다. 없으면 이 경로에서 **모든 규칙이 꺼져**
-#    문서에 붙여넣은 진짜 AWS 키도 안 잡힌다.
+description = "Examples, docs, test fixtures"
+# ⚠ targetRules is mandatory here. Without it, **every rule is disabled** on
+#    these paths — a real AWS key pasted into a doc would not be caught.
 targetRules = ["generic-api-key", "generic-api-key-assignment"]
 paths = [
   '''\.env\.example$''',
@@ -45,15 +45,15 @@ paths = [
   '''\.gitleaks\.toml$''',
 ]
 regexes = [
-  '''AKIAIOSFODNN7EXAMPLE''',      # AWS 공식 문서 예제 값
+  '''AKIAIOSFODNN7EXAMPLE''',      # example value from the official AWS docs
   '''(?i)your[_-]?(api[_-])?key''',
   '''(?i)(xxx+|<[a-z_]+>|\.\.\.)''',
 ]
 
-# 커밋 대상이 아닌 경로. 서드파티 소스와 빌드 산출물까지 훑으면
-# 오탐이 쌓여 진짜 유출이 묻힌다.
+# Paths that are never commit targets. Scanning third-party sources and build
+# output piles up false positives that bury real leaks.
 [[allowlists]]
-description = "빌드 산출물 · 서드파티 · 개발용 인증서"
+description = "Build output, third-party code, dev certificates"
 paths = [
   '''^backend/deps/''',
   '''^backend/_build/''',
@@ -62,11 +62,11 @@ paths = [
   '''^backend/priv/static/''',
 ]
 
-# Phoenix 가 생성하는 dev/test secret_key_base, CI 전용 더미 키, 테스트 비밀번호.
-# 실서비스 값이 아니고 이 파일들에만 산다.
-# AWS·GCP 키 규칙은 여기서도 그대로 살아 있다 — 진짜 키는 어디에 있든 걸린다.
+# Phoenix-generated dev/test secret_key_base, CI-only dummy keys, test passwords.
+# None are production values, and they live only in these files.
+# The AWS/GCP key rules still apply here — a real key gets caught wherever it is.
 [[allowlists]]
-description = "개발/테스트 전용 상수"
+description = "Dev/test-only constants"
 targetRules = ["generic-api-key", "generic-api-key-assignment"]
 paths = [
   '''^backend/config/(dev|test)\.exs$''',

@@ -1,25 +1,27 @@
 defmodule VR.Sharing.SharedLink do
   @moduledoc """
-  회의 공유 링크.
+  A meeting share link.
 
-  **출처: sisyphus** `lib/sisyphus/shared_links/shared_link.ex` — 구조만 가져왔다. 바꾼 것:
+  **Source: sisyphus** `lib/sisyphus/shared_links/shared_link.ex` — only the structure was taken. What changed:
 
-  | sisyphus | 이 앱 | 왜 |
+  | sisyphus | this app | why |
   |---|---|---|
-  | `resource_type` + `resource_id` 다형 참조 | `meeting_id` 단일 FK | 이 앱에는 공유할 것이 회의뿐이다. 다형 참조는 FK 제약을 못 걸어 고아 행이 남는다 |
-  | (없음) | `granted_role` | 게스트가 **어떤 역할로** 들어올지를 링크가 정한다. sisyphus 게스트는 역할이 없었다 |
-  | 평문 `token` | sha256 `token_hash` + `token_prefix` | 토큰은 추가 인증 없이 통하는 자격증명이다. DB 를 본 사람이 곧 방문자가 된다 |
-  | 평문 `pincode`, `:rand.uniform` 생성 | Bcrypt `pin_hash`, CSPRNG 생성 | 원본은 CSPRNG 가 아니었고 범위도 어긋나 `100000` 이 나오지 않았다 |
-  | `changeset` 이 `:id`·`:token`·`:use_count` 를 cast | 전부 `put_change` | 요청 본문으로 사용 횟수나 토큰을 덮어쓸 수 있었다 |
+  | `resource_type` + `resource_id` polymorphic reference | single `meeting_id` FK | The only shareable thing in this app is a meeting. Polymorphic references cannot carry an FK constraint, leaving orphan rows |
+  | (none) | `granted_role` | The link decides **which role** a guest enters with. sisyphus guests had no role |
+  | plaintext `token` | sha256 `token_hash` + `token_prefix` | The token is a credential that works with no further authentication. Whoever reads the DB becomes a visitor |
+  | plaintext `pincode`, `:rand.uniform` generation | Bcrypt `pin_hash`, CSPRNG generation | The original was not a CSPRNG, and its range was off so `100000` could never occur |
+  | `changeset` casts `:id`, `:token`, `:use_count` | all via `put_change` | The request body could overwrite the use count or the token |
 
-  ## `granted_role` 은 수정할 수 없다
+  ## `granted_role` cannot be modified
 
-  이미 배포된 `viewer` 링크를 나중에 `contributor` 로 올리면, **그 링크를 받은
-  모든 사람의 권한이 소급 상승**한다. 링크를 나눠준 시점의 약속이 깨진다.
-  역할을 바꾸려면 폐기하고 다시 발급해야 한다.
+  If an already-distributed `viewer` link were later raised to `contributor`,
+  **everyone who received that link would be retroactively upgraded**. The
+  promise made when the link was handed out would break. To change the role,
+  revoke and reissue.
 
-  `"reviewer"` 는 어떤 경로로도 들어갈 수 없다 — 링크 하나로 삭제 권한까지 넘길 수는 없다.
-  changeset 검증과 DB check 제약 **양쪽**에 박아 둔다.
+  `"reviewer"` cannot get in through any path — a single link must not hand
+  over deletion rights. Enforced in **both** the changeset validation and a DB
+  check constraint.
   """
 
   use Ecto.Schema
@@ -72,9 +74,10 @@ defmodule VR.Sharing.SharedLink do
   def pin_lock_minutes, do: @pin_lock_minutes
 
   @doc """
-  새 링크. `{평문_토큰, 평문_PIN|nil, changeset}` 을 돌려준다.
+  A new link. Returns `{plaintext_token, plaintext_pin | nil, changeset}`.
 
-  평문은 이 시점 이후로 다시 구할 수 없다. 발급 응답에 한 번 실어 보내고 버린다.
+  The plaintext can never be recovered after this point. It is sent once in the
+  issuance response and then discarded.
   """
   def build(meeting_id, created_by_id, attrs \\ %{}) do
     raw = :crypto.strong_rand_bytes(@rand_size)
@@ -98,7 +101,8 @@ defmodule VR.Sharing.SharedLink do
         :require_email,
         :metadata
       ])
-      # 아래 값들은 **절대 cast 하지 않는다.** 요청 본문이 토큰이나 사용 횟수를 정할 수 없다.
+      # The values below are **never cast.** The request body cannot decide the
+      # token or the use count.
       |> put_change(:id, IdGenerator.generate(:shared_link))
       |> put_change(:meeting_id, meeting_id)
       |> put_change(:created_by_id, created_by_id)
@@ -113,10 +117,10 @@ defmodule VR.Sharing.SharedLink do
   end
 
   @doc """
-  발급 뒤 바꿀 수 있는 것.
+  What can be changed after issuance.
 
-  **`granted_role` 이 없다.** 배포된 링크의 역할을 올리면 그 링크를 받은
-  모두의 권한이 소급 상승한다.
+  **`granted_role` is absent.** Raising a distributed link's role would
+  retroactively upgrade everyone who received it.
   """
   def update_changeset(link, attrs) do
     link
@@ -124,7 +128,7 @@ defmodule VR.Sharing.SharedLink do
     |> validate()
   end
 
-  @doc "토큰만 새로 만든다. 설정과 사용 횟수는 유지한다. `{평문_토큰, changeset}`."
+  @doc "Regenerates only the token. Settings and use count are kept. Returns `{plaintext_token, changeset}`."
   def rotate_changeset(link) do
     raw = :crypto.strong_rand_bytes(@rand_size)
     token = @token_prefix <> Base.url_encode64(raw, padding: false)
@@ -138,14 +142,14 @@ defmodule VR.Sharing.SharedLink do
     {token, changeset}
   end
 
-  @doc "PIN 을 켜거나 끈다. 켜면 새 PIN 을 만들어 `{평문_PIN, changeset}`."
+  @doc "Turns the PIN on or off. When turning on, generates a new PIN and returns `{plaintext_pin, changeset}`."
   def pin_changeset(link, :on) do
     pin = generate_pincode()
 
     changeset =
       change(link, %{
         pin_hash: Bcrypt.hash_pwd_salt(pin),
-        # 새 PIN 을 만들면 이전 실패 기록은 의미가 없다
+        # With a new PIN, the previous failure record is meaningless
         failed_pin_attempts: 0,
         pin_locked_until: nil
       })
@@ -157,7 +161,7 @@ defmodule VR.Sharing.SharedLink do
     {nil, change(link, %{pin_hash: nil, failed_pin_attempts: 0, pin_locked_until: nil})}
   end
 
-  @doc "URL 의 토큰 문자열을 DB 조회용 해시로 바꾼다."
+  @doc "Converts the token string from the URL into the hash used for DB lookup."
   def hash_token(@token_prefix <> encoded) when is_binary(encoded) do
     case Base.url_decode64(encoded, padding: false) do
       {:ok, raw} -> {:ok, :crypto.hash(:sha256, raw)}
@@ -168,15 +172,16 @@ defmodule VR.Sharing.SharedLink do
   def hash_token(_), do: :error
 
   @doc """
-  6자리 PIN. **CSPRNG 로 만들고 000000~999999 를 균등하게 준다.**
+  A 6-digit PIN. **Generated with a CSPRNG, uniform over 000000–999999.**
 
-  sisyphus 는 `:rand.uniform(899_999) + 100_000` 이었다 — CSPRNG 가 아니고
-  `100000` 이 절대 나오지 않았다.
+  sisyphus used `:rand.uniform(899_999) + 100_000` — not a CSPRNG, and
+  `100000` could never occur.
   """
   def generate_pincode do
     <<value::unsigned-integer-32>> = :crypto.strong_rand_bytes(4)
 
-    # 2^32 는 1_000_000 의 배수가 아니다. 나머지 구간을 버려 균등성을 지킨다.
+    # 2^32 is not a multiple of 1_000_000. Discard the remainder range to keep
+    # the distribution uniform.
     limit = div(4_294_967_296, 1_000_000) * 1_000_000
 
     if value >= limit do
@@ -189,7 +194,7 @@ defmodule VR.Sharing.SharedLink do
     end
   end
 
-  @doc "PIN 이 맞는가. **PIN 미제출도 같은 시간을 쓴다** — 필요 여부가 응답 시간으로 새지 않게."
+  @doc "Is the PIN correct? **A missing PIN takes the same time** — so whether one is required does not leak through response timing."
   def valid_pin?(%__MODULE__{pin_hash: nil}, _pin), do: true
 
   def valid_pin?(%__MODULE__{pin_hash: hash}, pin) when is_binary(hash) and is_binary(pin),
@@ -200,10 +205,10 @@ defmodule VR.Sharing.SharedLink do
     false
   end
 
-  @doc "지금 이 링크로 들어올 수 있는가."
+  @doc "Can this link be entered right now?"
   def usable?(link, now \\ nil), do: status(link, now) == :ok
 
-  @doc "왜 못 들어오는지. 로그·어드민 화면용 — **응답 본문에는 쓰지 않는다.**"
+  @doc "Why entry is not possible. For logs and admin screens — **never used in response bodies.**"
   def status(link, now \\ nil) do
     now = now || DateTime.utc_now(:second)
 
@@ -217,13 +222,13 @@ defmodule VR.Sharing.SharedLink do
     end
   end
 
-  @doc "PIN 잠금 중인가."
+  @doc "Is the PIN locked out?"
   def pin_locked?(%__MODULE__{pin_locked_until: nil}), do: false
 
   def pin_locked?(%__MODULE__{pin_locked_until: until}),
     do: DateTime.compare(until, DateTime.utc_now(:second)) == :gt
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
   defp validate(changeset) do
     changeset
@@ -245,7 +250,7 @@ defmodule VR.Sharing.SharedLink do
       value ->
         if DateTime.compare(value, DateTime.utc_now(:second)) == :gt,
           do: changeset,
-          else: add_error(changeset, field, "이미 지난 시각입니다")
+          else: add_error(changeset, field, "is already in the past")
     end
   end
 
@@ -254,13 +259,13 @@ defmodule VR.Sharing.SharedLink do
       value when is_map(value) ->
         if byte_size(Jason.encode!(value)) <= @metadata_max_bytes,
           do: changeset,
-          else: add_error(changeset, :metadata, "너무 큽니다")
+          else: add_error(changeset, :metadata, "is too large")
 
       nil ->
         changeset
 
       _ ->
-        add_error(changeset, :metadata, "맵이어야 합니다")
+        add_error(changeset, :metadata, "must be a map")
     end
   end
 

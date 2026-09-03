@@ -1,8 +1,9 @@
 defmodule VRWeb.AuthLive.ResetPasswordLive do
   @moduledoc """
-  비밀번호 재설정.
+  Password reset.
 
-  토큰은 마운트 시 존재만 확인하고, 실제 소진은 제출 시점에 한 번만 일어난다.
+  The token's existence is only checked at mount; it is actually consumed
+  exactly once, at submit time.
   """
 
   use VRWeb, :live_view

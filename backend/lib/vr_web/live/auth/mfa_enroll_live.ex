@@ -1,24 +1,27 @@
 defmodule VRWeb.AuthLive.MFAEnrollLive do
   @moduledoc """
-  로그인 2단계 — **2단계 인증 등록**.
+  Sign-in step two — **two-factor authentication enrollment**.
 
-  **출처: devkanban** `lib/manualsquad_web/controllers/session_controller.ex` 의
-  `enroll/2` · `verify_enroll/2` 와 `session_html/enroll.html.heex`.
-  같은 문제(어드민 MFA 데드락)를 같은 방법으로 푼다 — 마크업은 이 앱 것이다.
+  **Source: devkanban** — `enroll/2` and `verify_enroll/2` in
+  `lib/manualsquad_web/controllers/session_controller.ex`, plus
+  `session_html/enroll.html.heex`. Solves the same problem (the admin MFA
+  deadlock) the same way — the markup is this app's own.
 
-  ## 왜 로그인 구역에 있나
+  ## Why this lives in the sign-in area
 
-  2단계 인증이 **의무**인 계정(시스템 어드민)이 아직 켜지 않았다면, 켜기 전에는
-  어디에도 못 들어간다. 그런데 켜는 화면이 어드민 구역 안에 있으면 **자기 자신을
-  막는 문이 된다** — 신규 어드민은 DB 를 직접 건드리지 않는 한 영원히 들어갈 수 없다.
+  An account for which two-factor authentication is **mandatory** (system
+  admins) can get in nowhere until it is turned on. But if the enrollment
+  screen sits inside the admin area, it becomes **a door that locks itself** —
+  a new admin can never get in without touching the DB directly.
 
-  그래서 이 화면은 로그인 흐름의 일부다. 비밀번호는 통과했고 세션은 아직 없는
-  상태에서, 등록을 마쳐야 로그인이 완료된다.
+  So this screen is part of the sign-in flow. The password has passed and
+  there is no session yet; sign-in completes only once enrollment is done.
 
-  ## 화면에 계정을 드러내지 않는다
+  ## The screen does not reveal the account
 
-  `MFALive` 와 같은 이유다 — 이 화면에 도달한 것만으로 그 계정이 어드민이라는
-  사실이 새어 나가면 안 된다. 이메일 대신 발급용 URI 만 보여준다.
+  Same reason as `MFALive` — merely reaching this screen must not leak the
+  fact that the account is an admin. We show only the provisioning URI, not
+  the email.
   """
 
   use VRWeb, :live_view
@@ -32,8 +35,9 @@ defmodule VRWeb.AuthLive.MFAEnrollLive do
   def mount(_params, session, socket) do
     with id when is_binary(id) <- session["mfa_pending_account_id"],
          account when not is_nil(account) <- Accounts.get_account(id) do
-      # 비밀키는 **한 번만** 만든다. 코드가 틀렸다고 새로 만들면 사용자가 방금
-      # 스캔한 QR 이 무효가 된다 (devkanban `build_totp_setup_for_secret` 의 이유).
+      # Generate the secret **only once**. Regenerating it because a code was
+      # wrong would invalidate the QR the user just scanned (the reason for
+      # devkanban's `build_totp_setup_for_secret`).
       secret = MFA.generate_secret()
 
       {:ok,
@@ -69,8 +73,8 @@ defmodule VRWeb.AuthLive.MFAEnrollLive do
         <li>{gettext("Enter the 6-digit code the app shows")}</li>
       </ol>
 
-      <%!-- QR 라이브러리를 새로 들이지 않는다. 대부분의 인증기 앱은 키를 직접
-            입력할 수 있고, 그것만으로 등록이 끝난다. --%>
+      <%!-- We don't pull in a QR library. Most authenticator apps accept the
+            key entered by hand, and that alone completes enrollment. --%>
       <div class="vr-enroll-secret">
         <code>{@encoded_secret}</code>
         <button

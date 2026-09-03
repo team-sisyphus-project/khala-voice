@@ -2,16 +2,19 @@ defmodule VRWeb.PageController do
   use VRWeb, :controller
 
   @doc """
-  루트(`/`)는 앱으로 보낸다.
+  The root (`/`) redirects into the app.
 
-  `/go` 는 **표면 중립** 접두어다 — 데스크톱(`/app`)인지 모바일(`/m`)인지는
-  브라우저가 정한다 (`apps/web/src/lib/surface.ts`). 서버는 폭을 모른다.
+  `/go` is a **surface-neutral** prefix — whether it means desktop (`/app`) or
+  mobile (`/m`) is decided by the browser (`apps/web/src/lib/surface.ts`).
+  The server does not know the viewport width.
 
-  랜딩 페이지를 두지 않는다 — 이 서비스는 로그인해서 쓰는 것이고, 소개는
-  리포의 README 가 한다. Phoenix 기본 템플릿이 그대로 떠 있던 자리다.
+  There is no landing page — this service is used signed-in, and the repo's
+  README does the introducing. This is where the default Phoenix template
+  used to sit.
 
-  로그인하지 않았다면 `/go/meetings` 의 `:require_auth` 가 다시 `/login` 으로
-  보낸다. 그래서 여기서 로그인 여부를 따지지 않는다 — 판정은 한 곳(플러그)에만 둔다.
+  If the user is not signed in, `:require_auth` on `/go/meetings` sends them
+  back to `/login`. So we do not check the sign-in state here — that decision
+  lives in exactly one place (the plug).
   """
   def home(conn, _params) do
     redirect(conn, to: "/go/meetings")

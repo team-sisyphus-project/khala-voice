@@ -8,21 +8,23 @@ import { LanguageField } from "@/components/LanguageField";
 import type { CurrentAccount } from "@core/api";
 
 /**
- * 녹음 설정 — 마이크와 전사 언어.
+ * Recording preferences — microphone and transcription language.
  *
- * 엔진은 처음부터 장치 선택을 지원했는데(`Recorder.listMicrophones` · `deviceId`)
- * 화면이 그걸 꺼내 쓰지 않아 **늘 기본 장치로만** 녹음됐다. 회의 녹음에서
- * 이건 조용한 실패다 — 노트북 내장 마이크로 회의실 전체를 담으려다
- * 전사 품질이 무너져도 사용자는 이유를 알 수 없다.
+ * The engine supported device selection from the start
+ * (`Recorder.listMicrophones` · `deviceId`), but the UI never surfaced it, so
+ * recordings **always used the default device**. For meeting recordings that's
+ * a silent failure — trying to capture a whole meeting room with a laptop's
+ * built-in mic wrecks transcription quality, and the user can't tell why.
  *
- * 장치 라벨은 **권한을 준 뒤에만** 브라우저가 알려준다. 그래서 라벨이 비어 있으면
- * 권한부터 받는다.
+ * The browser reveals device labels **only after permission is granted**. So
+ * if labels are empty, ask for permission first.
  *
- * ## 차단된 상태에서는 "권한 주기" 를 띄우지 않는다
+ * ## Don't show "Grant permission" while blocked
  *
- * 라벨이 비었다는 사실만 보고 버튼을 띄우면, **이미 차단된** 기기에서는 눌러도
- * 아무 창이 뜨지 않는다. 사용자는 버튼이 고장 난 줄 알고 계속 누른다.
- * 그 경우에는 버튼 대신 이 기기에서 차단을 푸는 절차를 보여준다.
+ * Showing the button based only on empty labels means that on an **already
+ * blocked** device, pressing it opens no prompt at all. The user assumes the
+ * button is broken and keeps pressing. In that case, show the steps to unblock
+ * on this device instead of the button.
  */
 export function RecordingPrefsSheet({
   micDeviceId,
@@ -64,12 +66,12 @@ export function RecordingPrefsSheet({
   useEffect(() => {
     void load();
 
-    // 블루투스 헤드셋을 껐다 켜면 목록이 바뀐다
+    // Toggling a Bluetooth headset off and on changes the list
     const onChange = () => void load();
     navigator.mediaDevices?.addEventListener("devicechange", onChange);
 
-    // 다른 탭의 브라우저 설정에서 차단을 풀면 이쪽도 즉시 따라간다.
-    // 이게 없으면 설정을 고쳐 놓고도 시트를 닫았다 열어야 한다.
+    // Unblocking from browser settings in another tab is picked up here instantly.
+    // Without this, you'd have to close and reopen the sheet after fixing the setting.
     const stopWatching = Recorder.watchPermission(() => void load());
 
     return () => {
@@ -79,10 +81,10 @@ export function RecordingPrefsSheet({
   }, [load]);
 
   /**
-   * 권한 창을 띄운다.
+   * Open the permission prompt.
    *
-   * 거절당했을 때 조용히 목록만 다시 읽으면 화면은 아무 일도 없었던 것처럼
-   * 보인다 — 실패를 그 자리에 남긴다.
+   * If a denial just quietly re-read the list, the screen would look like
+   * nothing happened — leave the failure right there in place.
    */
   async function grant() {
     const result = await Recorder.requestPermission();
@@ -130,7 +132,7 @@ export function RecordingPrefsSheet({
               </ol>
             )}
 
-            {/* 다시 물어볼 수 있을 때만 버튼을 둔다 — 굳은 차단에서는 눌러도 창이 안 뜬다 */}
+            {/* Show the button only when asking again is possible — under a hard block, pressing opens nothing */}
             {trouble.recovery?.retryable && (
               <Button icon="mic" onClick={() => void grant()}>
                 {t("common.retry")}
@@ -156,8 +158,8 @@ export function RecordingPrefsSheet({
           {devices.map((device) => (
             <MicOption
               key={device.deviceId}
-              // 라벨은 권한 전에는 비어 있다 — 그때의 "마이크 N" 대체 표기는
-              // core 가 아니라 셸이 만든다(core 는 로케일 문안 비생성).
+              // Labels are empty before permission — the "Microphone N" fallback
+              // for that case is built by the shell, not core (core produces no locale copy).
               label={device.label || t("recordingPrefs.micFallback", { index: device.index })}
               active={micDeviceId === device.deviceId}
               onClick={() => onMicChange(device.deviceId)}

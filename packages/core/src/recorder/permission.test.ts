@@ -9,7 +9,7 @@ import {
   refinePermissionCode,
 } from "./permission.ts";
 
-/** DOMException 을 흉내낸다 — node 에는 getUserMedia 가 없다. */
+/** Mimics DOMException — node has no getUserMedia. */
 function domError(name: string, message = ""): Error {
   const error = new Error(message);
   error.name = name;
@@ -44,7 +44,7 @@ const UA = {
 };
 
 describe("detectPlatform", () => {
-  it("데스크톱 Chrome", () => {
+  it("desktop Chrome", () => {
     const p = detectPlatform(UA.chromeMac, { maxTouchPoints: 0, standalone: false });
     equal(p.browser, "chrome");
     equal(p.engine, "blink");
@@ -53,19 +53,19 @@ describe("detectPlatform", () => {
     equal(p.webview, false);
   });
 
-  it("Edge 는 UA 에 Chrome 을 달고 있어도 Edge 다", () => {
-    // 순서를 잘못 잡으면 Edge 사용자에게 Chrome 메뉴 경로를 안내하게 된다
+  it("Edge is Edge even with Chrome in the UA", () => {
+    // Getting the order wrong would guide Edge users down Chrome menu paths
     equal(detectPlatform(UA.edge, { maxTouchPoints: 0, standalone: false }).browser, "edge");
   });
 
-  it("삼성 인터넷도 Chrome 으로 새지 않는다", () => {
+  it("Samsung Internet does not leak into Chrome either", () => {
     const p = detectPlatform(UA.samsung, { maxTouchPoints: 1, standalone: false });
     equal(p.browser, "samsung");
     equal(p.engine, "blink");
     equal(p.os, "android");
   });
 
-  it("Firefox 는 gecko", () => {
+  it("Firefox is gecko", () => {
     const p = detectPlatform(UA.firefox, { maxTouchPoints: 0, standalone: false });
     equal(p.browser, "firefox");
     equal(p.engine, "gecko");
@@ -78,39 +78,39 @@ describe("detectPlatform", () => {
     equal(p.mobile, true);
   });
 
-  it("iOS 의 Chrome 도 엔진은 WebKit 이다", () => {
-    // 권한 안내는 브라우저 이름이 아니라 엔진을 따라가야 한다.
-    // CriOS 에 Chrome 데스크톱 안내를 주면 존재하지 않는 메뉴를 찾게 된다.
+  it("Chrome on iOS still has a WebKit engine", () => {
+    // Permission guidance must follow the engine, not the browser name.
+    // Giving CriOS the Chrome desktop guidance sends users hunting for menus that do not exist.
     const p = detectPlatform(UA.chromeIphone, { maxTouchPoints: 5, standalone: false });
     equal(p.browser, "chrome");
     equal(p.engine, "webkit");
     equal(p.os, "ios");
   });
 
-  it("iPadOS 는 맥인 척한다 — 터치 포인트로 가른다", () => {
+  it("iPadOS pretends to be a Mac — split by touch points", () => {
     equal(detectPlatform(UA.ipadOs, { maxTouchPoints: 5, standalone: false }).os, "ios");
     equal(detectPlatform(UA.ipadOs, { maxTouchPoints: 0, standalone: false }).os, "macos");
   });
 
-  it("카카오톡 인앱 브라우저를 잡는다", () => {
+  it("catches the KakaoTalk in-app browser", () => {
     ok(detectPlatform(UA.kakaoAndroid, { maxTouchPoints: 5, standalone: false }).webview);
     ok(detectPlatform(UA.kakaoIos, { maxTouchPoints: 5, standalone: false }).webview);
   });
 
-  it("안드로이드 WebView(; wv) 를 잡는다", () => {
+  it("catches Android WebView (; wv)", () => {
     ok(detectPlatform(UA.androidWebView, { maxTouchPoints: 5, standalone: false }).webview);
   });
 
-  it("홈 화면 PWA 는 인앱 브라우저가 아니다", () => {
-    // iOS standalone 은 UA 에서 Safari 토큰이 빠진다. 이걸 인앱으로 오인하면
-    // 정상 설치 사용자에게 "다른 브라우저로 여세요" 를 띄우게 된다.
+  it("a home-screen PWA is not an in-app browser", () => {
+    // iOS standalone drops the Safari token from the UA. Mistaking that for
+    // in-app would show "open in another browser" to properly installed users.
     const ua = UA.safariIphone.replace(" Safari/604.1", "");
     equal(detectPlatform(ua, { maxTouchPoints: 5, standalone: true }).webview, false);
   });
 });
 
 describe("classifyMediaError", () => {
-  it("Chrome 은 메시지로만 갈린다", () => {
+  it("Chrome splits only by message", () => {
     equal(classifyMediaError(domError("NotAllowedError", "Permission denied")), "permission_denied");
     equal(
       classifyMediaError(domError("NotAllowedError", "Permission dismissed")),
@@ -128,51 +128,51 @@ describe("classifyMediaError", () => {
     );
   });
 
-  it("Safari 처럼 메시지가 비어도 권한 오류로는 읽는다", () => {
+  it("an empty message, as in Safari, still reads as a permission error", () => {
     equal(classifyMediaError(domError("NotAllowedError")), "permission_denied");
   });
 
-  it("구형 이름도 받는다", () => {
+  it("accepts legacy names too", () => {
     equal(classifyMediaError(domError("PermissionDeniedError")), "permission_denied");
     equal(classifyMediaError(domError("DevicesNotFoundError")), "no_device");
     equal(classifyMediaError(domError("TrackStartError")), "device_busy");
   });
 
-  it("점유·부재·제약을 구분한다", () => {
+  it("distinguishes busy, missing, and constrained", () => {
     equal(classifyMediaError(domError("NotReadableError")), "device_busy");
     equal(classifyMediaError(domError("NotFoundError")), "no_device");
     equal(classifyMediaError(domError("OverconstrainedError")), "device_unavailable");
   });
 
-  it("모르는 것과 빈 값은 unknown", () => {
+  it("unrecognized and empty values are unknown", () => {
     equal(classifyMediaError(domError("WeirdError")), "unknown");
     equal(classifyMediaError(null), "unknown");
     equal(classifyMediaError(undefined), "unknown");
-    equal(classifyMediaError("문자열"), "unknown");
+    equal(classifyMediaError("a string"), "unknown");
   });
 });
 
 describe("refinePermissionCode", () => {
-  it("denied 면 굳은 차단으로 올린다", () => {
+  it("denied upgrades to a hardened block", () => {
     equal(refinePermissionCode("permission_denied", "denied"), "permission_blocked");
     equal(refinePermissionCode("permission_dismissed", "denied"), "permission_blocked");
   });
 
-  it("prompt 면 아직 물어볼 수 있다", () => {
+  it("prompt means asking is still possible", () => {
     equal(refinePermissionCode("permission_denied", "prompt"), "permission_dismissed");
   });
 
-  it("Safari(unknown) 에서는 단정하지 않는다", () => {
-    // 여기서 blocked 로 단정하면 실제로는 다시 물어볼 수 있는 사용자의 길을 막는다
+  it("never presumes on Safari (unknown)", () => {
+    // Presuming blocked here walls off users who could actually be asked again
     equal(refinePermissionCode("permission_denied", "unknown"), "permission_denied");
   });
 
-  it("OS·iframe 차단은 사이트 권한 상태로 덮지 않는다", () => {
+  it("OS/iframe blocks are not overwritten by the site permission state", () => {
     equal(refinePermissionCode("system_denied", "prompt"), "system_denied");
     equal(refinePermissionCode("embed_blocked", "denied"), "embed_blocked");
   });
 
-  it("권한과 무관한 코드는 그대로", () => {
+  it("codes unrelated to permission pass through", () => {
     equal(refinePermissionCode("device_busy", "denied"), "device_busy");
     equal(refinePermissionCode("no_device", "prompt"), "no_device");
   });
@@ -183,23 +183,23 @@ describe("micRecoveryGuide", () => {
   const ios = detectPlatform(UA.safariIphone, { maxTouchPoints: 5, standalone: false });
   const kakao = detectPlatform(UA.kakaoIos, { maxTouchPoints: 5, standalone: false });
 
-  // 안내는 이제 로케일-프리 키(GuideMessage)로 나온다 — 문안이 아니라 키를 대조한다.
+  // Guidance now comes out as locale-free keys (GuideMessage) — assert keys, not wording.
   const stepKeys = (guide: { steps: { key: string }[] }) => guide.steps.map((s) => s.key);
 
-  it("굳은 차단은 다시 시도를 권하지 않는다", () => {
+  it("a hardened block does not suggest retrying", () => {
     const guide = micRecoveryGuide("permission_blocked", chrome);
     equal(guide.retryable, false);
     equal(guide.needsSettings, true);
     ok(guide.steps.length > 0);
   });
 
-  it("창을 닫은 것은 다시 시도가 통한다", () => {
+  it("a dismissed prompt retries fine", () => {
     const guide = micRecoveryGuide("permission_dismissed", chrome);
     equal(guide.retryable, true);
     equal(guide.needsSettings, false);
   });
 
-  it("기기마다 안내 경로가 다르다", () => {
+  it("guidance paths differ per device", () => {
     const win = stepKeys(micRecoveryGuide("permission_blocked", chrome));
     const iphone = stepKeys(micRecoveryGuide("permission_blocked", ios));
 
@@ -208,8 +208,8 @@ describe("micRecoveryGuide", () => {
     notDeepEqual(iphone, win);
   });
 
-  it("Chromium 안내는 브라우저 메뉴명을 파라미터로 싣는다", () => {
-    // 문안은 셸이 번역하되, "Edge/Chrome" 분기는 core 의 로직이라 파라미터로 실린다.
+  it("Chromium guidance carries the browser menu name as a param", () => {
+    // The shell translates the wording, but the "Edge/Chrome" split is core logic, so it rides as a param.
     const edge = detectPlatform(UA.edge, { maxTouchPoints: 0, standalone: false });
     const allow = micRecoveryGuide("permission_blocked", edge).steps.find(
       (s) => s.key === "step.siteChromiumAllow",
@@ -218,20 +218,20 @@ describe("micRecoveryGuide", () => {
     equal(allow?.params?.menu, "Edge");
   });
 
-  it("인앱 브라우저는 권한 오류의 결론이 하나다 — 다른 브라우저로 열기", () => {
+  it("in-app browsers have one conclusion for permission errors — open in another browser", () => {
     const guide = micRecoveryGuide("permission_blocked", kakao);
     equal(guide.retryable, false);
     equal(guide.needsSettings, false);
     ok(stepKeys(guide).includes("step.openInBrowserIosSafari"));
   });
 
-  it("OS 차단은 브라우저 설정이 아니라 시스템 설정으로 보낸다", () => {
+  it("OS blocks send users to system settings, not browser settings", () => {
     const guide = micRecoveryGuide("system_denied", chrome);
     ok(stepKeys(guide).some((k) => k.startsWith("step.system")));
     equal(guide.retryable, false);
   });
 
-  it("모든 코드가 원인과 안내를 갖는다", () => {
+  it("every code has a cause and guidance", () => {
     const codes = [
       "unsupported",
       "insecure_context",
@@ -249,16 +249,16 @@ describe("micRecoveryGuide", () => {
 
     for (const code of codes) {
       const guide = micRecoveryGuide(code, chrome);
-      ok(guide.cause.key.length > 0, `${code} 원인 없음`);
-      ok(guide.steps.length > 0, `${code} 안내 없음`);
-      ok(guide.steps.every((s) => s.key.length > 0), `${code} 빈 스텝`);
-      ok(micErrorTitle(code).key.length > 0, `${code} 제목 없음`);
+      ok(guide.cause.key.length > 0, `${code} has no cause`);
+      ok(guide.steps.length > 0, `${code} has no guidance`);
+      ok(guide.steps.every((s) => s.key.length > 0), `${code} has an empty step`);
+      ok(micErrorTitle(code).key.length > 0, `${code} has no title`);
     }
   });
 });
 
 describe("isPermissionCode", () => {
-  it("권한 계열만 참", () => {
+  it("true only for the permission family", () => {
     ok(isPermissionCode("permission_blocked"));
     ok(isPermissionCode("system_denied"));
     equal(isPermissionCode("device_busy"), false);

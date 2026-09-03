@@ -1,12 +1,12 @@
 /* See the Tailwind configuration guide for advanced usage
    https://tailwindcss.com/docs/configuration */
 
-/* 디자인 시스템 — 웹앱(React)과 **같은 파일**을 읽는다.
-   두 벌로 복사하면 반드시 갈라진다(`CLAUDE.md`의 sisyphus 사례). */
+/* Design system — the web app (React) reads the **same files**.
+   Keep two copies and they will inevitably diverge (the sisyphus case in `CLAUDE.md`). */
 @import "../../../packages/ui-styles/index.css";
 
-/* 옛 토큰 이름(`--text-primary` · `--surface-canvas` …)을 아직 쓰는 화면이 있다.
-   devkanban 토큰으로 연결해 두 이름이 같은 색을 가리키게 한다. */
+/* Some screens still use the legacy token names (`--text-primary`, `--surface-canvas`, …).
+   Wire them to devkanban tokens so both names point at the same color. */
 @import "./legacy-tokens.css";
 @import "tailwindcss" source(none);
 @source "../css";
@@ -24,9 +24,9 @@
   themes: false;
 }
 
-/* ── daisyUI 테마 ──
-   어드민 LiveView 가 daisyUI 유틸리티를 일부 쓴다.
-   색을 우리 토큰에 연결해 테마를 따라오게 한다. */
+/* ── daisyUI theme ──
+   The admin LiveView uses some daisyUI utilities.
+   Wire its colors to our tokens so it follows the theme. */
 @plugin "../vendor/daisyui-theme" {
   name: "vr";
   default: true;
@@ -79,7 +79,7 @@
 
 /* This file is for your main application CSS */
 
-/* ── 기본 타이포그래피 ── */
+/* ── Base typography ── */
 html {
   font-family: var(--font-sans);
 }
@@ -91,7 +91,7 @@ body {
   background: var(--bg);
 }
 
-/* Material Symbols Rounded — sisyphus와 같은 아이콘 세트 */
+/* Material Symbols Rounded — same icon set as sisyphus */
 .material-symbols-rounded {
   font-family: "Material Symbols Rounded";
   font-weight: normal;
@@ -108,24 +108,24 @@ body {
   font-variation-settings: "opsz" 20, "wght" 400, "FILL" 0, "GRAD" 0;
 }
 
-/* 숫자 폭을 고정한다 — 타이머가 초마다 흔들리지 않게 */
+/* Fixed-width digits — so the timer doesn't jitter every second */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
 
 /* ═══════════════════════════════════════════════════
-   컴포넌트
+   Components
 
-   색을 직접 쓰지 않는다. 전부 토큰을 거친다 —
-   그래야 테마를 바꾸면 컴포넌트가 따라온다.
+   No raw colors. Everything goes through tokens —
+   that's what makes components follow a theme change.
 
-   매체 테마(연필·게임)는 `data-surface` 역할 태그를 보고 칠하므로
-   컨테이너·입력·버튼에 반드시 태그를 붙인다.
+   The media themes (pencil, game) paint based on `data-surface` role tags,
+   so containers, inputs, and buttons must always carry the tag.
    ═══════════════════════════════════════════════════ */
 
-/* ── 카드 ──
-   웹앱의 `.mobile-section--card` 와 **같은 재료**로 그린다 (유리 · 블러 ·
-   위쪽 하이라이트). 두 화면을 오갈 때 카드가 달라 보이면 안 된다. */
+/* ── Card ──
+   Drawn with the **same ingredients** as the web app's `.mobile-section--card`
+   (glass, blur, top highlight). Cards must not look different when moving between the two screens. */
 .vr-card {
   background: var(--mobile-glass-bg);
   -webkit-backdrop-filter: var(--mobile-blur);
@@ -142,7 +142,7 @@ body {
   gap: var(--mobile-space-3);
 }
 
-/* ── 알림 배너 ── */
+/* ── Alert banner ── */
 .vr-notice {
   display: flex;
   align-items: flex-start;
@@ -162,10 +162,10 @@ body {
 .vr-notice--info  { background: var(--status-info-soft);    border-color: var(--status-info);    color: var(--status-info); }
 .vr-notice--ok    { background: var(--status-success-soft); border-color: var(--status-success); color: var(--status-success); }
 
-/* 배너 안 제목은 배경 대비를 위해 조금 더 진하게 */
+/* Titles inside banners are slightly bolder for contrast against the background */
 .vr-notice__title { filter: brightness(0.85); }
 
-/* ── 상태 칩 ── */
+/* ── Status chip ── */
 .vr-chip {
   display: inline-flex;
   align-items: center;
@@ -184,7 +184,7 @@ body {
 .vr-chip--info    { background: var(--status-info-soft);    color: var(--status-info); }
 .vr-chip--neutral { background: var(--surface-inset);       color: var(--text-tertiary); }
 
-/* ── 사이드바 ── */
+/* ── Sidebar ── */
 .vr-nav__item {
   display: block;
   padding: 8px 12px;
@@ -212,7 +212,7 @@ body {
   color: var(--text-faint);
 }
 
-/* ── 폼 ── */
+/* ── Forms ── */
 .vr-label { display: block; font-size: 14px; font-weight: 600; color: var(--text-primary); }
 .vr-hint  { font-size: 13px; color: var(--text-tertiary); line-height: 1.5; }
 .vr-key   { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); }
@@ -243,7 +243,7 @@ body {
 
 textarea.vr-input { min-height: unset; resize: vertical; line-height: 1.5; }
 
-/* ── 버튼 ── */
+/* ── Buttons ── */
 .vr-btn {
   white-space: nowrap;
   flex-shrink: 0;
@@ -298,7 +298,7 @@ textarea.vr-input { min-height: unset; resize: vertical; line-height: 1.5; }
 }
 .vr-btn--outline:hover:not(:disabled) { background: var(--surface-hover); }
 
-/* ── 기본 타이포그래피 ── */
+/* ── Base typography ── */
 html { font-family: var(--font-sans); }
 
 body {
@@ -311,9 +311,9 @@ body {
 .tabular-nums { font-variant-numeric: tabular-nums; }
 
 /* Material Symbols Rounded
-   ⚠️ 게임 테마는 `[data-theme="game"] *` 에 `!important` 로 도트 폰트를 강제한다.
-   아이콘까지 그 규칙에 걸리면 리거처가 풀려 "mic" 같은 글자가 그대로 보인다.
-   아이콘은 글꼴이 아니라 기호이므로 예외로 둔다. */
+   ⚠️ The game theme forces its pixel font with `!important` on `[data-theme="game"] *`.
+   If icons get caught by that rule, the ligatures break and literal text like "mic" shows.
+   Icons are symbols, not type — so they are exempted. */
 [data-theme] .material-symbols-rounded,
 [data-theme] *  .material-symbols-rounded,
 .material-symbols-rounded {
@@ -339,11 +339,11 @@ body {
 @keyframes vr-spin { to { transform: rotate(360deg); } }
 
 /* ═══════════════════════════════════════════════════
-   어드민 레이아웃
+   Admin layout
 
-   좁은 폭에서는 사이드바를 가로 스크롤 줄로 눕힌다.
-   어드민은 데스크톱 위주지만 폰으로 급히 확인할 일이 있고,
-   그때 본문이 눌려 읽을 수 없으면 곤란하다.
+   At narrow widths the sidebar lies down into a horizontal scroll strip.
+   The admin is desktop-first, but sometimes you need a quick check from a phone,
+   and an unreadably squeezed body would be a problem then.
    ═══════════════════════════════════════════════════ */
 
 .vr-admin { display: flex; flex-direction: column; }
@@ -362,7 +362,7 @@ body {
   white-space: nowrap;
 }
 
-/* 좁을 때는 섹션 제목이 줄만 차지한다 */
+/* When narrow, section titles just take up the line */
 .vr-admin__nav-list .vr-nav__title { display: none; }
 
 .vr-admin__nav-list .vr-nav__item { flex-shrink: 0; }
@@ -393,13 +393,13 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════
-   전사 뷰 · 화자
+   Transcript view · Speakers
 
-   화자 색은 토큰(--speaker-N-*)에서 온다.
-   **색만으로 구분하지 않는다** — 이름을 항상 함께 표기한다.
+   Speaker colors come from tokens (--speaker-N-*).
+   **Color is never the only distinction** — the name is always shown alongside.
    ═══════════════════════════════════════════════════ */
 
-/* ── 화자 칩 줄 ── */
+/* ── Speaker chip row ── */
 .vr-speakers {
   display: flex;
   flex-wrap: wrap;
@@ -446,7 +446,7 @@ body {
   flex-shrink: 0;
 }
 
-/* 10색 팔레트. pastel=칩 배경, solid=점, text=글자 */
+/* 10-color palette. pastel = chip background, solid = dot, text = text */
 .vr-speaker-chip[data-speaker="1"]  { background: var(--speaker-1-pastel);  color: var(--speaker-1-text); }
 .vr-speaker-chip[data-speaker="2"]  { background: var(--speaker-2-pastel);  color: var(--speaker-2-text); }
 .vr-speaker-chip[data-speaker="3"]  { background: var(--speaker-3-pastel);  color: var(--speaker-3-text); }
@@ -469,7 +469,7 @@ body {
 .vr-speaker-chip__dot[data-speaker="9"]  { background: var(--speaker-9-solid); }
 .vr-speaker-chip__dot[data-speaker="10"] { background: var(--speaker-10-solid); }
 
-/* ── 말풍선 ── */
+/* ── Speech bubbles ── */
 .vr-transcript { display: flex; flex-direction: column; gap: 4px; }
 
 .vr-msg {
@@ -482,7 +482,7 @@ body {
 
 .vr-msg:hover { background: var(--surface-hover); }
 
-/* 재생 중인 발화 */
+/* The utterance currently playing */
 .vr-msg--active {
   background: var(--accent-soft);
   border-color: var(--accent);
@@ -571,12 +571,12 @@ body {
   margin: 0 1px;
 }
 
-/* 터치 기기에는 hover 가 없다. 액션을 항상 보여준다. */
+/* Touch devices have no hover. Always show the actions. */
 @media (hover: none) {
   .vr-msg__actions { opacity: 1; }
 }
 
-/* ── 팝업 메뉴 ── */
+/* ── Popup menu ── */
 .vr-menu__backdrop {
   position: fixed;
   inset: 0;
@@ -630,7 +630,7 @@ body {
 .vr-menu__item:hover { background: var(--surface-hover); }
 .vr-menu__item[data-active="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
-/* ── 하단 고정 플레이어 ── */
+/* ── Bottom fixed player ── */
 .vr-player {
   position: fixed;
   left: 0;
@@ -647,7 +647,7 @@ body {
   box-shadow: var(--elev-overlay);
 }
 
-/* 모바일은 하단 탭바 위에 얹힌다 */
+/* On mobile it sits on top of the bottom tab bar */
 @media (max-width: 719px) {
   .vr-player { bottom: calc(56px + env(safe-area-inset-bottom, 0px)); padding-bottom: 10px; }
 }
@@ -689,9 +689,9 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── AI 요약 ─────────────────────────────────────────────
-   출처: sisyphus 회의록 요약 화면. 근거(source) 줄을 항목에 붙여
-   누르면 그 지점이 재생되는 구조를 그대로 가져왔다. */
+/* ── AI summary ─────────────────────────────────────────
+   Source: the sisyphus meeting-notes summary screen. Kept its structure of
+   attaching a source line to each item — press it and that moment plays. */
 
 .vr-summary__title {
   display: flex;
@@ -732,7 +732,7 @@ body {
   margin-top: 6px;
 }
 
-/* 누르면 재생되는 근거. 재생 버튼과 같은 강조색을 쓴다 */
+/* A source line that plays on press. Uses the same accent color as the play button */
 .vr-summary__jump {
   display: inline-flex;
   align-items: center;
@@ -774,10 +774,10 @@ body {
   color: var(--text-secondary);
 }
 
-/* ── 분류 칩 (토픽 · 라벨) ────────────────────────────────
-   출처: sisyphus 의 라벨 칩. 자유 HEX 대신 **팔레트 키**를 쓴다 —
-   테마가 넷이라 사용자가 고른 임의 색이 네 배경 모두에서 읽힌다는 보장이 없다.
-   여기서 키를 색으로 바꾸므로 테마가 값을 덮을 수 있다. */
+/* ── Classification chips (topic · label) ────────────────
+   Source: sisyphus label chips. Uses **palette keys** instead of free HEX —
+   with four themes, there is no guarantee an arbitrary user-picked color reads
+   on all four backgrounds. Keys are turned into colors here, so themes can override the values. */
 
 .vr-tag {
   display: inline-flex;
@@ -803,7 +803,7 @@ body {
   opacity: 0.85;
 }
 
-/* 토픽은 점 대신 채운 형태로 구분한다 — 회의당 하나뿐이라 더 강하게 보인다 */
+/* Topics use a filled shape instead of a dot — one per meeting, so they can stand out more */
 .vr-tag--topic { font-weight: 700; }
 .vr-tag--topic::before { width: 7px; height: 7px; opacity: 1; }
 
@@ -820,8 +820,8 @@ body {
 .vr-tag[data-color="purple"] { --tag-bg: color-mix(in srgb, #9d4edd 14%, transparent); --tag-fg: #7e35bd; }
 .vr-tag[data-color="gray"]   { --tag-bg: color-mix(in srgb, #6b7280 14%, transparent); --tag-fg: #565d68; }
 
-/* 어두운 배경에서는 글자를 밝게 끌어올린다.
-   dark.css 가 `:root, [data-theme="dark"]` 를 기본으로 쓰므로 여기서도 같은 축을 따른다. */
+/* On dark backgrounds, pull the text brighter.
+   dark.css keys off `:root, [data-theme="dark"]`, so we follow the same axis here. */
 [data-theme="dark"] .vr-tag[data-color="red"]       { --tag-fg: #ff8f95; }
 [data-theme="dark"] .vr-tag[data-color="orange"]    { --tag-fg: #ffb040; }
 [data-theme="dark"] .vr-tag[data-color="yellow"]    { --tag-fg: #ffd633; }
@@ -834,7 +834,7 @@ body {
 [data-theme="dark"] .vr-tag[data-color="gray"]      { --tag-fg: #9aa1ac; }
 [data-theme="dark"] .vr-tag                          { --tag-bg: color-mix(in srgb, currentColor 20%, transparent); }
 
-/* ── 필터 바 ─────────────────────────────────────────────── */
+/* ── Filter bar ─────────────────────────────────────────── */
 
 .vr-filter { display: flex; flex-direction: column; gap: 12px; }
 
@@ -853,7 +853,7 @@ body {
   min-width: 44px;
 }
 
-/* 고르지 않은 것은 흐리게 둔다. 켜진 것이 무엇인지 한눈에 보여야 한다 */
+/* Unselected items stay dimmed. What's active must be visible at a glance */
 .vr-filter__chip {
   border: var(--hairline-width) solid var(--border-subtle);
   background: transparent;
@@ -878,7 +878,7 @@ body {
   color: var(--text-tertiary);
 }
 
-/* ── 공유 다이얼로그 ─────────────────────────────────────── */
+/* ── Share dialog ────────────────────────────────────────── */
 
 .vr-share {
   position: fixed;
@@ -924,13 +924,13 @@ body {
 
 .vr-share__row:last-child { border-bottom: 0; }
 
-/* ── 공개 범위 선택 ──────────────────────────────────────
-   출처: sisyphus 의 공개범위 popover. **인라인 라디오로 바꿨다** —
-   선택지가 4개뿐이고 각 설명이 판단의 핵심이라 접으면 고른 뒤에야
-   다른 선택지의 뜻을 보게 되어 오설정을 부른다.
+/* ── Visibility picker ───────────────────────────────────
+   Source: the sisyphus visibility popover. **Changed to inline radios** —
+   there are only 4 options and each description is key to the decision; collapsed,
+   you'd only see the other options' meanings after choosing, inviting misconfiguration.
 
-   원본의 파스텔 색 하드코딩(#FFF8E1 등)은 이식하지 않았다. 라이트 전용이라
-   dark · pencil · game 테마에서 글자가 안 읽힌다. 토큰만 쓴다. */
+   The original's hardcoded pastels (#FFF8E1 etc.) were not ported. They are light-only
+   and unreadable in the dark, pencil, and game themes. Tokens only. */
 
 .vr-field__label {
   margin: 0;
@@ -962,7 +962,7 @@ body {
 .vr-scope__option:hover:not(:disabled) { background: var(--surface-hover); }
 .vr-scope__option:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* 색만으로 선택을 나타내지 않는다 — 체크 아이콘과 굵기가 함께 바뀐다 */
+/* Selection is never shown by color alone — the check icon and weight change together */
 .vr-scope__option[data-active="true"] {
   border-color: var(--accent);
   background: var(--accent-soft);
@@ -985,7 +985,7 @@ body {
 
 .vr-scope__check { font-size: 18px; color: var(--accent); flex-shrink: 0; }
 
-/* ── 선택된 사람 토큰 ────────────────────────────────────── */
+/* ── Selected person tokens ──────────────────────────────── */
 
 .vr-tokens { display: flex; flex-wrap: wrap; gap: 6px; }
 
@@ -1001,7 +1001,7 @@ body {
   font-weight: 600;
 }
 
-/* 친구를 끊은 뒤 남은 옛 id. 숨기면 지울 수도 없으므로 흐리게 두되 남긴다. */
+/* A stale id left after unfriending. Hiding it would make it undeletable, so keep it dimmed. */
 .vr-token[data-unknown] { opacity: 0.7; font-style: italic; }
 
 .vr-token__x {
@@ -1020,7 +1020,7 @@ body {
 
 .vr-token__x:hover { background: var(--surface-inset); }
 
-/* ── 사용 내역 근거 ─────────────────────────────────────── */
+/* ── Usage history receipts ─────────────────────────────── */
 
 .vr-usage {
   margin: 8px 0 0 30px;
@@ -1037,7 +1037,7 @@ body {
 .vr-usage dt { color: var(--text-tertiary); min-width: 44px; }
 .vr-usage dd { margin: 0; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 
-/* ── 설치 안내 ───────────────────────────────────────────── */
+/* ── Install guide ───────────────────────────────────────── */
 
 .vr-install {
   display: flex;
@@ -1053,8 +1053,8 @@ body {
 
 .vr-install .vr-hint { color: inherit; opacity: 0.8; }
 
-/* 스크린리더 전용. 화면에서는 안 보이지만 읽힌다.
-   `display: none` 이나 `visibility: hidden` 은 스크린리더도 건너뛴다. */
+/* Screen-reader only. Invisible on screen but still read aloud.
+   `display: none` and `visibility: hidden` are skipped by screen readers too. */
 .vr-sr-only {
   position: absolute;
   width: 1px;

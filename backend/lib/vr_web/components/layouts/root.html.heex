@@ -12,7 +12,7 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png" />
-    <%!-- iOS 는 manifest 의 display 를 무시한다. 이 메타가 있어야 전체화면으로 뜬다 --%>
+    <%!-- iOS ignores the manifest's display setting. This meta tag is required for fullscreen mode --%>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="KHALA VOICE" />
@@ -21,7 +21,7 @@
       {assigns[:page_title]}
     </.live_title>
 
-    <%!-- Material Symbols Rounded — sisyphus와 같은 아이콘 세트 --%>
+    <%!-- Material Symbols Rounded — the same icon set as sisyphus --%>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -34,12 +34,12 @@
     </script>
 
     <script>
-      // 테마와 접근성 설정을 첫 페인트 전에 반영한다 (깜빡임 방지).
+      // Apply theme and accessibility settings before first paint (prevents flicker).
       //
-      // 서버가 계정의 테마를 html[data-theme] 로 이미 찍어줬다.
-      // 로그인 전이거나 서버 값이 없으면 localStorage 캐시를 쓴다.
+      // The server has already stamped the account's theme onto html[data-theme].
+      // Before sign-in, or when the server value is absent, use the localStorage cache.
       //
-      // 네 테마 모두 번들 안에 있다 (`packages/ui-styles`) — 따로 받지 않는다.
+      // All four themes ship in the bundle (`packages/ui-styles`) — nothing is fetched separately.
       (() => {
         const root = document.documentElement;
 

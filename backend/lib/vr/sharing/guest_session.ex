@@ -1,27 +1,30 @@
 defmodule VR.Sharing.GuestSession do
   @moduledoc """
-  공유 링크로 들어온 방문자 한 명 = 한 행.
+  One visitor who entered through a shared link = one row.
 
-  **출처 없음 — 이 앱에서 새로 만든 개념이다.**
+  **No source — this concept is new in this app.**
 
-  sisyphus 에는 게스트 세션이 아예 없었다. 게스트 API 가 매번 공유 토큰을 URL 로
-  받아 다시 조회했고, 게스트의 신원(이름·id)은 브라우저 JS 메모리 변수였다
-  (`assets/webapp/video-call-guest.js`). 그래서 서버가 "지금 들어와 있는 게스트"를
-  알지 못했고, 링크를 폐기해도 이미 들어온 사람을 끊을 수 없었다.
+  sisyphus had no guest sessions at all. The guest API received the share token
+  in the URL on every call and looked it up again, and the guest's identity
+  (name, id) lived in browser JS memory variables
+  (`assets/webapp/video-call-guest.js`). So the server never knew "which guests
+  are inside right now", and revoking a link could not cut off someone who had
+  already entered.
 
-  ## 회의 하나에만 묶인다
+  ## Bound to exactly one meeting
 
-  `meeting_id` 가 이 행에 박혀 있다. 게스트가 어느 회의를 볼지는 **세션이 정하고**,
-  요청 URL 이 정하지 않는다. URL 에 회의 id 를 넣지 않으므로 다른 회의를 가리킬
-  방법 자체가 없다.
+  `meeting_id` is fixed on this row. Which meeting a guest can view is decided
+  by **the session**, not the request URL. Since the URL carries no meeting id,
+  there is no way to point at a different meeting at all.
 
-  ## `granted_role` 을 링크에서 복사해 굳힌다
+  ## `granted_role` is copied from the link and frozen
 
-  참조로 두면 링크의 역할이 바뀔 때 이미 들어온 게스트의 권한이 따라 움직인다.
-  들어온 시점의 약속을 그대로 유지한다.
+  Kept as a reference, an already-entered guest's permissions would shift
+  whenever the link's role changed. The promise made at entry time is preserved
+  as-is.
 
-  토큰 취급은 `VR.Accounts.AccountSession` 과 같다 — 원본은 클라이언트에만,
-  DB 에는 sha256 해시만.
+  Token handling matches `VR.Accounts.AccountSession` — the original goes only
+  to the client, the DB stores only a sha256 hash.
   """
 
   use Ecto.Schema
@@ -61,10 +64,11 @@ defmodule VR.Sharing.GuestSession do
   def token_prefix, do: @token_prefix
 
   @doc """
-  게스트 세션을 만든다. `{평문_토큰, changeset}`.
+  Builds a guest session. Returns `{plaintext_token, changeset}`.
 
-  만료는 **12시간과 링크 만료 중 이른 쪽**이다. 링크가 내일 죽는데
-  게스트 세션이 모레까지 살아 있으면 폐기가 반쪽이 된다.
+  Expiry is **the earlier of 12 hours and the link's expiry**. If the link dies
+  tomorrow but the guest session lives until the day after, revocation would
+  only be half effective.
   """
   def build(%SharedLink{} = link, attrs \\ %{}) do
     raw = :crypto.strong_rand_bytes(@rand_size)
@@ -78,7 +82,7 @@ defmodule VR.Sharing.GuestSession do
       |> put_change(:shared_link_id, link.id)
       |> put_change(:meeting_id, link.meeting_id)
       |> put_change(:token_hash, :crypto.hash(:sha256, raw))
-      # 링크에서 복사해 굳힌다. 링크가 나중에 바뀌어도 이 세션은 그대로다.
+      # Copied from the link and frozen. If the link changes later, this session stays.
       |> put_change(:granted_role, link.granted_role)
       |> put_change(:account_id, attrs[:account_id] || attrs["account_id"])
       |> put_change(:user_agent, truncate(attrs[:user_agent], 300))
@@ -93,7 +97,7 @@ defmodule VR.Sharing.GuestSession do
     {@token_prefix <> Base.url_encode64(raw, padding: false), changeset}
   end
 
-  @doc "요청 헤더의 토큰을 DB 조회용 해시로 바꾼다."
+  @doc "Converts the token from the request header into the hash used for DB lookup."
   def hash_token(@token_prefix <> encoded) when is_binary(encoded) do
     case Base.url_decode64(encoded, padding: false) do
       {:ok, raw} -> {:ok, :crypto.hash(:sha256, raw)}
@@ -103,13 +107,13 @@ defmodule VR.Sharing.GuestSession do
 
   def hash_token(_), do: :error
 
-  @doc "아직 유효한가."
+  @doc "Is it still valid?"
   def live?(session, now \\ nil) do
     now = now || DateTime.utc_now(:second)
     is_nil(session.revoked_at) and DateTime.compare(session.expires_at, now) == :gt
   end
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
   defp validate_identity(changeset, %SharedLink{} = link) do
     changeset
@@ -125,7 +129,7 @@ defmodule VR.Sharing.GuestSession do
   defp validate_email(changeset, false), do: changeset
 
   defp validate_email(changeset, true) do
-    validate_format(changeset, :email, ~r/^[^\s@]+@[^\s@]+$/, message: "형식이 올바르지 않습니다")
+    validate_format(changeset, :email, ~r/^[^\s@]+@[^\s@]+$/, message: "has an invalid format")
   end
 
   defp earliest(a, nil), do: a

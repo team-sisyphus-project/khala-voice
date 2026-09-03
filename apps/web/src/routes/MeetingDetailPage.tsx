@@ -30,11 +30,12 @@ import type {
 type Tab = "record" | "sessions" | "transcript" | "summary" | "info";
 
 type MeetingDetailPageProps = {
-  /** 주소에 id 가 없는 자리(회의 탭)에서 쓴다. 없으면 라우트 파라미터를 본다. */
+  /** Used where the address carries no id (the meetings tab). Falls back to the route param. */
   meetingId?: string;
   /**
-   * **최상위 탭으로 그린다.** 회의 탭은 뒤로가기가 없고, 제목은 큰 헤더가 아니라
-   * 그 아래 작은 줄에 선다 (누르면 모달로 고친다).
+   * **Render as a top-level tab.** The meetings tab has no back button, and the
+   * title sits on a small line below the large header (press it to edit in a
+   * modal).
    */
   asTab?: boolean;
 };
@@ -58,7 +59,7 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
   const [editing, setEditing] = useState(false);
   const [sendingKhala, setSendingKhala] = useState(false);
 
-  // 칼라가 꺼져 있거나 연결 전이면 버튼을 아예 두지 않는다 — 눌러도 안 되는 것을 두지 않는다
+  // If Khala is off or not yet connected, omit the button entirely — never show something that fails when pressed
   const [khalaReady, setKhalaReady] = useState(false);
 
   useEffect(() => {
@@ -86,7 +87,7 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
 
   const sessions = useMemo(() => meeting?.recording_sessions ?? [], [meeting]);
 
-  // 전사 탭은 완료된 세션만 다룬다
+  // The transcript tab only deals with completed sessions
   const transcribed = useMemo(
     () => sessions.filter((s) => s.transcript?.segments?.length),
     [sessions],
@@ -97,7 +98,7 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
     [transcribed, selectedSessionId],
   );
 
-  // 서버에서 진행 중인 작업이 있을 때만 따라간다. SSE 를 붙이기 전까지의 임시 방편.
+  // Poll only while the server has work in flight. A stopgap until SSE is wired up.
   useEffect(() => {
     const busy =
       summarizing ||
@@ -109,9 +110,10 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
     return () => clearInterval(timer);
   }, [sessions, summarizing, load]);
 
-  // 요약 대기 해제 — **큐잉 시점 이후에 값이 바뀌었을 때만**.
-  // 이미 요약이 있는 회의에서 [다시 요약] 을 누르면 기존 타임스탬프가 있으므로
-  // "값이 있는가"로 판단하면 즉시 풀려 버린다.
+  // Release the summary wait — **only when the value changed after queueing**.
+  // Pressing [Summarize again] on a meeting that already has a summary means an
+  // existing timestamp is present, so judging by "is there a value" would
+  // release immediately.
   const summaryStamp = meeting?.summary_data?.generated_at ?? null;
   const summaryErrorAt = meeting?.last_summary_error?.at ?? null;
 
@@ -130,13 +132,13 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
     }
   }, [summaryStamp, summaryErrorAt, summarizing, t]);
 
-  /** 화자·전사 편집을 저장한다. 화면은 먼저 바꾸고 서버는 뒤따른다. */
+  /** Save speaker/transcript edits. The screen changes first; the server follows. */
   const saveTranscript = useCallback(
     async (
       session: RecordingSession,
       patch: { transcript?: Transcript; speaker_map?: Record<string, SpeakerMapEntry> },
     ) => {
-      // 낙관적 갱신 — 편집이 즉시 반영돼야 손맛이 산다
+      // Optimistic update — edits must land instantly for the interaction to feel right
       setMeeting((prev) =>
         prev
           ? {
@@ -157,7 +159,7 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
       try {
         await api.updateSpeakers(session.id, patch);
       } catch {
-        // 저장에 실패하면 서버 값으로 되돌린다
+        // On save failure, revert to the server's values
         setError(t("meetingDetail.saveEditError"));
         void load();
       }
@@ -165,7 +167,7 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
     [load, t],
   );
 
-  /** 요약을 큐잉한다. 완료는 아래 폴링이 따라간다. */
+  /** Queue a summary. Completion is tracked by the polling below. */
   async function summarize() {
     if (!meeting) return;
 
@@ -186,7 +188,7 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
     }
   }
 
-  /** 요약 근거를 누르면 그 발언 지점부터 재생한다. */
+  /** Pressing a summary source plays back from that utterance. */
   function jumpTo(source: SummarySource) {
     const session = sessions.find((s) => s.id === source.session_id);
     const href = session?.audio_href;
@@ -217,7 +219,7 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
   }
 
   const readOnly = meeting.role === "viewer";
-  // 공유 링크 발급은 Reviewer 만. 서버도 lv0 으로 다시 판정한다.
+  // Only a Reviewer can issue share links. The server re-checks at lv0 too.
   const canShare = meeting.role === "reviewer";
   const playingMs = player.sessionId === selected?.id ? player.currentMs : null;
 
@@ -226,13 +228,13 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
       active="meetings"
       title={asTab ? t("meetingDetail.newMeeting") : meeting.title || t("common.untitled")}
       onBack={asTab ? undefined : () => navigate(routes.archive)}
-      // 녹음 탭만 한 화면에 딱 맞춘다. 나머지 탭은 내용이 길어 스크롤해야 한다.
+      // Only the record tab fits exactly in one screen. The other tabs are long and must scroll.
       fill={tab === "record"}
       actions={
-        // 상단바 액션은 아이콘 버튼이다 — 글자를 넣으면 제목 자리를 잡아먹는다
+        // Top-bar actions are icon buttons — text would eat into the title's space
         <>
-          {/* 세션 쿠키 인증이라 그냥 링크면 된다. core 에 다운로드 헬퍼를 만들지 않는다 —
-              만들면 프레임워크 비의존이어야 할 core 가 브라우저 API 에 묶인다. */}
+          {/* Session-cookie auth, so a plain link suffices. No download helper in
+              core — that would tie the framework-agnostic core to browser APIs. */}
           <a
             className="mobile-top-app-bar__icon-button"
             href={`/api/meetings/${meeting.id}/export.md`}
@@ -255,8 +257,8 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
             </button>
           )}
 
-          {/* 칼라 연동이 켜져 있고 연결됐을 때만 보인다.
-              서버가 발송 시 권한을 다시 판정한다 — 이 버튼은 편의일 뿐이다. */}
+          {/* Visible only when the Khala integration is on and connected.
+              The server re-checks permission on send — this button is a convenience. */}
           {canShare && khalaReady && (
             <button
               className="mobile-top-app-bar__icon-button"
@@ -274,9 +276,10 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
       {error && <Notice tone="error">{error}</Notice>}
 
       {/*
-        탭 모드에서는 큰 헤더가 "새 회의" 라서 제목이 어디에도 없다. 헤더 바로 아래
-        작은 줄로 둔다 — **누르면 모달**이 열려 제목과 분류를 고친다.
-        뎁스 모드에서는 상단바 캡슐이 이미 제목을 들고 있어 여기 두지 않는다.
+        In tab mode the large header reads "New meeting", so the title appears
+        nowhere. Put it on a small line right under the header — **press to
+        open a modal** for editing the title and taxonomy. In depth mode the
+        top-bar capsule already holds the title, so it isn't placed here.
       */}
       {asTab && (
         <button
@@ -292,8 +295,10 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
       )}
 
       {/*
-        상태·공개범위·분류 칩을 첫 화면에 늘어놓지 않는다. **[정보] 탭에 이미 있고**,
-        녹음 화면의 주인공은 녹음 버튼이다. 제목 줄 하나면 "어느 회의인지"는 충분하다.
+        Don't spread status/visibility/taxonomy chips across the first screen.
+        **They're already in the [Info] tab**, and the star of the recording
+        screen is the record button. One title line is enough to say "which
+        meeting this is".
       */}
 
       <SegmentedControl
@@ -307,7 +312,7 @@ export function MeetingDetailPage({ meetingId, asTab = false }: MeetingDetailPag
             label: transcribed.length > 0 ? t("meetingDetail.tabTranscriptCount", { count: transcribed.length }) : t("meetingDetail.tabTranscript"),
           },
           { value: "summary" as Tab, label: t("meetingDetail.tabSummary") },
-          // Viewer 에게는 바꿀 것이 없다. 패널도 스스로 한 번 더 검열한다.
+          // A Viewer has nothing to change. The panel double-checks on its own as well.
           ...(readOnly ? [] : [{ value: "info" as Tab, label: t("meetingDetail.tabInfo") }]),
         ]}
       />
@@ -507,7 +512,7 @@ function needsTranscription(status: SessionStatus): boolean {
   return status === "uploaded" || status === "failed" || status === "completed";
 }
 
-// devkanban 아이콘 세트에 있는 이름만 쓴다. 없는 이름은 기본 아이콘으로 떨어진다.
+// Use only names in the devkanban icon set. Unknown names fall back to the default icon.
 function statusIcon(status: SessionStatus): string {
   switch (status) {
     case "recording":

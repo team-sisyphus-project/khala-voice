@@ -1,19 +1,19 @@
 defmodule VR.Meetings.Meeting do
   @moduledoc """
-  회의. 여러 `RecordingSession`을 담는 컨테이너다.
+  A meeting. A container holding multiple `RecordingSession`s.
 
-  **출처: sisyphus** `lib/sisyphus/meetings/meeting.ex`
-  — `project_id` · `meeting_type` · 레거시 필드를 제거하고 `member_id` 를 `account_id` 로 바꿨다.
+  **Source: sisyphus** `lib/sisyphus/meetings/meeting.ex`
+  — removed `project_id`, `meeting_type`, and legacy fields, and renamed `member_id` to `account_id`.
 
-  ## 상태
+  ## Status
 
       active ──► completed ──► archived
         ▲            │
-        └────────────┘   (Reviewer가 되돌릴 수 있다)
+        └────────────┘   (the Reviewer can revert it)
 
-  - `active` — 녹음할 수 있다
-  - `completed` — 녹음 종료. 전사·요약은 계속될 수 있다
-  - `archived` — 보관됨. 목록에서 기본으로 숨기고 필터로 찾는다
+  - `active` — recording is possible
+  - `completed` — recording finished. Transcription and summarization may continue
+  - `archived` — stored away. Hidden from lists by default; found via filters
   """
 
   use Ecto.Schema
@@ -33,22 +33,22 @@ defmodule VR.Meetings.Meeting do
     field :status, :string, default: "active"
     field :started_at, :utc_datetime
 
-    # 사람
+    # People
     field :owner_id, :string
     field :reviewer_id, :string
     field :contributor_ids, {:array, :string}, default: []
     field :permissions, :map, default: %{}
     field :guest_link_enabled, :boolean, default: false
 
-    # 분류
+    # Taxonomy
     field :topic_id, :string
     field :label_ids, {:array, :string}, default: []
 
-    # 집계 캐시 — 세션에서 합산한다
+    # Aggregate cache — summed from sessions
     field :total_duration_seconds, :integer, default: 0
     field :total_credits_charged, :integer, default: 0
 
-    # 요약
+    # Summary
     field :summary, :string
     field :decisions, {:array, :string}, default: []
     field :summary_data, :map
@@ -64,7 +64,7 @@ defmodule VR.Meetings.Meeting do
 
   def statuses, do: @statuses
 
-  @doc "회의 생성. 만든 사람이 Reviewer가 된다."
+  @doc "Meeting creation. The creator becomes the Reviewer."
   def create_changeset(meeting, attrs) do
     meeting
     |> cast(attrs, [
@@ -82,14 +82,14 @@ defmodule VR.Meetings.Meeting do
     |> validate_length(:title, max: 200)
   end
 
-  @doc "Contributor 이상이 바꿀 수 있는 것."
+  @doc "What Contributor and above can change."
   def update_changeset(meeting, attrs) do
     meeting
     |> cast(attrs, [:title, :description, :started_at, :topic_id, :label_ids])
     |> validate_length(:title, max: 200)
   end
 
-  @doc "Reviewer만 바꿀 수 있는 것 — 공개 범위와 참여자."
+  @doc "What only the Reviewer can change — visibility scope and participants."
   def permissions_changeset(meeting, attrs) do
     meeting
     |> cast(attrs, [:reviewer_id, :contributor_ids, :permissions, :guest_link_enabled])
@@ -116,7 +116,7 @@ defmodule VR.Meetings.Meeting do
     cast(meeting, attrs, [:summary, :decisions, :summary_data, :last_summary_error])
   end
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
   defp put_id(changeset) do
     case get_field(changeset, :id) do
@@ -135,7 +135,7 @@ defmodule VR.Meetings.Meeting do
     end)
   end
 
-  # 스키마 기본값이 %{} 라서 nil 검사만으로는 부족하다 — 빈 맵도 비어 있는 것으로 본다
+  # The schema default is %{}, so a nil check is not enough — an empty map also counts as empty
   defp put_new(changeset, field, fun) do
     case get_field(changeset, field) do
       nil -> put_change(changeset, field, fun.())
@@ -147,7 +147,7 @@ defmodule VR.Meetings.Meeting do
 
   defp default_title do
     now = DateTime.utc_now()
-    "#{now.year}년 #{now.month}월 #{now.day}일 회의"
+    "Meeting on #{now.year}-#{now.month}-#{now.day}"
   end
 
   defp validate_permissions(changeset) do
@@ -156,7 +156,7 @@ defmodule VR.Meetings.Meeting do
         if mode in VR.Access.AccessLevel.view_scopes() do
           changeset
         else
-          add_error(changeset, :permissions, "알 수 없는 공개 범위입니다")
+          add_error(changeset, :permissions, "has an unknown visibility scope")
         end
 
       _ ->

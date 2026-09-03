@@ -2,10 +2,10 @@ defmodule VR.Repo.Migrations.CreateAccounts do
   use Ecto.Migration
 
   @moduledoc """
-  계정 · 세션 · 이메일 토큰 · 로그인 시도.
+  Accounts · sessions · email tokens · login attempts.
 
-  ID는 접두사가 붙은 문자열이다 (`acct_…`, `sess_…`, `atkn_…`).
-  토큰은 원본이 아니라 SHA-256 해시만 저장한다.
+  IDs are prefixed strings (`acct_…`, `sess_…`, `atkn_…`).
+  Tokens are stored as SHA-256 hashes only, never the originals.
   """
 
   def change do
@@ -13,7 +13,7 @@ defmodule VR.Repo.Migrations.CreateAccounts do
 
     create table(:accounts, primary_key: false) do
       add :id, :string, primary_key: true
-      # citext — 대소문자 무시. Foo@x.com 과 foo@x.com 이 같은 계정이 된다
+      # citext — case-insensitive. Foo@x.com and foo@x.com become the same account
       add :email, :citext, null: false
       add :hashed_password, :string
       add :name, :string
@@ -36,7 +36,7 @@ defmodule VR.Repo.Migrations.CreateAccounts do
     end
 
     create unique_index(:accounts, [:email])
-    # 같은 제공자 안에서 소셜 ID는 유일해야 한다
+    # A social ID must be unique within a given provider
     create unique_index(:accounts, [:social_provider, :social_id],
              where: "social_provider IS NOT NULL"
            )
@@ -82,7 +82,7 @@ defmodule VR.Repo.Migrations.CreateAccounts do
       add :attempted_at, :utc_datetime, null: false
     end
 
-    # 최근 실패 횟수를 세는 질의를 위한 인덱스
+    # Indexes for the queries that count recent failures
     create index(:login_attempts, [:email, :attempted_at])
     create index(:login_attempts, [:ip_address, :attempted_at])
   end

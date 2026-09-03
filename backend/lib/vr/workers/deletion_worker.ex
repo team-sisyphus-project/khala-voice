@@ -1,13 +1,16 @@
 defmodule VR.Workers.DeletionWorker do
   @moduledoc """
-  삭제 예약이 만료된 계정을 실제로 지운다. 매시 정각에 돈다.
+  Actually deletes accounts whose scheduled deletion has come due. Runs at the
+  top of every hour.
 
-  ## 지금은 소프트 삭제만 한다
+  ## For now, soft delete only
 
-  `deleted_at`을 찍고 세션·토큰·친구 관계를 지운다. 행 자체는 남긴다.
+  Sets `deleted_at` and deletes sessions, tokens, and friendships. The row
+  itself remains.
 
-  회의·오디오·전사본까지 함께 지우는 하드 삭제는 M2에서 회의 도메인이 생긴 뒤
-  붙인다. 그전에 계정 행을 지우면 남은 회의가 주인 없는 상태가 된다.
+  Hard deletion that also removes meetings, audio, and transcripts comes after
+  the meetings domain lands in M2. Deleting the account row before then would
+  leave the remaining meetings ownerless.
   """
 
   use Oban.Worker, queue: :maintenance, max_attempts: 3
@@ -34,7 +37,7 @@ defmodule VR.Workers.DeletionWorker do
 
     Enum.each(due, &delete_account/1)
 
-    if due != [], do: Logger.info("[Deletion] #{length(due)}개 계정을 삭제 처리했습니다")
+    if due != [], do: Logger.info("[Deletion] processed deletion of #{length(due)} accounts")
 
     :ok
   end
@@ -53,8 +56,9 @@ defmodule VR.Workers.DeletionWorker do
 
       Repo.delete_all(from i in FriendInvitation, where: i.invited_by_id == ^account.id)
 
-      # 이메일을 익명화한다. 원본을 남기면 삭제 요청의 의미가 없다.
-      # 같은 주소로 다시 가입할 수 있도록 유니크 제약도 피한다.
+      # Anonymize the email. Keeping the original defeats the point of a
+      # deletion request. This also avoids the unique constraint so the same
+      # address can sign up again.
       anonymized = "deleted+#{account.id}@deleted.invalid"
 
       account
@@ -69,6 +73,6 @@ defmodule VR.Workers.DeletionWorker do
       |> Repo.update!()
     end)
 
-    Logger.info("[Deletion] 계정 삭제 완료: #{account.id}")
+    Logger.info("[Deletion] account deleted: #{account.id}")
   end
 end

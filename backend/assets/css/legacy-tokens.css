@@ -1,15 +1,15 @@
 /**
- * 옛 토큰 → devkanban 토큰 다리.
+ * Bridge from legacy tokens to devkanban tokens.
  *
- * 디자인 시스템을 `packages/ui-styles/` 로 옮기기 전, LiveView 화면과 일부
- * React 화면이 `--text-primary` · `--surface-canvas` 같은 이름을 쓰고 있었다.
- * 그 이름들을 devkanban 토큰에 **연결만** 한다 — 값을 새로 정하지 않는다.
- * 그래야 테마를 바꿔도 두 이름이 같이 움직인다.
+ * Before the design system moved to `packages/ui-styles/`, LiveView screens
+ * and some React screens used names like `--text-primary` and `--surface-canvas`.
+ * We only **wire** those names to devkanban tokens — no new values are defined.
+ * That way, both names move together when the theme changes.
  *
- * 화면을 옮길 때마다 여기 항목이 줄어야 정상이다. 새 화면은 devkanban 이름을 직접 쓴다.
+ * Every screen migration should shrink this file. New screens use the devkanban names directly.
  */
 :root {
-  /* 면 */
+  /* Surfaces */
   --surface-canvas: var(--mobile-surface-canvas);
   --surface-0: var(--mobile-surface-canvas);
   --surface-1: var(--mobile-surface-item);
@@ -26,20 +26,20 @@
   --surface-input-disabled: var(--mobile-surface-inset);
   --surface-input-on-overlay: var(--mobile-surface-inset);
 
-  /* 글자 */
+  /* Text */
   --text-primary: var(--mobile-fg-strong);
   --text-secondary: var(--mobile-fg-default);
   --text-tertiary: var(--mobile-fg-muted);
   --text-faint: var(--mobile-fg-subtle);
 
-  /* 선 */
+  /* Borders */
   --border-subtle: var(--mobile-border);
   --border-default: var(--mobile-border);
   --border-strong: var(--mobile-border);
   --divider: var(--mobile-border);
   --hairline-width: var(--mobile-border-width);
 
-  /* 액센트 */
+  /* Accent */
   --accent: var(--mobile-accent);
   --accent-hover: var(--mobile-accent-hover);
   --accent-soft: var(--mobile-accent-soft);
@@ -49,7 +49,7 @@
   --interaction-border: var(--mobile-accent);
   --interaction-ring-width: 3px;
 
-  /* 상태 */
+  /* Status */
   --status-success: var(--mobile-success);
   --status-success-soft: var(--mobile-success-soft);
   --status-info: var(--mobile-info);
@@ -61,7 +61,7 @@
   --status-error: var(--mobile-danger);
   --status-error-soft: var(--mobile-danger-soft);
 
-  /* 모서리 */
+  /* Radius */
   --radius-xs: var(--mobile-radius-xs);
   --radius-sm: var(--mobile-radius-sm);
   --radius-md: var(--mobile-radius-md);
@@ -69,13 +69,13 @@
   --radius-xl: var(--mobile-radius-xl);
   --radius-full: var(--mobile-radius-full);
 
-  /* 그림자 */
+  /* Shadows */
   --elev-1: var(--mobile-shadow-soft);
   --elev-2: var(--mobile-shadow-card);
   --elev-3: var(--mobile-shadow-nav);
   --elev-overlay: var(--mobile-shadow-nav);
 
-  /* 폼 */
+  /* Forms */
   --control-height: var(--mobile-touch-target);
   --field-border-color: var(--mobile-border);
   --field-border-style: var(--mobile-border-style);
@@ -84,12 +84,12 @@
   --btn-border-style: var(--mobile-border-style);
   --btn-border-width: var(--mobile-border-width);
 
-  /* 글꼴 */
+  /* Fonts */
   --font-sans: var(--mobile-font-family);
   --font-display: var(--mobile-font-family);
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
-  /* 녹음 상태 */
+  /* Recording status */
   --rec-idle: var(--mobile-fg-muted);
   --rec-recording: var(--mobile-danger);
   --rec-paused: var(--mobile-warning);

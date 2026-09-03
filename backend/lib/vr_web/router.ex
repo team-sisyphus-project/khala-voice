@@ -12,7 +12,7 @@ defmodule VRWeb.Router do
     plug :put_secure_browser_headers
     plug VRWeb.UserAuth, :fetch_current_account
 
-    # 계정 `locale` 로 Gettext 로케일과 `<html lang>` 을 맞춘다. 계정을 붙인 뒤에 온다.
+    # Sets the Gettext locale and `<html lang>` from the account's `locale`. Comes after the account is attached.
     plug VRWeb.Plugs.Locale
   end
 
@@ -22,7 +22,7 @@ defmodule VRWeb.Router do
     plug VRWeb.UserAuth, :fetch_current_account
   end
 
-  # 게스트 세션을 붙이기만 한다. 거절은 각 액션이 한다.
+  # Only attaches the guest session. Rejection is each action's job.
   pipeline :guest do
     plug VRWeb.GuestAuth
   end
@@ -31,8 +31,8 @@ defmodule VRWeb.Router do
     plug VRWeb.GuestAuth, :require_guest
   end
 
-  # `:api` 는 `accepts ["json"]` 이라 마크다운 요청이 406 을 맞는다.
-  # 공용 파이프라인을 고치는 대신 내보내기 전용을 둔다.
+  # `:api` declares `accepts ["json"]`, so a markdown request would hit a 406.
+  # Rather than touching the shared pipeline, we keep an export-only one.
   pipeline :api_export do
     plug :accepts, ["json", "md", "html"]
     plug :fetch_session
@@ -43,11 +43,11 @@ defmodule VRWeb.Router do
     plug VRWeb.UserAuth, :require_authenticated_api
   end
 
-  # ── 시스템 어드민 ──────────────────────────────────────────
-  # M1에서 AdminAuth 플러그가 Account.is_admin 기반으로 교체된다.
-  # 어드민은 로그인한 계정의 is_admin 으로 판정한다.
-  # 권한이 없으면 404 — 어드민 화면의 존재 자체를 노출하지 않는다.
-  # 첫 어드민은 `mix vr.make_admin <이메일>` 로 만든다.
+  # ── System admin ───────────────────────────────────────────
+  # In M1 the AdminAuth plug is replaced with one based on Account.is_admin.
+  # Admin status is determined by the signed-in account's is_admin.
+  # Without permission the response is 404 — we never reveal that the admin
+  # screens exist. Create the first admin with `mix vr.make_admin <email>`.
   pipeline :admin do
     plug VRWeb.UserAuth, :require_admin
   end
@@ -60,7 +60,7 @@ defmodule VRWeb.Router do
     plug VRWeb.UserAuth, :require_authenticated
   end
 
-  # ── 인증 ───────────────────────────────────────────────────
+  # ── Authentication ─────────────────────────────────────────
   scope "/", VRWeb do
     pipe_through [:browser, :redirect_if_authenticated]
 
@@ -73,8 +73,9 @@ defmodule VRWeb.Router do
       live "/reset-password/:token", AuthLive.ResetPasswordLive, :edit
       live "/login/mfa", AuthLive.MFALive, :new
 
-      # 2단계 인증 **등록**은 로그인 흐름 안에 있다. 어드민 구역 안에 두면
-      # 켜야 들어갈 수 있는 문을 켜기 위해 들어가야 하는 데드락이 된다.
+      # Two-factor **enrollment** lives inside the sign-in flow. Placing it in
+      # the admin area would deadlock: you would have to get through a door
+      # that only opens once you have enabled the thing behind it.
       live "/login/mfa/enroll", AuthLive.MFAEnrollLive, :new
     end
 
@@ -82,7 +83,7 @@ defmodule VRWeb.Router do
     post "/login/mfa", SessionController, :verify_mfa
     post "/login/mfa/enroll", SessionController, :enroll
 
-    # 소셜 로그인 — 꺼진 제공자는 컨트롤러에서 404를 낸다
+    # Social sign-in — the controller returns 404 for disabled providers
     get "/auth/:provider", OAuthController, :request
     get "/auth/:provider/callback", OAuthController, :callback
   end
@@ -94,9 +95,9 @@ defmodule VRWeb.Router do
     get "/confirm/:token", ConfirmationController, :confirm
   end
 
-  # ── 우리 MCP 서버 (외부가 아카이브를 읽는다) ────────────────
-  # 인증은 Bearer 토큰(`mcp_`). CSRF 가 없는 `:api` 파이프라인을 쓴다 —
-  # 브라우저가 아니라 프로그램이 부른다.
+  # ── Our MCP server (external clients read the archive) ─────
+  # Authenticated with Bearer tokens (`mcp_`). Uses the CSRF-free `:api`
+  # pipeline — it is called by programs, not browsers.
   pipeline :mcp do
     plug :accepts, ["json"]
     plug VRWeb.MCPAuth
@@ -108,8 +109,8 @@ defmodule VRWeb.Router do
     post "/mcp", MCPController, :handle
   end
 
-  # 메타데이터는 인증 없이 읽을 수 있어야 한다 — 401 을 받은 클라이언트가
-  # "어떻게 인증하나"를 알아내는 문서다.
+  # The metadata must be readable without authentication — it is the document
+  # a client that received a 401 uses to figure out how to authenticate.
   scope "/", VRWeb do
     pipe_through :api
 
@@ -117,8 +118,8 @@ defmodule VRWeb.Router do
     get "/.well-known/oauth-protected-resource/mcp", MCPMetadataController, :show
   end
 
-  # ── 칼라 연동 (로그인 필요) ────────────────────────────────
-  # OAuth 왕복만 여기 있다. 토큰을 쓰는 일은 `VR.Khala` 가 한다.
+  # ── Khala integration (sign-in required) ───────────────────
+  # Only the OAuth round trip lives here. Using the token is `VR.Khala`'s job.
   scope "/khala", VRWeb do
     pipe_through [:browser, :require_auth]
 
@@ -126,23 +127,25 @@ defmodule VRWeb.Router do
     get "/callback", KhalaController, :callback
   end
 
-  # ── 공유 링크 화면 (로그인 없이 열린다) ────────────────────
-  # 같은 index.html 을 준다. 실제 판정은 `/api/public` 이 한다 —
-  # 이 화면 자체에는 회의 내용이 없다.
+  # ── Share link page (opens without sign-in) ────────────────
+  # Serves the same index.html. The real access decision is made by
+  # `/api/public` — this page itself contains no meeting content.
   scope "/share", VRWeb do
     pipe_through :browser
 
     get "/:token", AppController, :index
   end
 
-  # ── React SPA (로그인 필요) ───────────────────────────────
-  # 세 접두어가 같은 index.html 을 받는다. 라우팅은 클라이언트가 한다.
+  # ── React SPA (sign-in required) ──────────────────────────
+  # Three prefixes receive the same index.html. Routing happens on the client.
   #
-  #   /app  데스크톱 표면 (3단)
-  #   /m    모바일 표면 (한 화면씩)
-  #   /go   표면 중립 딥링크 — 푸시·메일이 만드는 링크. 여는 쪽이 표면을 고른다
+  #   /app  desktop surface (three panes)
+  #   /m    mobile surface (one screen at a time)
+  #   /go   surface-neutral deep links — the links push and mail generate.
+  #         The opening side picks the surface.
   #
-  # 표면을 나눈 이유와 공유 링크가 안 나뉘는 이유는 `apps/web/src/lib/surface.ts`.
+  # See `apps/web/src/lib/surface.ts` for why surfaces are split and why
+  # share links are not.
   for prefix <- ["/app", "/m", "/go"] do
     scope prefix, VRWeb do
       pipe_through [:browser, :require_auth]
@@ -152,7 +155,7 @@ defmodule VRWeb.Router do
     end
   end
 
-  # ── 앱 (로그인 필요) ──────────────────────────────────────
+  # ── App (sign-in required) ─────────────────────────────────
   scope "/", VRWeb do
     pipe_through [:browser, :require_auth]
 
@@ -164,7 +167,7 @@ defmodule VRWeb.Router do
     end
   end
 
-  # 초대 링크는 비로그인도 열 수 있다 — 누가 초대했는지 보여줘야 한다
+  # Invite links open without sign-in too — we need to show who sent the invite
   scope "/", VRWeb do
     pipe_through :browser
 
@@ -219,8 +222,8 @@ defmodule VRWeb.Router do
     get "/topics", TopicController, :index
     post "/topics", TopicController, :create
 
-    # ⚠ "/topics/:id" 보다 위에 있어야 한다. Phoenix 는 선언 순서대로 매치하므로
-    #    아래에 두면 id="reorder" 로 잡혀 404 가 난다.
+    # ⚠ Must come before "/topics/:id". Phoenix matches in declaration order,
+    #    so placed below it would be captured as id="reorder" and 404.
     patch "/topics/reorder", TopicController, :reorder
     patch "/topics/:id", TopicController, :update
     delete "/topics/:id", TopicController, :delete
@@ -240,18 +243,19 @@ defmodule VRWeb.Router do
     post "/uploads/presign", UploadController, :presign
   end
 
-  # `.md` 는 경로의 **리터럴 세그먼트**다. Phoenix 가 확장자로 포맷을 협상해 주지 않는다.
+  # `.md` is a **literal segment** of the path. Phoenix does not negotiate the format from the extension.
   scope "/api", VRWeb.API do
     pipe_through [:api_export, :api_auth]
 
     get "/meetings/:id/export.md", MeetingController, :export_markdown
   end
 
-  # ── 공개 API (게스트 공유 링크) ────────────────────────────
-  # **인증 없이 닿는 유일한 API 다.** 경로에 회의 id 가 없다는 점이 핵심이다 —
-  # 게스트가 볼 회의는 게스트 세션이 정한다.
-  # 세션 스코프 경로를 **다른 접두사**로 나눈다. `/share/:token` 아래에 두면
-  # `/share/meeting` 이 token="meeting" 으로 잡힌다.
+  # ── Public API (guest share links) ─────────────────────────
+  # **The only API reachable without authentication.** The key point is that
+  # there is no meeting id in the path — which meeting a guest can see is
+  # determined by the guest session.
+  # Session-scoped paths live under a **different prefix**: placed under
+  # `/share/:token`, `/share/meeting` would be captured as token="meeting".
   scope "/api/public", VRWeb.API.Public do
     pipe_through [:api, :guest, :require_guest]
 

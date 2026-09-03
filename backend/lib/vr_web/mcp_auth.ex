@@ -1,19 +1,20 @@
 defmodule VRWeb.MCPAuth do
   @moduledoc """
-  MCP 서버의 Bearer 토큰 인증.
+  Bearer token authentication for the MCP server.
 
-  ## 401 에 무엇을 담나
+  ## What goes into the 401
 
-  RFC 9728 대로 `WWW-Authenticate` 에 자원 메타데이터 주소를 담는다.
-  MCP 클라이언트가 이걸 보고 어떻게 인증해야 하는지 알아낸다 — 칼라가
-  우리에게 하는 것과 같은 방식이다.
+  Per RFC 9728, the `WWW-Authenticate` header carries the resource metadata URL.
+  MCP clients use it to figure out how to authenticate — the same way Khala
+  does with us.
 
-  ## 왜 404 가 아니라 401 인가
+  ## Why 401 instead of 404
 
-  이 앱의 규칙은 "접근 불가는 404"지만(`docs/05-auth-sharing.md`), 그건
-  **어떤 리소스가 있는지 숨기는** 이야기다. 여기서는 리소스가 아니라
-  프로토콜 진입점이고, 클라이언트가 인증 방법을 알아야 하므로 401 이 맞다.
-  회의 하나하나에 대한 판정은 그 뒤에 여전히 404 로 답한다.
+  This app's rule is "no access means 404" (`docs/05-auth-sharing.md`), but that
+  is about **hiding which resources exist**. Here we are dealing with a protocol
+  entry point rather than a resource, and the client needs to learn how to
+  authenticate, so 401 is correct. Access decisions for individual meetings
+  behind this point still answer with 404.
   """
 
   import Plug.Conn
@@ -48,7 +49,7 @@ defmodule VRWeb.MCPAuth do
         id: nil,
         error: %{
           code: -32_001,
-          message: "인증이 필요합니다. 설정 → 연동에서 읽기 토큰을 만드세요."
+          message: "Authentication required. Create a read token under Settings → Integrations."
         }
       })
     )

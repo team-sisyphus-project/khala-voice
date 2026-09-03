@@ -1,9 +1,9 @@
 defmodule VRWeb.AuthLive.LoginLive do
   @moduledoc """
-  로그인 화면.
+  Sign-in screen.
 
-  폼은 LiveView가 그리지만 제출은 `SessionController`로 간다.
-  LiveView(WebSocket)에서는 쿠키를 심을 수 없기 때문이다.
+  The form is rendered by LiveView, but the submit goes to `SessionController`,
+  because a LiveView (WebSocket) cannot set cookies.
   """
 
   use VRWeb, :live_view

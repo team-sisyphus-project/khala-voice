@@ -1,18 +1,19 @@
 import type { Meeting, ShareEntry, ShareGate } from "./types";
 
 /**
- * 게스트 전용 API 클라이언트.
+ * Guest-only API client.
  *
- * ## 왜 별도 클라이언트인가
+ * ## Why a separate client
  *
- * 게스트 자격은 `X-Guest-Token` 헤더로 간다. 쿠키를 쓰지 않는 이유는
- * (a) `:api` 파이프라인에 CSRF 방어가 없고 (b) 쿠키는 도메인 전역이라
- * "회의 하나만" 이라는 제약과 어긋나기 때문이다.
+ * Guest credentials travel in the `X-Guest-Token` header. We avoid cookies
+ * because (a) the `:api` pipeline has no CSRF defense and (b) cookies are
+ * domain-wide, which conflicts with the "one meeting only" constraint.
  *
- * ## 회의 id 를 보내지 않는다
+ * ## No meeting id is sent
  *
- * 게스트가 볼 회의는 **서버의 게스트 세션이 정한다.** 클라이언트가 회의를
- * 지정할 방법이 없으므로, 다른 회의를 가리키는 시도 자체가 불가능하다.
+ * The meeting a guest sees is **decided by the server-side guest session.**
+ * The client has no way to specify a meeting, so pointing at another meeting
+ * is impossible by construction.
  */
 export class GuestApiClient {
   readonly #baseUrl: string;
@@ -30,7 +31,7 @@ export class GuestApiClient {
     this.#token = value;
   }
 
-  /** 입장 전 안내. 무엇이 필요한지만 알려준다 */
+  /** Pre-entry gate info. Only says what is required */
   gate(shareToken: string): Promise<ShareGate> {
     return this.#request("GET", `/api/public/share/${encodeURIComponent(shareToken)}`);
   }
@@ -42,7 +43,7 @@ export class GuestApiClient {
     return this.#request("POST", `/api/public/share/${encodeURIComponent(shareToken)}/enter`, body);
   }
 
-  /** 게스트가 보는 회의. 어느 회의인지는 서버가 안다 */
+  /** The meeting the guest sees. The server knows which one */
   meeting(): Promise<Meeting> {
     return this.#request("GET", "/api/public/guest/meeting");
   }
@@ -69,7 +70,7 @@ export class GuestApiClient {
 
     if (!response.ok) {
       throw new GuestApiError(
-        (payload["message"] as string) || "요청을 처리하지 못했습니다",
+        (payload["message"] as string) || "The request could not be processed",
         response.status,
         (payload["code"] as string) || "error",
       );

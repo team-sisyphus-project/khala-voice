@@ -1,23 +1,23 @@
 defmodule VR.Config do
   @moduledoc """
-  설정 해석의 **유일한 경로**.
+  The **single path** for configuration resolution.
 
       VR.Config.fetch("storage.access_key_id")
       VR.Config.fetch(:storage, :access_key_id)
 
-  해석 순서:
+  Resolution order:
 
-      1. DB (system_configs, Cloak 암호화)
-      2. 환경변수 (Registry의 :env 이름)
-      3. nil  →  해당 기능이 꺼진다
+      1. DB (system_configs, Cloak-encrypted)
+      2. Environment variable (the Registry's :env name)
+      3. nil  →  the corresponding feature turns off
 
-  ## 규칙
+  ## Rules
 
-  - **코드에 리터럴 기본값을 두지 않는다.** 값이 없으면 없는 대로 기능이 멈춘다.
-    이 리포는 공개되므로, 하드코딩된 기본값은 그 자체로 유출이다.
-  - 다른 모듈이 `System.get_env/1`을 직접 부르지 않는다. 전부 여기를 거친다.
-  - 새 설정값은 `VR.Config.Registry`에 항목을 추가하는 것으로 끝난다.
-    어드민 화면·검증·마스킹·환경변수 폴백이 자동으로 따라온다.
+  - **No literal defaults in code.** When a value is missing, the feature simply
+    stops. This repo is public, so a hardcoded default is itself a leak.
+  - Other modules never call `System.get_env/1` directly. Everything goes through here.
+  - Adding a new config value is just adding an entry to `VR.Config.Registry`.
+    The admin screen, validation, masking, and env-var fallback follow automatically.
   """
 
   import Ecto.Query, warn: false
@@ -28,9 +28,9 @@ defmodule VR.Config do
 
   @type source :: :db | :env | :none
 
-  # ── 읽기 ─────────────────────────────────────────────────
+  # ── Reads ────────────────────────────────────────────────
 
-  @doc "설정값을 타입에 맞게 변환해 반환한다. 없으면 nil."
+  @doc "Returns the config value cast to its type. nil when absent."
   @spec fetch(String.t()) :: term() | nil
   def fetch(key) when is_binary(key) do
     case fetch_with_source(key) do
@@ -42,7 +42,7 @@ defmodule VR.Config do
   def fetch(group, name) when is_atom(group) and is_atom(name),
     do: fetch("#{group}.#{name}")
 
-  @doc "값과 출처를 함께 반환한다. 어드민에서 '어디서 온 값인지' 보여줄 때 쓴다."
+  @doc "Returns the value together with its source. Used by the admin UI to show where a value came from."
   @spec fetch_with_source(String.t()) :: {term() | nil, source()}
   def fetch_with_source(key) when is_binary(key) do
     entry = Registry.entry(key)
@@ -62,7 +62,7 @@ defmodule VR.Config do
     end
   end
 
-  @doc "값이 설정되어 있는지 (DB든 환경변수든)."
+  @doc "Whether the value is configured (in the DB or an environment variable)."
   @spec configured?(String.t()) :: boolean()
   def configured?(key) do
     case fetch_with_source(key) do
@@ -73,7 +73,7 @@ defmodule VR.Config do
   end
 
   @doc """
-  기능이 동작 가능한지. 필수 항목이 전부 채워져 있어야 한다.
+  Whether a feature can operate. Every required entry must be filled in.
 
       VR.Config.feature_ready?(:transcription)
   """
@@ -82,7 +82,7 @@ defmodule VR.Config do
     feature |> Registry.required_for() |> Enum.all?(&configured?(&1.key))
   end
 
-  @doc "기능별 준비 상태와 빠진 항목. 어드민 대시보드 경고 배너용."
+  @doc "Per-feature readiness and missing entries. For the admin dashboard warning banner."
   @spec feature_status() :: [%{feature: atom(), ready: boolean(), missing: [map()]}]
   def feature_status do
     Enum.map(Registry.features(), fn feature ->
@@ -91,14 +91,14 @@ defmodule VR.Config do
     end)
   end
 
-  # ── 쓰기 ─────────────────────────────────────────────────
+  # ── Writes ───────────────────────────────────────────────
 
   @doc """
-  설정값을 DB에 저장한다.
+  Saves a config value to the DB.
 
-  **빈 문자열이면 아무것도 하지 않는다.** 어드민 폼에서 비밀값 필드를
-  비운 채 저장하는 것이 정상 동작(= 기존 값 유지)이기 때문이다.
-  값을 지우려면 `delete/1`을 쓴다.
+  **Does nothing for an empty string.** Saving the admin form with a secret
+  field left blank is normal behavior (= keep the existing value).
+  Use `delete/1` to clear a value.
   """
   @spec put(String.t(), term(), keyword()) :: {:ok, SystemConfig.t()} | {:error, term()}
   def put(key, value, opts \\ [])
@@ -114,14 +114,14 @@ defmodule VR.Config do
     end
   end
 
-  @doc "DB에 저장된 값을 지운다. 이후에는 환경변수 폴백이 적용된다."
+  @doc "Deletes the value stored in the DB. The env-var fallback applies afterward."
   @spec delete(String.t()) :: :ok
   def delete(key) do
     Repo.delete_all(from c in SystemConfig, where: c.key == ^key)
     :ok
   end
 
-  @doc "그룹 하나를 한 번에 저장한다. `%{\"storage.bucket\" => \"...\"}` 형태."
+  @doc "Saves a whole group at once. Shape: `%{\"storage.bucket\" => \"...\"}`."
   @spec put_many(map(), keyword()) :: :ok
   def put_many(params, opts \\ []) do
     Enum.each(params, fn {key, value} ->
@@ -131,10 +131,10 @@ defmodule VR.Config do
     :ok
   end
 
-  # ── 어드민 표시용 ────────────────────────────────────────
+  # ── Admin display ────────────────────────────────────────
 
   @doc """
-  어드민 화면에 뿌릴 그룹 데이터. **비밀값의 실제 내용은 포함하지 않는다.**
+  Group data to render on the admin screen. **Never includes the actual contents of secrets.**
   """
   @spec admin_view(atom()) :: [map()]
   def admin_view(group) do
@@ -145,7 +145,7 @@ defmodule VR.Config do
       Map.merge(entry, %{
         source: source,
         present: present,
-        # 비밀값은 절대 되돌려주지 않는다. 비밀이 아니면 편집용으로 실제 값을 준다.
+        # Secrets are never returned. Non-secrets get the actual value for editing.
         display_value: if(entry.secret, do: nil, else: value),
         updated_at: updated_at(entry.key)
       })
@@ -159,7 +159,7 @@ defmodule VR.Config do
     end
   end
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
   defp db_value(key) do
     case Repo.get_by(SystemConfig, key: key) do
@@ -168,7 +168,7 @@ defmodule VR.Config do
       %{value: value} -> value
     end
   rescue
-    # 마이그레이션 전이나 DB 없이 부팅하는 경우(빌드 타임 등)를 견딘다
+    # Tolerates pre-migration state and booting without a DB (e.g. at build time)
     _ -> nil
   end
 

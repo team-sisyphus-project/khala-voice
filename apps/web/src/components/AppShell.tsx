@@ -8,30 +8,31 @@ import { Icon, PageHeader, Screen, TopAppBar } from "@/ui";
 import { InstallBanner } from "@/components/InstallBanner";
 
 /**
- * 앱 껍데기.
+ * App shell.
  *
- * **출처: devkanban** `mobile/src/AppShell.tsx` 의 레이아웃 문법 —
- * `mobile-app` 컨테이너 + `TopAppBar` + `Screen` + 하단 `.bottom-nav`.
- * 클래스 이름을 그대로 쓴다. CSS 가 이 이름에 걸려 있다.
+ * **Source: devkanban** — the layout grammar of `mobile/src/AppShell.tsx`:
+ * `mobile-app` container + `TopAppBar` + `Screen` + bottom `.bottom-nav`.
+ * Class names are used verbatim. The CSS is keyed to these names.
  *
- * ## 원본과 다른 점
+ * ## Differences from the original
  *
- * - **햄버거(Drawer)를 쓰지 않는다.** devkanban 은 서랍으로 이동하지만
- *   이 앱은 화면이 넷뿐이라 하단 탭바로 충분하다
- * - 어드민 링크가 없다. 주소를 직접 입력해서만 들어간다
+ * - **No hamburger (Drawer).** devkanban navigates via a drawer, but this app
+ *   has only four screens, so a bottom tab bar is enough
+ * - No admin link. It's reached only by typing the address directly
  *
- * ## 제목은 한 곳에만 둔다
+ * ## The title lives in one place
  *
- * `TopAppBar` 가 제목을 그린다. 본문에서 같은 제목을 또 그리지 않는다 —
- * 화면에 제목이 두 벌 뜨면 어느 쪽이 편집 가능한지 알 수 없다.
+ * `TopAppBar` draws the title. The body never draws the same title again —
+ * with two copies on screen, it's unclear which one is editable.
  */
 type Tab = "meetings" | "archive" | "friends" | "settings";
 
 type TabDef = { id: Tab; labelKey: string; icon: string; to: string; external?: boolean };
 
 /**
- * 하단 탭. 주소는 **표면마다 다르다**(`/m/*` · `/app/*`) — 그래서 상수가 아니라
- * 지금 주소에서 만든다. 친구는 LiveView 라 표면 접두어가 없다.
+ * Bottom tabs. The addresses **differ per surface** (`/m/*` · `/app/*`) — so
+ * they're built from the current address, not constants. Friends is LiveView,
+ * so it has no surface prefix.
  */
 function tabsFor(routes: Routes): TabDef[] {
   return [
@@ -56,15 +57,16 @@ export function AppShell({
   title: string;
   subtitle?: string;
   actions?: ReactNode;
-  /** 뎁스 화면에서 뒤로 가기. 주면 상단바가 detail 모양이 된다 */
+  /** Back action for depth screens. When given, the top bar takes its detail form */
   onBack?: () => void;
-  /** 본문을 세로로 꽉 채우고 가운데 정렬한다 */
+  /** Fill the body vertically and center its content */
   center?: boolean;
   /**
-   * 화면 높이를 **스크롤 없이** 다 쓴다.
+   * Use the full screen height **without scrolling**.
    *
-   * 녹음 화면처럼 "한 화면 안에서 끝나는" 화면용이다. 타이머 · 파형 · 녹음 버튼이
-   * 스크롤 아래로 밀리면 녹음 중에 버튼을 찾아 내려야 한다.
+   * For screens that "fit in one view", like the recorder. If the timer,
+   * waveform, and record button get pushed below the fold, you'd have to
+   * scroll down hunting for the button mid-recording.
    */
   fill?: boolean;
   children: ReactNode;
@@ -77,8 +79,9 @@ export function AppShell({
   const [scrolled, setScrolled] = useState(false);
 
   /**
-   * 상단바는 **스크롤한 뒤에만** 제목 캡슐을 띄운다 (devkanban 문법).
-   * 처음에는 본문 큰 제목이 그 역할을 하고, 그것이 위로 사라질 때 상단바가 이어받는다.
+   * The top bar shows its title capsule **only after scrolling** (devkanban
+   * grammar). Initially the body's large title plays that role; when it
+   * scrolls out of view, the top bar takes over.
    */
   useEffect(() => {
     const main = mainRef.current;
@@ -94,7 +97,7 @@ export function AppShell({
       }
     };
 
-    // 스크롤은 버블링하지 않는다. 캡처 단계로 받는다.
+    // Scroll events don't bubble. Listen in the capture phase.
     main.addEventListener("scroll", onScroll, true);
     return () => main.removeEventListener("scroll", onScroll, true);
   }, [location.pathname]);
@@ -105,17 +108,20 @@ export function AppShell({
       ref={mainRef}
     >
       {/*
-        상단바는 **스크롤한 뒤에** 제목을 이어받는다 (`--tabs` 는 처음에 제목이 숨어 있다).
-        큰 제목은 본문 맨 위 `PageHeader` 가 그린다 — devkanban 문법 그대로다.
-        뎁스 화면(`onBack`)은 반대로 상단바가 제목을 들고 본문에는 두지 않는다.
+        The top bar takes over the title **after scrolling** (`--tabs` starts
+        with the title hidden). The large title is drawn by `PageHeader` at the
+        top of the body — pure devkanban grammar. Depth screens (`onBack`) do
+        the opposite: the top bar holds the title and the body doesn't.
       */}
       {/*
-        **최상위 네 탭에는 뒤로가기가 없다.** 그래서 상단바가 자리를 차지하지 않고,
-        제목이 화면 맨 위에 붙는다. 액션 버튼은 그 제목과 **같은 줄**에 선다.
-        상단바는 스크롤 뒤 제목 캡슐만 띄우는 오버레이로 남는다.
+        **The four top-level tabs have no back button.** So the top bar takes no
+        space and the title sits at the very top of the screen, with action
+        buttons on the **same line** as that title. The top bar remains an
+        overlay that only shows the title capsule after scrolling.
 
-        뎁스 화면은 devkanban 문법 그대로다 — 좌측 원형 뒤로가기 + 우측 원형 액션,
-        제목은 상단바가 들고 본문에는 두지 않는다.
+        Depth screens follow devkanban grammar as-is — circular back on the
+        left + circular action on the right; the top bar holds the title and
+        the body doesn't.
       */}
       <TopAppBar
         title={title}
@@ -154,7 +160,7 @@ export function AppShell({
                   return;
                 }
 
-                // 같은 탭을 다시 누르면 그 탭의 첫 화면으로 돌아간다 (뎁스 탈출)
+                // Pressing the active tab again returns to that tab's first screen (escaping depth)
                 if (location.pathname !== tab.to) navigate(tab.to);
               }}
             >

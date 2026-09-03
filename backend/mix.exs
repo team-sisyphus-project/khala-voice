@@ -60,8 +60,8 @@ defmodule VR.MixProject do
        depth: 1},
       {:swoosh, "~> 1.16"},
       {:req, "~> 0.5"},
-      # 웹 푸시(RFC 8291) 암호화. 직접 구현하지 않는다 —
-      # ECDH + HKDF + AES-GCM 을 손으로 짜는 것은 사고를 부른다.
+      # Web push (RFC 8291) encryption. We do not implement this ourselves —
+      # hand-rolling ECDH + HKDF + AES-GCM is asking for an incident.
       {:web_push_elixir, "~> 0.8"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
@@ -70,18 +70,18 @@ defmodule VR.MixProject do
       {:dns_cluster, "~> 0.2.0"},
       {:bandit, "~> 1.5"},
 
-      # ── 설정 · 암호화 ─────────────────────
+      # ── Config & encryption ──────────────
       {:cloak_ecto, "~> 1.3"},
 
-      # ── 인증 ──────────────────────────────
+      # ── Auth ─────────────────────────────
       {:bcrypt_elixir, "~> 3.1"},
-      # 시스템 어드민 전용 2단계 인증 (TOTP)
+      # Two-factor auth (TOTP), system admins only
       {:nimble_totp, "~> 1.0"},
 
-      # ── 잡 큐 ─────────────────────────────
+      # ── Job queue ────────────────────────
       {:oban, "~> 2.19"},
 
-      # ── 스토리지 (S3 presign) ─────────────
+      # ── Storage (S3 presign) ─────────────
       {:ex_aws, "~> 2.5"},
       {:ex_aws_s3, "~> 2.5"},
       {:sweet_xml, "~> 0.7"}

@@ -1,23 +1,23 @@
 /* ============================================================
    autosquad dev Mobile — Design Tokens (mobile/src/styles/tokens.css)
    ------------------------------------------------------------
-   원칙: 모든 테마는 "동일한 토큰 집합"을 선언한다.
-        테마 간 차이는 오직 각 토큰의 VALUE 매핑뿐이다.
-        어떤 토큰도 다른 테마에서 값을 상속받지 않는다(완결형).
+   Principle: every theme declares the SAME set of tokens.
+        The only difference between themes is each token's VALUE mapping.
+        No token ever inherits its value from another theme (self-contained).
 
-   구조 토큰(폰트/여백/라디우스/컨트롤/그림자/모션)은 테마와
-   무관하므로 :root 한 곳에만 둔다.
-   색상/서피스/글래스 토큰은 4개 테마 블록에서 각각 전부 재선언한다.
+   Structural tokens (font/spacing/radius/controls/shadows/motion) are
+   theme-independent, so they live in :root only.
+   Color/surface/glass tokens are fully re-declared in each of the 4 theme blocks.
 
-   초기 VALUE는 데스크톱 ManualSquad 테마 값을 그대로 사용:
-     light      ← assets/css/themes/light.css        (웜, 오렌지)   [기본]
-     dark       ← assets/css/themes/dark.css          (웜, 오렌지)
-     light-cool ← assets/css/themes/light-cool.css    (쿨, 틸)
-     dark-cool  ← assets/css/themes/dark-cool.css     (쿨, 틸)
+   Initial VALUEs are taken verbatim from the desktop ManualSquad themes:
+     light      ← assets/css/themes/light.css        (warm, orange)  [default]
+     dark       ← assets/css/themes/dark.css          (warm, orange)
+     light-cool ← assets/css/themes/light-cool.css    (cool, teal)
+     dark-cool  ← assets/css/themes/dark-cool.css     (cool, teal)
    ============================================================ */
 
 :root {
-  /* ---- 구조 토큰 (테마 불변) ---- */
+  /* ---- Structural tokens (theme-invariant) ---- */
   --mobile-font-family: 'Pretendard', 'Pretendard Variable', -apple-system,
     BlinkMacSystemFont, 'Apple SD Gothic Neo', system-ui, sans-serif;
 
@@ -34,19 +34,22 @@
   --mobile-font-weight-bold: 850;
   --mobile-line-height-tight: 1.2;
   --mobile-line-height-base: 1.5;
-  /* 긴 산문(마크다운 본문)용. 1.5는 한글 장문에서 줄이 붙어 읽힌다 — 노트·
-     기획서·챗 답변처럼 계속 읽어 내려가는 글에만 쓴다(UI 라벨은 base). */
+  /* For long prose (markdown body text). At 1.5, lines feel cramped in long
+     passages — use this only for continuously read text like notes, specs,
+     and chat replies (UI labels use base). */
   --mobile-line-height-relaxed: 1.7;
 
-  /* ---- 마크다운 블록 리듬 ----
-     **간격은 블록 자신이 갖는다.** 예전에는 컨테이너가 `gap`/`* + *`으로
-     일괄로 줬는데, 컨테이너가 네 벌(노트·기획서·챗 답변·내 말풍선)이라 값이
-     8px·8px·6px로 갈렸고 무엇보다 **종류를 구분하지 못했다** — 제목이 문단과
-     같은 간격으로 붙어 문서가 평평하게 읽혔다.
+  /* ---- Markdown block rhythm ----
+     **Each block owns its own spacing.** Containers used to apply it wholesale
+     via `gap`/`* + *`, but with four containers (notes, specs, chat replies, my
+     bubbles) the values drifted to 8px/8px/6px — and above all they **couldn't
+     tell block kinds apart**: headings sat at the same distance as paragraphs
+     and documents read flat.
 
-     em 단위라 컨테이너 글자 크기를 따라간다(말풍선과 기획서 본문이 각자
-     비율을 지킨다). 제목은 위 간격이 아래보다 크다 — 그래야 제목이 **아래
-     내용에 붙어** 한 덩어리로 읽힌다. */
+     Values are in em, so they follow the container's font size (bubbles and
+     spec body each keep their own proportions). Headings get more space above
+     than below — that way a heading **clings to the content beneath it** and
+     reads as one unit. */
   --mobile-md-block-gap: 0.95em;
   --mobile-md-tight-gap: 0.35em;
   --mobile-md-heading-lead: 1.9em;
@@ -62,16 +65,17 @@
   --mobile-drawer-session-unread-dot-offset: var(--mobile-space-3);
   --mobile-drawer-session-unread-dot-size: var(--mobile-space-2);
 
-  /* 화면 섹션 간 최소 여백 (SoT: 섹션 사이 ≥36px) */
+  /* Minimum gap between screen sections (SoT: sections ≥36px apart) */
   --mobile-section-gap: 36px;
 
   --mobile-radius-xs: 10px; --mobile-radius-sm: 14px; --mobile-radius-md: 18px;
   --mobile-radius-lg: 24px; --mobile-radius-xl: 30px; --mobile-radius-full: 9999px;
 
-  /* 떠 있는 탑앱바(`position: absolute`)를 비키는 높이 = safe-area + 행 높이.
-     바 밑으로 지나가면 안 되는 것은 **전부** 이 값을 쓴다 — 예전에는 64px가
-     여러 곳에 흩어져 있었고, 스코프 배너처럼 그 목록에서 빠진 것이 제목
-     캡슐과 겹쳤다. */
+  /* Clearance below the floating top app bar (`position: absolute`)
+     = safe-area + row height. **Everything** that must not slide under the
+     bar uses this value — 64px used to be scattered across the codebase,
+     and anything left off that list (like the scope banner) overlapped
+     the title capsule. */
   --mobile-top-bar-clearance: calc(var(--mobile-safe-top) + 64px);
 
   --mobile-touch-target: 48px;
@@ -80,35 +84,38 @@
   --mobile-control-radius: var(--mobile-radius-sm);
   --mobile-field-radius: var(--mobile-radius-sm);
 
-  /* 바텀바 + PWA safe-area (모든 디바이스에서 홈 인디케이터와 겹치지 않도록) */
+  /* Bottom bar + PWA safe-area (keeps clear of the home indicator on every device) */
   --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
   --mobile-safe-top: env(safe-area-inset-top, 0px);
   --mobile-bottom-nav-height: 66px;
-  /* 플로팅 계열(컴포저·독·FAB·바텀내비)의 공통 바닥 여백. 전부
-     --mobile-floating-bottom-offset(= inset + safe-area + visualViewport 보정)
-     하나를 통해 이 값을 쓴다 — 개별 하드코딩 금지. */
+  /* Shared bottom margin for floating elements (composer, dock, FAB, bottom
+     nav). All of them consume this value through the single
+     --mobile-floating-bottom-offset (= inset + safe-area + visualViewport
+     correction) — no per-component hardcoding. */
   --mobile-bottom-nav-inset: 24px;
-  /* 키보드/툴바로 축소되는 visualViewport 하단 보정 (AppShell 런타임이 갱신) */
+  /* Bottom correction for the visualViewport shrunk by keyboard/toolbars (updated by the AppShell runtime) */
   --mobile-visual-viewport-bottom: 0px;
   --mobile-bottom-nav-offset: calc(var(--mobile-bottom-nav-inset) + var(--mobile-safe-bottom));
   --mobile-floating-bottom-offset: calc(
     var(--mobile-bottom-nav-inset) + var(--mobile-safe-bottom) + var(--mobile-visual-viewport-bottom)
   );
-  /* 마지막 아이템이 플로팅 컨트롤 **위로 완전히 올라오는** 데 필요한 여유.
-     컨트롤 높이와 별개로 항상 이만큼 더 준다 — 이 값이 없으면 마지막 항목이
-     컨트롤 유리에 붙어 잘린 것처럼 읽힌다. */
+  /* Extra room needed for the last item to clear **fully above** the floating
+     controls. Always added on top of the control height — without it the last
+     item hugs the control glass and reads as clipped. */
   --mobile-content-clearance: 96px;
 
-  /* 스크롤 콘텐츠 하단 여백 = 컨트롤이 앉는 자리 + 위 여유.
-     safe-area는 fixed 컨트롤 위치에만 쓰고, 본문은 이 패딩으로만 여유를 만든다.
-     **세로 스크롤러는 예외 없이 이 규약을 쓴다** — 자체 계산을 만들면 화면마다
-     바닥이 다르게 잘린다(실제로 챗 스레드만 갈라져 있었다, 2026-08-09). */
+  /* Bottom padding for scroll content = where the controls sit + the clearance
+     above. safe-area is used only for positioning fixed controls; body content
+     gets its breathing room from this padding alone.
+     **Every vertical scroller uses this convention, no exceptions** — ad-hoc
+     calculations clip the bottom differently per screen (the chat thread
+     really had diverged, 2026-08-09). */
   --mobile-content-pad-bottom: calc(
     var(--mobile-floating-bottom-offset) + var(--mobile-content-clearance)
   );
 
-  --mobile-blur: blur(8px) saturate(1.15); /* 2026-08-09: 일괄 8 */
-  --mobile-blur-strong: blur(8px) saturate(1.2); /* 2026-08-09: 일괄 8 */
+  --mobile-blur: blur(8px) saturate(1.15); /* 2026-08-09: unified at 8 */
+  --mobile-blur-strong: blur(8px) saturate(1.2); /* 2026-08-09: unified at 8 */
   --mobile-shadow-soft: 0 4px 14px -12px rgba(0,0,0,.16);
   --mobile-shadow-card: 0 5px 16px -14px rgba(0,0,0,.18);
   --mobile-shadow-nav: 0 -3px 14px rgba(0,0,0,.07), 0 8px 22px -14px rgba(0,0,0,.2);
@@ -116,34 +123,38 @@
   --mobile-focus-ring: 0 0 0 3px var(--mobile-accent-soft);
   --mobile-transition: 180ms cubic-bezier(0.22, 1, 0.36, 1);
 
-  /* 모달 스크림(dim) — 데스크톱과 같은 규격.
-     음영은 있는 듯 없는 듯. 색은 테마가 --scrim-base로 정하고(다크=검정,
-     라이트=흰색) 알파는 전 테마 동일하다. 하드코딩 rgba로 스크림을 칠하지
-     마라 — 라이트 테마에서도 검정이 깔린다. */
-  /* 2026-08-09: 딤은 우리 방식이 아니다 — 분리는 블러가 한다(데스크톱과 동일) */
+  /* Modal scrim (dim) — same spec as desktop.
+     The shade is barely there. The theme picks the color via --scrim-base
+     (dark = black, light = white); the alpha is identical across themes.
+     Never paint the scrim with hardcoded rgba — that lays black under
+     light themes too. */
+  /* 2026-08-09: dimming is not our way — blur does the separation (same as desktop) */
   --scrim-alpha: 0%;
   --modal-scrim: color-mix(in oklch, var(--scrim-base, black) var(--scrim-alpha), transparent);
 
-  /* ---- Press (iOS Liquid Glass식 누름 반응) ----
-     누르는 동안 컨트롤이 **커지고 밝아진다**. 크기는 여기 세 단계 중 하나를
-     컴포넌트가 `--press-scale`로 고르고, 밝기는 테마 토큰이 정한다.
+  /* ---- Press (iOS Liquid Glass-style press feedback) ----
+     While pressed, a control **grows and brightens**. The component picks one
+     of the three scale steps here via `--press-scale`; brightness comes from
+     theme tokens.
 
-     iOS 표준을 그대로 옮긴 것이라 방향이 관성과 반대다 — 웹에서 흔한
-     "누르면 작아진다"가 아니라 손가락 아래에서 **부풀어 오른다**. 손가락에
-     가려진 컨트롤이 가장자리로 삐져나와야 무엇을 누르고 있는지 보인다.
+     This mirrors the iOS standard, so the direction runs against habit — not
+     the web's usual "shrink on press" but a **swell under the finger**. A
+     control hidden by the finger has to bulge past its edges so you can see
+     what you're pressing.
 
-     들어갈 때는 빠르고(즉각 반응), 놓을 때는 조금 느리게(관성) 간다.
-     같은 시간을 쓰면 놓는 순간이 뚝 끊겨 기계적으로 읽힌다. */
-  --mobile-press-scale-control: 1.09;  /* 떠 있는 원형·알약 컨트롤 (헤더 버튼·FAB·칩) */
-  --mobile-press-scale-surface: 1.02;  /* 목록 행·카드 — 이웃과 화면 가장자리가 있어 작게 */
-  --mobile-press-scale-inline: 1.05;   /* 트랙 안에 갇힌 조각 (세그먼트·선택지) */
+     Press-in is fast (instant response); release is slightly slower (inertia).
+     Using the same duration makes the release cut off abruptly and read as
+     mechanical. */
+  --mobile-press-scale-control: 1.09;  /* floating circular/pill controls (header buttons, FAB, chips) */
+  --mobile-press-scale-surface: 1.02;  /* list rows and cards — kept small; they have neighbors and screen edges */
+  --mobile-press-scale-inline: 1.05;   /* pieces confined to a track (segments, options) */
   --mobile-press-in: 110ms;
   --mobile-press-out: 260ms;
   --mobile-press-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* ============================================================
-   THEME: Light Warm  (기본)  ← light.css
+   THEME: Light Warm  (default)  ← light.css
    ============================================================ */
 :root,
 [data-theme="light"] {
@@ -159,7 +170,7 @@
   --mobile-fg-default: oklch(30% 0.02 75);
   --mobile-fg-muted: oklch(45% 0.02 76);
   --mobile-fg-subtle: oklch(62% 0.01 77);
-  /* 액센트 — 데스크톱 light.css 웜 오렌지(hue 45)와 동일 (기존 hue 27 레드는 드리프트) */
+  /* Accent — identical to desktop light.css warm orange (hue 45); the old hue 27 red was drift */
   --mobile-accent: oklch(65% 0.20 45);
   --mobile-accent-hover: oklch(60% 0.22 43);
   --mobile-accent-strong: oklch(68% 0.18 47);
@@ -180,20 +191,21 @@
   --mobile-glass-strong: oklch(96% 0.004 80 / 0.58);
   --mobile-border: oklch(15% 0.01 75 / 0.05);
   --mobile-nav-bg: oklch(97% 0.004 80 / 0.55);
-  /* 누름 밝기 — 밝은 테마는 **어두워지는** 것이 밝기 변화다. 서피스가 이미
-     98% 언저리라 더 밝히면 흰색에 눌려 아무 일도 안 일어난 것처럼 보인다.
-     글래스는 반대로 불투명 흰색 쪽으로 밀어 유리가 차오르게 한다. */
+  /* Press brightness — on light themes the brightness change is to **darken**.
+     Surfaces already sit around 98%; brightening further gets crushed into
+     white and looks like nothing happened. Glass goes the other way, pushed
+     toward opaque white so the glass fills up. */
   --mobile-press-brightness: 0.93;
   --mobile-glass-pressed: oklch(100% 0.002 80 / 0.95);
   --mobile-press-border: oklch(15% 0.01 75 / 0.10);
-  /* 브랜드 블롭 팔레트 (데스크톱 .brand-blob-warm 대응) */
+  /* Brand blob palette (matches desktop .brand-blob-warm) */
   --mobile-blob-body: oklch(99% 0.005 90 / 0.97);
   --mobile-blob-c1: oklch(62% 0.24 18);
   --mobile-blob-c2: oklch(70% 0.22 30);
   --mobile-blob-c3: oklch(75% 0.19 55);
   --mobile-blob-c4: oklch(85% 0.17 85);
   --mobile-blob-mix: oklch(83% 0.15 95);
-  /* 카드 상태 글로우 (데스크톱 --glow-1..5 웜 세트) */
+  /* Card status glows (desktop --glow-1..5 warm set) */
   --mobile-glow-1: oklch(62% 0.24 18);
   --mobile-glow-2: oklch(70% 0.22 30);
   --mobile-glow-3: oklch(75% 0.19 55);
@@ -218,7 +230,7 @@
   --mobile-fg-default: oklch(84% 0.047 86);
   --mobile-fg-muted: oklch(66.1% 0.037 76);
   --mobile-fg-subtle: oklch(48.5% 0.034 77);
-  /* 액센트 — 데스크톱 dark.css 웜 오렌지(hue 45)와 동일 */
+  /* Accent — identical to desktop dark.css warm orange (hue 45) */
   --mobile-accent: oklch(72% 0.19 45);
   --mobile-accent-hover: oklch(67% 0.21 43);
   --mobile-accent-strong: oklch(76% 0.17 47);
@@ -239,19 +251,19 @@
   --mobile-glass-strong: oklch(22% 0.016 55 / 0.58);
   --mobile-border: oklch(100% 0 0 / 0.06);
   --mobile-nav-bg: oklch(20% 0.016 55 / 0.55);
-  /* 누름 밝기 — 어두운 테마는 밝아진다. 1.42는 흰 아이콘을 흰색으로 클램프해
-     그대로 두고 어두운 배경만 들어 올린다(아이콘이 타서 날아가지 않는다). */
+  /* Press brightness — dark themes brighten. 1.42 clamps white icons at white
+     and lifts only the dark background (icons don't blow out). */
   --mobile-press-brightness: 1.42;
   --mobile-glass-pressed: oklch(60% 0.020 55 / 0.75);
   --mobile-press-border: oklch(100% 0 0 / 0.22);
-  /* 브랜드 블롭 팔레트 (다크: 데스크톱 dark warm 대응, 살짝 짙게) */
+  /* Brand blob palette (dark: matches desktop dark warm, slightly deeper) */
   --mobile-blob-body: oklch(99% 0.005 90 / 0.97);
   --mobile-blob-c1: oklch(56% 0.22 18);
   --mobile-blob-c2: oklch(63% 0.20 30);
   --mobile-blob-c3: oklch(68% 0.18 55);
   --mobile-blob-c4: oklch(78% 0.16 85);
   --mobile-blob-mix: oklch(74% 0.15 95);
-  /* 카드 상태 글로우 (데스크톱 --glow-1..5 웜 세트 — 다크 동일) */
+  /* Card status glows (desktop --glow-1..5 warm set — same in dark) */
   --mobile-glow-1: oklch(62% 0.24 18);
   --mobile-glow-2: oklch(70% 0.22 30);
   --mobile-glow-3: oklch(75% 0.19 55);
@@ -299,14 +311,14 @@
   --mobile-press-brightness: 0.93;
   --mobile-glass-pressed: oklch(100% 0.002 250 / 0.95);
   --mobile-press-border: oklch(15% 0.01 250 / 0.10);
-  /* 브랜드 블롭 팔레트 (데스크톱 .brand-blob-cool 대응) */
+  /* Brand blob palette (matches desktop .brand-blob-cool) */
   --mobile-blob-body: oklch(99% 0.005 250 / 0.97);
   --mobile-blob-c1: oklch(62% 0.18 240);
   --mobile-blob-c2: oklch(76% 0.13 210);
   --mobile-blob-c3: oklch(52% 0.17 252);
   --mobile-blob-c4: oklch(72% 0.15 195);
   --mobile-blob-mix: oklch(62% 0.19 300);
-  /* 카드 상태 글로우 (데스크톱 --glow-1..5 쿨 세트) */
+  /* Card status glows (desktop --glow-1..5 cool set) */
   --mobile-glow-1: oklch(72% 0.16 200);
   --mobile-glow-2: oklch(70% 0.18 165);
   --mobile-glow-3: oklch(66% 0.18 230);
@@ -354,14 +366,14 @@
   --mobile-press-brightness: 1.42;
   --mobile-glass-pressed: oklch(60% 0.024 250 / 0.75);
   --mobile-press-border: oklch(100% 0 0 / 0.22);
-  /* 브랜드 블롭 팔레트 (다크 쿨: 데스크톱 dark cool 대응) */
+  /* Brand blob palette (dark cool: matches desktop dark cool) */
   --mobile-blob-body: oklch(99% 0.005 250 / 0.97);
   --mobile-blob-c1: oklch(55% 0.18 240);
   --mobile-blob-c2: oklch(66% 0.13 210);
   --mobile-blob-c3: oklch(45% 0.17 252);
   --mobile-blob-c4: oklch(63% 0.15 195);
   --mobile-blob-mix: oklch(55% 0.19 300);
-  /* 카드 상태 글로우 (데스크톱 --glow-1..5 쿨 세트 — 다크 동일) */
+  /* Card status glows (desktop --glow-1..5 cool set — same in dark) */
   --mobile-glow-1: oklch(72% 0.16 200);
   --mobile-glow-2: oklch(70% 0.18 165);
   --mobile-glow-3: oklch(66% 0.18 230);
@@ -370,11 +382,12 @@
 }
 
 /* ============================================================
-   매체(형태) 테마 6종 — docs/theme-medium-skin-plan.md (웹 media.css 대응)
-   완결형 원칙 유지: 각 블록이 색상 토큰 전부를 재선언한다.
-   예외: 픽셀은 구조 토큰(radius·font)도 재선언한다 — 매체 테마는
-   "형태까지" 재해석하는 축이라 구조 불변 원칙의 의도적 예외다.
-   상태색은 의미론이라 기존 팔레트를 계승한다.
+   6 medium (form-factor) themes — docs/theme-medium-skin-plan.md (matches web media.css)
+   The self-contained principle holds: each block re-declares every color token.
+   Exception: pixel also re-declares structural tokens (radius/font) — medium
+   themes are the axis that reinterprets "form itself", a deliberate exception
+   to the structural-invariance principle.
+   Status colors are semantic, so they inherit the existing palette.
    ============================================================ */
 
 [data-theme="wc-cool"] {
@@ -574,22 +587,26 @@
 }
 
 /* ============================================================
-   THEME: game — 픽셀(인광관) · 터란 커맨드 센터  ← 웹 themes/game.css
+   THEME: game — pixel (phosphor CRT), Terran command center  ← web themes/game.css
 
-   숨은 테마다. 피커에 안 올라가고(ThemeProvider의 MOBILE_THEMES 밖)
-   localStorage `devkanban.mobile.theme` 수동 입력으로만 켜진다.
-   2026-08-10에 "데스크톱 지향"이라 제외했다가 2026-08-17 지시로 들여왔다.
+   A hidden theme. Not in the picker (outside ThemeProvider's MOBILE_THEMES);
+   enabled only by manually setting localStorage `devkanban.mobile.theme`.
+   Dropped on 2026-08-10 as "desktop-oriented", brought back by directive
+   on 2026-08-17.
 
-   완결형 원칙을 지키되 **구조 토큰(radius·그림자)도 재선언한다** — 픽셀은
-   형태까지 바꾸는 매체라 매체 테마와 같은 의도적 예외다.
-   선 문법(빨강=틀 / 초록=조작 / 선 없음=내용 / 앰버=채움)은 game-skin.css.
+   Keeps the self-contained principle but **also re-declares structural tokens
+   (radius/shadows)** — pixel is a medium that changes form itself, the same
+   deliberate exception as the medium themes.
+   The line grammar (red=frame / green=controls / no line=content / amber=fill)
+   lives in game-skin.css.
    ============================================================ */
 [data-theme="game"] {
   --scrim-base: black;
   color-scheme: dark;
 
-  /* 바탕은 검정. 초록 기미는 떠 있는 것에만 준다 — 사다리 전체에 섞으면
-     본문이 통째로 초록으로 읽힌다(2026-08-17 판정, 데스크톱과 같은 규칙). */
+  /* The ground is black. The green tint goes only on floating elements —
+     mixed into the whole surface ladder, the body reads entirely green
+     (2026-08-17 ruling, same rule as desktop). */
   --mobile-surface-canvas: #000000;
   --mobile-surface-0: #000000;
   --mobile-surface-1: #050a07;
@@ -603,7 +620,7 @@
   --mobile-fg-muted: #4e9a68;
   --mobile-fg-subtle: #367049;
 
-  /* 액센트 = 앰버(채움). 웹 game.css --accent와 같은 값 */
+  /* Accent = amber (fill). Same value as web game.css --accent */
   --mobile-accent: #f5c63a;
   --mobile-accent-hover: #ffe066;
   --mobile-accent-strong: #ffe066;
@@ -611,7 +628,7 @@
   --mobile-accent-glass: rgb(245 198 58 / 0.88);
   --mobile-on-accent: #000000;
 
-  /* 상태색 — 의미론이라 웹 game.css와 같은 값을 그대로 쓴다 */
+  /* Status colors — semantic, so they use the web game.css values verbatim */
   --mobile-info: #63c2e8;
   --mobile-info-soft: rgb(99 194 232 / 0.18);
   --mobile-warning: #f5c63a;
@@ -623,7 +640,7 @@
   --mobile-danger: #e5484d;
   --mobile-danger-soft: rgb(229 72 77 / 0.18);
 
-  /* 유리 없음 — 브라운관에 반투명은 없다. 불투명 값으로 눌러 둔다. */
+  /* No glass — a CRT has no translucency. Pinned to opaque values. */
   --mobile-glass-bg: #050a07;
   --mobile-glass-strong: #000000;
   --mobile-glass-pressed: #0e1810;
@@ -634,16 +651,17 @@
   --mobile-border: #2f5c3f;
   --mobile-press-border: #68c486;
 
-  /* 누름 = **아래로 2px**. 시스템 기본은 "커지고 밝아진다"인데(press.css),
-     이 테마의 버튼은 물리 키처럼 눌려 들어가야 한다. 시스템 연출은 그쪽이
-     제공하는 손잡이(배율·밝기)를 1로 눌러 끄고, 2px 내림만 game-skin.css가
-     더한다 — press.css를 고치지 않으므로 다른 테마는 그대로다. */
+  /* Press = **down 2px**. The system default is "grow and brighten"
+     (press.css), but this theme's buttons must sink in like physical keys.
+     The system effect is switched off through its own knobs (scale/brightness
+     pinned to 1), and game-skin.css adds only the 2px drop — press.css is
+     untouched, so other themes are unaffected. */
   --mobile-press-brightness: 1;
   --mobile-press-scale-control: 1;
   --mobile-press-scale-surface: 1;
   --mobile-press-scale-inline: 1;
 
-  /* 모서리 = 6px 한 값 (웹 --game-radius와 같은 값) */
+  /* Corners = a single 6px value (same as web --game-radius) */
   --mobile-radius-xs: 6px;
   --mobile-radius-sm: 6px;
   --mobile-radius-md: 6px;
@@ -651,17 +669,18 @@
   --mobile-radius-xl: 6px;
   --mobile-radius-full: 6px;
 
-  /* 그림자 없음 — 이 테마에 드롭섀도는 없다(2026-08-17 판정).
-     none이 다중값 리스트에 끼면 선언 전체가 죽으므로 각 토큰을 통째로
-     none으로 둔다(웹 game.css와 같은 처방). */
+  /* No shadows — this theme has no drop shadows (2026-08-17 ruling).
+     A `none` inside a multi-value list kills the whole declaration, so each
+     token is set to none in its entirety (same remedy as web game.css). */
   --mobile-shadow-soft: none;
   --mobile-shadow-card: none;
   --mobile-shadow-nav: none;
   --mobile-shadow-fab: none;
   --mobile-focus-ring: 0 0 0 3px rgb(104 196 134 / 0.4);
 
-  /* 블롭 팔레트 — 게임 테마에서 오브는 모니터라 시트가 이기지만,
-     시트를 못 받는 순간(로딩 실패)의 폴백 색을 인광으로 맞춘다 */
+  /* Blob palette — in the game theme the orb is a monitor, so the sheet wins,
+     but the fallback colors for when the sheet fails to load are tuned to
+     phosphor green */
   --mobile-blob-body: #0a120c;
   --mobile-blob-c1: #2f5c3f;
   --mobile-blob-c2: #3d6b4a;
@@ -675,12 +694,13 @@
   --mobile-glow-4: #9dffc0;
   --mobile-glow-5: #f5c63a;
 
-  /* ── 게임 전용 토큰 ────────────────────────────────────────────────
-     선 문법(빨강=최상위 계층 / 초록=위젯 / 앰버=채움)과 형태 값은 전부
-     여기에서만 리터럴로 산다. **game-skin.css는 리터럴을 쓰지 않고 이
-     토큰만 참조한다** — 리터럴이 컴포넌트 규칙에 흩어지면 값을 한 번에
-     못 바꾼다(디자인 토큰 규칙). 데스크톱 대응은 themes/game.css의
-     --game-* 토큰이고 값이 같아야 한다. */
+  /* ── Game-only tokens ─────────────────────────────────────────────
+     The line grammar (red=top layer / green=widgets / amber=fill) and all
+     form values live as literals here and nowhere else. **game-skin.css uses
+     no literals and references only these tokens** — literals scattered
+     through component rules can't be changed in one place (design token
+     rule). The desktop counterpart is the --game-* tokens in
+     themes/game.css, and the values must match. */
   --mobile-game-red: #b8302e;
   --mobile-game-red-bright: #d94442;
   --mobile-game-green-dim: #2f5c3f;
@@ -691,12 +711,12 @@
   --mobile-game-screen: #000000;
   --mobile-game-border-width: 3px;
   --mobile-game-border-width-chip: 2px;
-  /* 오브는 위젯이 아니라 브라운관 유리라 화면 공통 radius(6px)를 안 쓴다 */
+  /* The orb is CRT glass, not a widget, so it skips the shared screen radius (6px) */
   --mobile-game-orb-radius: 24px;
   --mobile-game-orb-radius-chip: 8px;
   --mobile-game-orb-glow: rgb(104 196 134 / 0.22);
-  /* 누름 = 아래로 이만큼. 시스템 기본(커지고 밝아진다)은 위 press 토큰을
-     1로 눌러 껐다. */
+  /* Press = drop down by this much. The system default (grow and brighten)
+     is switched off by pinning the press tokens above to 1. */
   --mobile-game-press-shift: 2px;
   --mobile-game-scanline: rgb(0 0 0 / 0.12);
   --mobile-game-scanline-opacity: 0.4;
@@ -709,7 +729,7 @@
   --mobile-game-overlay-z: 99999;
   --mobile-game-orb-inner-glow: inset 0 0 14px rgb(104 196 134 / 0.22);
   --mobile-game-steps: steps(2);
-  /* 컴포넌트 규칙은 "사용 안 함"과 구조 값도 직접 박지 않는다. */
+  /* Component rules never hardcode "not used" or structural values directly either. */
   --mobile-game-scanline-clear: transparent;
   --mobile-game-overlay-inset: 0;
   --mobile-game-overlay-pointer-events: none;

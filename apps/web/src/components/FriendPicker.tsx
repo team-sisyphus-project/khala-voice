@@ -5,18 +5,20 @@ import type { CurrentAccount, Friend } from "@core/api";
 import { Icon } from "@/ui";
 
 /**
- * 친구 고르기.
+ * Friend picker.
  *
- * **출처: sisyphus** `assets/shared/components/core-ui.js` 의 멤버 피커.
- * member → friend 로 바꾸고, 다중 선택은 **메뉴가 닫힐 때 한 번만** 저장한다.
+ * **Source: sisyphus** — the member picker in
+ * `assets/shared/components/core-ui.js`. Changed member → friend, and
+ * multi-select saves **once, when the menu closes**.
  *
- * ## 왜 닫힐 때 저장하나
+ * ## Why save on close
  *
- * 체크할 때마다 저장하면 세 번 체크에 PATCH 세 번이 나가고, 앞선 요청이 끝나기 전에
- * 다음이 출발해 `saving` 가드에 씹힌다. 결과적으로 사용자가 고른 마지막 상태가
- * 저장되지 않는 일이 생긴다.
+ * Saving on every check sends three PATCHes for three checks, and the next
+ * one departs before the previous finishes, getting swallowed by the `saving`
+ * guard. The result: the user's final selection sometimes never saves.
  *
- * 단일 선택은 반대로 즉시 저장한다 — 고르는 순간 의도가 끝나기 때문이다.
+ * Single-select does the opposite and saves immediately — the intent is
+ * complete the moment you pick.
  */
 export function FriendPicker({
   friends,
@@ -40,16 +42,16 @@ export function FriendPicker({
   const [draft, setDraft] = useState<string[]>(selected);
   const committed = useRef<string[]>(selected);
 
-  // **닫을 때 읽을 값은 ref 에 둔다.** state 만 쓰면 `close()` 가 렌더 클로저의
-  // 옛 값을 본다 — 체크한 뒤 곧바로 "완료" 를 누르면(React 가 다시 그리기 전)
-  // 마지막 선택이 통째로 사라진다.
+  // **The value read on close lives in a ref.** With state alone, `close()`
+  // sees the render closure's stale value — check something and press "Done"
+  // immediately (before React re-renders) and the last selection vanishes.
   const draftRef = useRef<string[]>(selected);
 
-  // **내용**이 바뀔 때만 동기화한다.
+  // Sync only when the **contents** change.
   //
-  // `selected` 는 호출부에서 매 렌더 새로 만들어지는 배열일 수 있다
-  // (`readViewPermission` 이 그렇다). 배열 참조를 의존성에 그대로 쓰면
-  // 렌더 → 이펙트 → setState → 렌더 로 무한히 돈다.
+  // `selected` may be an array rebuilt on every render at the call site
+  // (`readViewPermission` does this). Using the array reference as a
+  // dependency loops forever: render → effect → setState → render.
   const selectedKey = selected.join(",");
 
   useEffect(() => {
@@ -143,7 +145,7 @@ export function FriendPicker({
   );
 }
 
-/** 고른 사람을 토큰으로. ✕ 는 다중에서도 **즉시** 저장한다 — 제거는 의도가 분명하다. */
+/** Selected people as tokens. ✕ saves **immediately** even in multi-select — removal is unambiguous intent. */
 export function FriendTokens({
   ids,
   friends,
@@ -167,7 +169,7 @@ export function FriendTokens({
 
         return (
           <span key={id} className="vr-token" data-unknown={name === null || undefined}>
-            {/* 친구를 끊은 뒤 남은 옛 id. 숨기면 지울 수도 없어 영원히 남는다. */}
+            {/* A stale id left after unfriending. Hidden, it could never be removed and would linger forever. */}
             {name ?? t("friends.unknownUser")}
             <button
               type="button"

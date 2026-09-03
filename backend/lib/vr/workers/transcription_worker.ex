@@ -1,23 +1,23 @@
 defmodule VR.Workers.TranscriptionWorker do
   @moduledoc """
-  녹음 세션 하나를 전사한다.
+  Transcribes one recording session.
 
-  **출처: sisyphus** `lib/sisyphus/workers/meeting_transcription_worker.ex`
-  — 과금 호출부를 `VR.Transcription.charge/2` 로 바꿨다.
+  **Source: sisyphus** `lib/sisyphus/workers/meeting_transcription_worker.ex`
+  — the billing call site was switched to `VR.Transcription.charge/2`.
 
-  ## 흐름
+  ## Flow
 
-      1. 상태 → transcribing
-      2. MP3 로 변환 (이미 MP3 면 건너뜀)
-      3. Google STT 호출 (5초 폴링, 최대 30분)
-      4. 전사 저장 · 상태 → completed
-      5. 크레딧 계량
-      6. 회의 집계 갱신
+      1. Status → transcribing
+      2. Convert to MP3 (skipped if already MP3)
+      3. Call Google STT (5s polling, up to 30 minutes)
+      4. Save transcript, status → completed
+      5. Meter credits
+      6. Refresh meeting aggregates
 
-  ## 타임아웃
+  ## Timeout
 
-  다운로드(5분) + 변환(10분) + STT 폴링(30분) + 후처리 = 최대 60분.
-  Oban 기본값보다 훨씬 길어 명시한다.
+  Download (5 min) + conversion (10 min) + STT polling (30 min) + post-processing
+  = up to 60 minutes. Much longer than Oban's default, so it is explicit.
   """
 
   use Oban.Worker, queue: :transcription, max_attempts: 3, priority: 2
@@ -33,11 +33,11 @@ defmodule VR.Workers.TranscriptionWorker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"session_id" => session_id}, attempt: attempt}) do
-    Logger.info("[Transcription] 시작: #{session_id} (시도 #{attempt})")
+    Logger.info("[Transcription] started: #{session_id} (attempt #{attempt})")
 
     case Meetings.get_session(session_id) do
       nil ->
-        # 세션이 사라졌다. 재시도해도 소용없다.
+        # The session is gone. Retrying will not help.
         {:cancel, :session_not_found}
 
       %{audio_url: nil} ->
@@ -52,8 +52,9 @@ defmodule VR.Workers.TranscriptionWorker do
     {:ok, session} = Meetings.set_session_status(session, "transcribing")
     meeting = Meetings.get_meeting(session.meeting_id)
 
-    # 클라이언트가 실어 보낸다 (`apps/web/src/lib/prefs.ts`). 그쪽 기본값과 **같아야**
-    # 언어를 못 받은 세션이 다른 언어로 전사되지 않는다.
+    # Sent by the client (`apps/web/src/lib/prefs.ts`). It **must match** the
+    # default over there, so sessions that arrived without a language are not
+    # transcribed in a different one.
     language = get_in(session.metadata, ["language"]) || "en-US"
 
     with {:ok, audio_url, mime_type} <- prepare_audio(session),
@@ -66,7 +67,7 @@ defmodule VR.Workers.TranscriptionWorker do
     end
   end
 
-  # STT 안정성을 위해 MP3 로 맞춘다. 이미 MP3 면 그대로 쓴다.
+  # Normalized to MP3 for STT stability. Used as-is if already MP3.
   defp prepare_audio(session) do
     cond do
       GoogleSTT.dev_mode?() ->
@@ -114,11 +115,12 @@ defmodule VR.Workers.TranscriptionWorker do
     VR.Storage.put_object(key, File.read!(path), "audio/mpeg")
   end
 
-  # **URL 을 검사하고 리다이렉트를 따라가지 않는다.**
+  # **The URL is checked and redirects are not followed.**
   #
-  # 이 주소는 예전에 클라이언트가 보내주던 값이었다 (지금은 서버가 만든다).
-  # 검사 없이 GET 하면 사설망·클라우드 메타데이터로 서버를 대신 보낼 수 있다 (SSRF).
-  # 리다이렉트를 따라가면 허용 호스트 검사가 그대로 무력해지므로 0 으로 둔다.
+  # This address used to come from the client (the server builds it now).
+  # GETting it unchecked can send the server to private networks or cloud
+  # metadata on the client's behalf (SSRF). Following redirects would neutralize
+  # the allowed-host check outright, so it stays at 0.
   defp download(url) do
     if VR.Storage.own_object_url?(url) do
       case Req.get(url, receive_timeout: 300_000, max_redirects: 0) do
@@ -127,7 +129,7 @@ defmodule VR.Workers.TranscriptionWorker do
         {:error, reason} -> {:error, {:download_error, reason}}
       end
     else
-      Logger.error("[Storage] 우리 오브젝트가 아닌 주소는 내려받지 않습니다")
+      Logger.error("[Storage] refusing to download an address that is not our own object")
       {:error, :untrusted_audio_url}
     end
   end
@@ -135,7 +137,7 @@ defmodule VR.Workers.TranscriptionWorker do
   defp finish(session, meeting, segments) do
     transcript = %{
       "segments" => Enum.map(segments, &normalize_segment/1),
-      # 사용자가 편집한 뒤 되돌릴 수 있게 원본을 남긴다
+      # The original is kept so the user can revert after editing
       "original_segments" => Enum.map(segments, &normalize_segment/1)
     }
 
@@ -147,42 +149,43 @@ defmodule VR.Workers.TranscriptionWorker do
 
     {:ok, _} = Meetings.set_session_status(session, "completed")
 
-    # 계량 실패로 전사를 되돌리지 않는다. 일은 이미 끝났다.
+    # A metering failure does not roll back the transcription. The work is done.
     if meeting do
       case Transcription.charge(session, meeting.owner_id) do
         {:ok, _} -> :ok
-        {:error, reason} -> Logger.error("[Transcription] 계량 실패: #{inspect(reason)}")
+        {:error, reason} -> Logger.error("[Transcription] metering failed: #{inspect(reason)}")
       end
 
       Meetings.recalculate_totals(meeting)
       maybe_summarize(meeting)
 
-      # 알림은 부가 기능이다. 실패해도 전사를 되돌리지 않는다.
+      # Notifications are auxiliary. Their failure does not roll back the transcription.
       VR.Push.notify(
         meeting.owner_id,
-        meeting.title || "회의",
-        "전사가 끝났습니다.",
+        meeting.title || "Meeting",
+        "Transcription is complete.",
         url: "/go/meetings/#{meeting.id}",
-        # 같은 회의의 알림이 쌓이지 않게 한다
+        # Prevents notifications for the same meeting from piling up
         tag: "transcribe:#{meeting.id}"
       )
     end
 
-    Logger.info("[Transcription] 완료: #{session.id} 세그먼트 #{length(segments)}개")
+    Logger.info("[Transcription] done: #{session.id}, #{length(segments)} segments")
     :ok
   end
 
-  # 전사가 끝나면 요약을 큐잉한다.
+  # Enqueues a summary once transcription is finished.
   #
-  # **아직 전사 중인 세션이 있으면 큐잉하지 않는다.** 워커의 60초 unique 에만
-  # 기대면 안 된다 — 청크는 수 분 간격으로 끝나 그 창을 벗어난다. 그러면 먼저
-  # 끝난 청크만으로 만든 반쪽 요약이 저장되고, 나중 청크의 auto 잡은
-  # `has_summary?` 에 걸려 건너뛴다. 결과는 "요약은 있는데 뒷부분이 없는" 상태이고
-  # 사용자는 그 사실을 알 방법이 없다.
+  # **Not enqueued while any session is still transcribing.** Relying only on
+  # the worker's 60-second unique is not enough — chunks finish minutes apart
+  # and fall outside that window. A half summary built from only the chunks that
+  # finished first would then be saved, and the later chunk's auto job would be
+  # skipped by `has_summary?`. The result is "there is a summary, but its tail
+  # is missing", with no way for the user to know.
   defp maybe_summarize(meeting) do
     cond do
       VR.Meetings.transcription_pending?(meeting.id) ->
-        Logger.info("[Transcription] 남은 세션이 있어 요약을 미룬다: #{meeting.id}")
+        Logger.info("[Transcription] sessions remaining; deferring summary: #{meeting.id}")
         :ok
 
       true ->
@@ -194,7 +197,7 @@ defmodule VR.Workers.TranscriptionWorker do
     if VR.Config.fetch("llm.auto_summarize") in [true, "true"] and VR.Summarize.ready?() do
       case VR.Summarize.enqueue(meeting, "auto") do
         {:ok, _job} -> :ok
-        {:error, reason} -> Logger.warning("[Transcription] 요약 큐잉 실패: #{inspect(reason)}")
+        {:error, reason} -> Logger.warning("[Transcription] summary enqueue failed: #{inspect(reason)}")
       end
     end
   end
@@ -209,23 +212,23 @@ defmodule VR.Workers.TranscriptionWorker do
     }
   end
 
-  # 화자 키마다 빈 이름으로 시작한다. 사용자가 나중에 사람을 붙인다.
+  # Each speaker key starts with an empty name. The user attaches people later.
   defp initial_speaker_map(segments) do
     segments
     |> Enum.map(& &1.speaker)
     |> Enum.uniq()
     |> Enum.with_index(1)
     |> Map.new(fn {key, index} ->
-      {key, %{"name" => "화자 #{index}", "account_id" => nil}}
+      {key, %{"name" => "Speaker #{index}", "account_id" => nil}}
     end)
   end
 
   defp fail(session, reason, attempt) do
-    Logger.error("[Transcription] 실패: #{session.id} — #{inspect(reason)}")
+    Logger.error("[Transcription] failed: #{session.id} — #{inspect(reason)}")
 
     message = describe(reason)
 
-    # 마지막 시도에서만 failed 로 굳힌다. 그전에는 재시도가 남아 있다.
+    # Only the last attempt hardens the status to failed. Retries remain before that.
     if attempt >= 3 do
       Meetings.set_session_status(session, "failed", %{error_message: message})
     end
@@ -234,11 +237,11 @@ defmodule VR.Workers.TranscriptionWorker do
   end
 
   defp describe(:ffmpeg_missing),
-    do: "서버에 FFmpeg 이 없어 오디오를 변환하지 못했습니다"
+    do: "FFmpeg is not installed on the server, so the audio could not be converted"
 
-  defp describe({:missing_config, key}), do: "전사 설정이 완료되지 않았습니다 (#{key})"
-  defp describe(:transcription_timeout), do: "전사가 시간 안에 끝나지 않았습니다"
-  defp describe({:transcription_failed, _}), do: "음성을 인식하지 못했습니다"
-  defp describe({:download_failed, status}), do: "오디오를 내려받지 못했습니다 (#{status})"
-  defp describe(_), do: "전사에 실패했습니다"
+  defp describe({:missing_config, key}), do: "Transcription setup is incomplete (#{key})"
+  defp describe(:transcription_timeout), do: "Transcription did not finish in time"
+  defp describe({:transcription_failed, _}), do: "Speech could not be recognized"
+  defp describe({:download_failed, status}), do: "The audio could not be downloaded (#{status})"
+  defp describe(_), do: "Transcription failed"
 end

@@ -1,14 +1,14 @@
 defmodule VR.Accounts.AccountSession do
   @moduledoc """
-  로그인 세션. 기기 하나당 한 행.
+  Login session. One row per device.
 
-  설정 화면에서 "어느 기기에서 로그인 중인지" 보여주고 원격 로그아웃을 하기 위해
-  토큰을 DB에 둔다.
+  Tokens are kept in the DB so the settings screen can show "which devices are logged in"
+  and support remote logout.
 
-  ## 토큰 취급
+  ## Token handling
 
-  원본 토큰은 **쿠키에만** 있고 DB에는 SHA-256 해시만 저장한다.
-  DB가 유출돼도 그것만으로 세션을 탈취할 수 없다.
+  The raw token exists **only in the cookie**; the DB stores only a SHA-256 hash.
+  Even if the DB leaks, that alone cannot hijack a session.
   """
 
   use Ecto.Schema
@@ -38,9 +38,9 @@ defmodule VR.Accounts.AccountSession do
   def validity_days, do: @validity_days
 
   @doc """
-  새 세션을 만든다. `{원본_토큰, changeset}`을 돌려준다.
+  Creates a new session. Returns `{raw_token, changeset}`.
 
-  원본 토큰은 이 시점 이후로 다시 구할 수 없다. 쿠키에 심고 버린다.
+  The raw token cannot be recovered after this point. Plant it in the cookie and discard it.
   """
   def build(account_id, attrs \\ %{}) do
     token = :crypto.strong_rand_bytes(@rand_size)
@@ -63,7 +63,7 @@ defmodule VR.Accounts.AccountSession do
     {Base.url_encode64(token, padding: false), changeset}
   end
 
-  @doc "쿠키에 담긴 문자열 토큰을 DB 조회용 해시로 바꾼다."
+  @doc "Converts the string token from the cookie into a hash for DB lookup."
   def hash_token(encoded) when is_binary(encoded) do
     case Base.url_decode64(encoded, padding: false) do
       {:ok, raw} -> {:ok, :crypto.hash(:sha256, raw)}

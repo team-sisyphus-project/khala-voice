@@ -1,9 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Voice Recording">
   <!--
-    maskable 아이콘. 안드로이드가 원형·스퀘어클 등으로 잘라낸다.
+    Maskable icon. Android crops it into circles, squircles, and so on.
 
-    안전 영역은 중앙 80%(반지름 40%)다. 마이크를 그 안에 넣고
-    배경을 가장자리까지 채워 어떤 모양으로 잘려도 흰 테두리가 안 생기게 한다.
+    The safe zone is the central 80% (40% radius). The microphone stays inside it
+    and the background runs to the edges, so no white border appears no matter
+    what shape it is cropped to.
   -->
   <rect width="512" height="512" fill="#E5484D"/>
   <g fill="#fff" transform="translate(256 256) scale(0.72) translate(-256 -256)">

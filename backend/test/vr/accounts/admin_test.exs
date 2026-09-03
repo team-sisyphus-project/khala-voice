@@ -23,8 +23,8 @@ defmodule VR.Accounts.AdminTest do
     session
   end
 
-  describe "부트스트랩" do
-    test "공통 설정 계층에서 이메일과 비밀번호를 읽는다" do
+  describe "bootstrap" do
+    test "reads email and password from the shared config layer" do
       {:ok, _} = Config.put("app.bootstrap_admin_email", "configured@test.local")
       {:ok, _} = Config.put("app.bootstrap_admin_password", "configured-password-1234")
 
@@ -39,7 +39,7 @@ defmodule VR.Accounts.AdminTest do
              )
     end
 
-    test "어드민이 없으면 만든다" do
+    test "creates an admin when none exists" do
       assert {:ok, account, password} = Admin.ensure_bootstrap_admin(email: "boot@test.local")
 
       assert account.is_admin
@@ -48,12 +48,12 @@ defmodule VR.Accounts.AdminTest do
       assert byte_size(password) >= 16
     end
 
-    test "만든 비밀번호로 바로 로그인된다" do
+    test "the generated password logs in immediately" do
       {:ok, account, password} = Admin.ensure_bootstrap_admin(email: "boot2@test.local")
       assert Accounts.get_account_by_email_and_password(account.email, password)
     end
 
-    test "비밀번호를 평문으로 저장하지 않는다" do
+    test "the password is not stored in plaintext" do
       {:ok, account, password} = Admin.ensure_bootstrap_admin(email: "boot3@test.local")
 
       %{rows: [[stored]]} =
@@ -62,29 +62,29 @@ defmodule VR.Accounts.AdminTest do
       refute String.contains?(stored, password)
     end
 
-    test "어드민이 이미 있으면 만들지 않는다" do
+    test "does not create when an admin already exists" do
       _ = admin_fixture()
       assert {:error, :admin_exists} = Admin.ensure_bootstrap_admin(email: "boot@test.local")
     end
 
-    test "이메일 없이는 만들지 않는다 — 기본 주소를 두지 않는다" do
+    test "does not create without an email — no default address" do
       assert {:error, :email_required} = Admin.ensure_bootstrap_admin()
     end
 
-    test "여러 번 실행해도 하나만 만든다" do
+    test "repeated runs create only one" do
       assert {:ok, _, _} = Admin.ensure_bootstrap_admin(email: "boot4@test.local")
       assert {:error, :admin_exists} = Admin.ensure_bootstrap_admin(email: "boot5@test.local")
       assert Admin.count_admins() == 1
     end
 
-    test "부트스트랩 계정을 찾을 수 있다" do
+    test "the bootstrap account can be found" do
       {:ok, account, _} = Admin.ensure_bootstrap_admin(email: "boot6@test.local")
       assert Admin.bootstrap_account().id == account.id
     end
   end
 
-  describe "승격" do
-    test "성공과 거부 시도를 마스킹된 구조화 이벤트로 남긴다" do
+  describe "promotion" do
+    test "records success and denial as masked structured events" do
       actor = admin_fixture(email: "Audit.Actor@Example.test")
       target = account_fixture(email: "Audit.Target@Example.test")
 
@@ -110,7 +110,7 @@ defmodule VR.Accounts.AdminTest do
       assert denied.reason == "recent_mfa_required"
     end
 
-    test "감사 이벤트를 쓸 수 없으면 권한 변경도 롤백한다" do
+    test "if the audit event cannot be written, the permission change rolls back too" do
       actor = admin_fixture()
       target = account_fixture()
       Logger.metadata(request_id: String.duplicate("x", 256))
@@ -122,7 +122,7 @@ defmodule VR.Accounts.AdminTest do
       Logger.metadata(request_id: nil)
     end
 
-    test "최근 MFA가 없거나 10분을 넘기면 거부하고 최근 MFA 세션은 허용한다" do
+    test "rejects without recent MFA or past 10 minutes; allows a recent MFA session" do
       actor = admin_fixture()
       target = account_fixture()
 
@@ -135,7 +135,7 @@ defmodule VR.Accounts.AdminTest do
       assert promoted.is_admin
     end
 
-    test "일반 사용자가 직접 호출하면 거부한다" do
+    test "rejects when a regular user calls it directly" do
       actor = account_fixture()
       target = account_fixture()
 
@@ -143,7 +143,7 @@ defmodule VR.Accounts.AdminTest do
       refute VR.Repo.reload!(target).is_admin
     end
 
-    test "일반 계정을 어드민으로 만든다" do
+    test "makes a regular account an admin" do
       actor = admin_fixture()
       target = account_fixture()
 
@@ -152,7 +152,7 @@ defmodule VR.Accounts.AdminTest do
       assert Admin.count_admins() == 2
     end
 
-    test "이미 어드민이면 그대로 둔다" do
+    test "leaves an existing admin as-is" do
       actor = admin_fixture()
       target = admin_fixture()
 
@@ -160,7 +160,7 @@ defmodule VR.Accounts.AdminTest do
       assert same.is_admin
     end
 
-    test "삭제된 계정은 승격할 수 없다" do
+    test "a deleted account cannot be promoted" do
       actor = admin_fixture()
       target = account_fixture()
       {:ok, deleted} = Admin.delete_account(target, actor, recent_session(actor))
@@ -169,8 +169,8 @@ defmodule VR.Accounts.AdminTest do
     end
   end
 
-  describe "강등 — 잠금 방지" do
-    test "성공과 거부 시도를 마스킹된 구조화 이벤트로 남긴다" do
+  describe "demotion — lockout prevention" do
+    test "records success and denial as masked structured events" do
       actor = admin_fixture(email: "Demote.Actor@Ops.example")
       target = admin_fixture(email: "Demote.Target@People.example")
 
@@ -193,7 +193,7 @@ defmodule VR.Accounts.AdminTest do
              end)
     end
 
-    test "최근 MFA가 없거나 만료되면 거부하고 최근 MFA 세션은 허용한다" do
+    test "rejects without recent or with expired MFA; allows a recent MFA session" do
       actor = admin_fixture()
       target = admin_fixture()
 
@@ -206,7 +206,7 @@ defmodule VR.Accounts.AdminTest do
       refute demoted.is_admin
     end
 
-    test "일반 사용자가 직접 호출하면 거부한다" do
+    test "rejects when a regular user calls it directly" do
       actor = account_fixture()
       target = admin_fixture()
 
@@ -214,7 +214,7 @@ defmodule VR.Accounts.AdminTest do
       assert VR.Repo.reload!(target).is_admin
     end
 
-    test "마지막 어드민은 강등할 수 없다" do
+    test "the last admin cannot be demoted" do
       only_admin = admin_fixture()
       other = admin_fixture()
 
@@ -222,12 +222,12 @@ defmodule VR.Accounts.AdminTest do
       assert {:ok, _} = Admin.demote(other, only_admin, session)
       assert Admin.count_admins() == 1
 
-      # 자기 자신이면서 마지막 어드민이다. 두 조건 모두 걸리는데
-      # 더 구체적인 self 검사가 먼저 잡는다 — 사용자에게 더 알아듣기 쉬운 메시지다.
+      # Both self and last admin. Both conditions apply, but the more
+      # specific self check fires first — a message the user understands better.
       assert {:error, :cannot_demote_self} = Admin.demote(only_admin, only_admin, session)
       assert Admin.count_admins() == 1
 
-      # 다른 어드민이 마지막 하나를 강등하려 하면 last_admin 으로 막힌다
+      # Another admin trying to demote the last one is blocked by last_admin
       third = account_fixture()
       {:ok, third_admin} = Admin.promote(third, only_admin, session)
       third_session = recent_session(third_admin)
@@ -236,14 +236,14 @@ defmodule VR.Accounts.AdminTest do
       assert {:error, :cannot_demote_self} = Admin.demote(third_admin, third_admin, third_session)
     end
 
-    test "자기 자신은 강등할 수 없다" do
+    test "cannot demote yourself" do
       actor = admin_fixture()
       _other = admin_fixture()
 
       assert {:error, :cannot_demote_self} = Admin.demote(actor, actor, recent_session(actor))
     end
 
-    test "다른 어드민은 강등할 수 있다" do
+    test "another admin can be demoted" do
       actor = admin_fixture()
       target = admin_fixture()
 
@@ -251,7 +251,7 @@ defmodule VR.Accounts.AdminTest do
       refute demoted.is_admin
     end
 
-    test "어드민이 아니면 아무 일도 없다" do
+    test "a non-admin target is a no-op" do
       actor = admin_fixture()
       target = account_fixture()
 
@@ -260,8 +260,8 @@ defmodule VR.Accounts.AdminTest do
     end
   end
 
-  describe "삭제 — 잠금 방지" do
-    test "성공과 거부 시도를 삭제 전 이메일의 마스킹된 구조화 이벤트로 남긴다" do
+  describe "deletion — lockout prevention" do
+    test "records success and denial as structured events masking the pre-deletion email" do
       actor = admin_fixture(email: "Delete.Actor@Ops.example")
       target = account_fixture(email: "Delete.Target@People.example")
 
@@ -285,7 +285,7 @@ defmodule VR.Accounts.AdminTest do
              end)
     end
 
-    test "최근 MFA가 없거나 만료되면 거부하고 최근 MFA 세션은 허용한다" do
+    test "rejects without recent or with expired MFA; allows a recent MFA session" do
       actor = admin_fixture()
       target = account_fixture()
 
@@ -298,7 +298,7 @@ defmodule VR.Accounts.AdminTest do
       assert deleted.deleted_at
     end
 
-    test "다른 actor의 MFA 세션은 인정하지 않는다" do
+    test "another actor's MFA session is not accepted" do
       actor = admin_fixture()
       other = admin_fixture()
       target = account_fixture()
@@ -309,7 +309,7 @@ defmodule VR.Accounts.AdminTest do
       refute VR.Repo.reload!(target).deleted_at
     end
 
-    test "폐기된 세션의 MFA 기록은 인정하지 않는다" do
+    test "MFA on a revoked session is not accepted" do
       actor = admin_fixture()
       target = account_fixture()
       session = recent_session(actor)
@@ -319,7 +319,7 @@ defmodule VR.Accounts.AdminTest do
       refute VR.Repo.reload!(target).deleted_at
     end
 
-    test "일반 사용자가 직접 호출하면 거부한다" do
+    test "rejects when a regular user calls it directly" do
       actor = account_fixture()
       target = account_fixture()
 
@@ -327,14 +327,14 @@ defmodule VR.Accounts.AdminTest do
       refute VR.Repo.reload!(target).deleted_at
     end
 
-    test "자기 자신은 삭제할 수 없다" do
+    test "cannot delete yourself" do
       actor = admin_fixture()
 
       assert {:error, :cannot_delete_self} =
                Admin.delete_account(actor, actor, recent_session(actor))
     end
 
-    test "마지막 어드민은 삭제할 수 없다" do
+    test "the last admin cannot be deleted" do
       actor = admin_fixture()
       last = admin_fixture()
 
@@ -345,7 +345,7 @@ defmodule VR.Accounts.AdminTest do
       assert {:error, :cannot_delete_self} = Admin.delete_account(actor, actor, session)
     end
 
-    test "다른 어드민이 있으면 어드민도 삭제할 수 있다" do
+    test "an admin can be deleted when another admin exists" do
       actor = admin_fixture()
       target = admin_fixture()
 
@@ -354,7 +354,7 @@ defmodule VR.Accounts.AdminTest do
       refute deleted.is_admin
     end
 
-    test "삭제하면 이메일이 익명화된다" do
+    test "deletion anonymizes the email" do
       actor = admin_fixture()
       target = account_fixture(email: "victim@test.local")
 
@@ -371,7 +371,7 @@ defmodule VR.Accounts.AdminTest do
                })
     end
 
-    test "삭제하면 세션과 친구 관계가 정리된다" do
+    test "deletion cleans up sessions and friendships" do
       actor = admin_fixture()
       target = account_fixture()
       friend = account_fixture()
@@ -385,7 +385,7 @@ defmodule VR.Accounts.AdminTest do
       assert VR.Friends.list_friends(friend.id) == []
     end
 
-    test "이미 삭제된 계정은 다시 삭제할 수 없다" do
+    test "an already-deleted account cannot be deleted again" do
       actor = admin_fixture()
       target = account_fixture()
 
@@ -395,8 +395,8 @@ defmodule VR.Accounts.AdminTest do
     end
   end
 
-  describe "부트스트랩 입구 닫기 (실사용 시나리오)" do
-    test "실사용자를 승격한 뒤 임시 계정을 지울 수 있다" do
+  describe "closing the bootstrap door (real-world scenario)" do
+    test "after promoting a real user, the temporary account can be deleted" do
       {:ok, boot, _password} = Admin.ensure_bootstrap_admin(email: "boot@test.local")
       assert Admin.count_admins() == 1
       assert Admin.bootstrap_account()
@@ -413,7 +413,7 @@ defmodule VR.Accounts.AdminTest do
       refute Accounts.get_account_by_email("boot@test.local")
     end
 
-    test "승격 전에는 임시 계정을 지울 수 없다 (잠금 방지)" do
+    test "the temporary account cannot be deleted before promotion (lockout prevention)" do
       {:ok, boot, _} = Admin.ensure_bootstrap_admin(email: "boot@test.local")
 
       assert {:error, :cannot_delete_self} =
@@ -423,8 +423,8 @@ defmodule VR.Accounts.AdminTest do
     end
   end
 
-  describe "capabilities/2 — UI 버튼 판단" do
-    test "마지막 어드민에게는 강등·삭제를 막는다" do
+  describe "capabilities/2 — UI button decisions" do
+    test "blocks demote and delete for the last admin" do
       only = admin_fixture()
       caps = Admin.capabilities(only, only)
 
@@ -434,7 +434,7 @@ defmodule VR.Accounts.AdminTest do
       assert caps.is_last_admin
     end
 
-    test "다른 어드민이 있으면 열린다" do
+    test "opens up when another admin exists" do
       actor = admin_fixture()
       target = admin_fixture()
       caps = Admin.capabilities(target, actor)
@@ -444,7 +444,7 @@ defmodule VR.Accounts.AdminTest do
       refute caps.is_self
     end
 
-    test "일반 계정은 승격할 수 있다" do
+    test "a regular account can be promoted" do
       actor = admin_fixture()
       target = account_fixture()
       caps = Admin.capabilities(target, actor)
@@ -455,18 +455,18 @@ defmodule VR.Accounts.AdminTest do
     end
   end
 
-  describe "목록" do
-    test "검색과 필터가 동작한다" do
-      _actor = admin_fixture(email: "admin@test.local", name: "관리자")
-      _user = account_fixture(email: "someone@test.local", name: "홍길동")
+  describe "listing" do
+    test "search and filters work" do
+      _actor = admin_fixture(email: "admin@test.local", name: "Administrator")
+      _user = account_fixture(email: "someone@test.local", name: "Jane Doe")
 
       assert length(Admin.list_accounts()) == 2
       assert [%{email: "admin@test.local"}] = Admin.list_accounts(only: :admins)
-      assert [%{name: "홍길동"}] = Admin.list_accounts(q: "홍길")
+      assert [%{name: "Jane Doe"}] = Admin.list_accounts(q: "Jane D")
       assert [%{email: "admin@test.local"}] = Admin.list_accounts(q: "admin@")
     end
 
-    test "삭제된 계정은 기본으로 숨긴다" do
+    test "deleted accounts are hidden by default" do
       actor = admin_fixture()
       target = account_fixture()
       {:ok, _} = Admin.delete_account(target, actor, recent_session(actor))

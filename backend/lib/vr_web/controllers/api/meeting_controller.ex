@@ -1,5 +1,5 @@
 defmodule VRWeb.API.MeetingController do
-  @moduledoc "회의 REST API."
+  @moduledoc "Meeting REST API."
 
   use VRWeb, :controller
 
@@ -34,12 +34,12 @@ defmodule VRWeb.API.MeetingController do
         Enum.map(meetings, fn m ->
           JSONView.meeting(m, Meetings.level(m, account), taxonomy: taxonomy)
         end),
-      # 필터 화면이 "N개" 를 보여주려면 필요하다. 페이지가 아니라 전체 개수다.
+      # Needed so the filter UI can show "N results". This is the total count, not the page size.
       total: Meetings.count_meetings(account, opts)
     })
   end
 
-  # 배열로도 쉼표 구분 문자열로도 받는다. URL 쿼리로 넘어오면 후자다.
+  # Accepts both an array and a comma-separated string. URL query params arrive as the latter.
   defp parse_ids(nil), do: nil
   defp parse_ids(ids) when is_list(ids), do: Enum.filter(ids, &is_binary/1)
 
@@ -49,8 +49,8 @@ defmodule VRWeb.API.MeetingController do
 
   defp parse_ids(_), do: nil
 
-  # 화이트리스트. 모르는 값이 오면 기본(AND)으로 좁힌다 —
-  # 넓히는 쪽으로 기울면 필터가 조용히 무력해진다.
+  # Whitelist. Unknown values fall back to the default (AND), which narrows —
+  # leaning toward widening would silently defeat the filter.
   defp parse_label_mode("or"), do: "or"
   defp parse_label_mode(_), do: "and"
 
@@ -109,17 +109,18 @@ defmodule VRWeb.API.MeetingController do
              meeting,
              Map.take(params, ~w(reviewer_id contributor_ids permissions guest_link_enabled))
            ) do
-      # **바뀐 회의로 권한을 다시 계산한다.** 요청 전의 level 을 그대로 쓰면
-      # Reviewer 를 넘긴 직후에도 응답이 `role: "reviewer"` 라고 답한다.
-      # 프런트는 이 값을 보고 "권한을 잃었으니 화면을 뜨자"를 판단하므로,
-      # 거짓말을 하면 사용자가 그 화면에 남아 있다가 다음 요청에서 404 를 맞는다.
+      # **Recompute permissions against the updated meeting.** Reusing the
+      # pre-request level would make the response say `role: "reviewer"` even
+      # right after handing the Reviewer role away. The frontend uses this value
+      # to decide "I lost access, leave this screen" — lie here and the user
+      # stays on the screen only to hit a 404 on the next request.
       json(conn, JSONView.meeting(updated, Meetings.level(updated, account)))
     end
   end
 
   def update_status(conn, %{"id" => id, "status" => status}) do
     account = conn.assigns.current_account
-    # 아카이브는 Reviewer만, 나머지 상태 변경은 Contributor 이상
+    # Archiving is Reviewer-only; other status changes require Contributor or above
     required = if status == "archived", do: :lv0, else: :lv1
 
     with {:ok, meeting, level} <- Meetings.authorize(id, account, required),
@@ -130,9 +131,9 @@ defmodule VRWeb.API.MeetingController do
   end
 
   @doc """
-  마크다운으로 내보낸다.
+  Exports as Markdown.
 
-  **오디오 주소는 들어가지 않는다** — 문서는 회의 밖으로 나가기 때문이다.
+  **Audio URLs are never included** — the document leaves the meeting.
   """
   def export_markdown(conn, %{"id" => id}) do
     account = conn.assigns.current_account
@@ -152,10 +153,11 @@ defmodule VRWeb.API.MeetingController do
   end
 
   @doc """
-  이 회의에 붙일 수 있는 분류.
+  The taxonomy that can be attached to this meeting.
 
-  **회의 owner 의 것**을 준다. 내 것이 아니다 — Contributor 가 자기 라벨을 붙이면
-  owner 의 아카이브 검색에 그 회의가 걸리지 않기 때문이다.
+  Returns **the meeting owner's** taxonomy, not the caller's — if a Contributor
+  attached their own labels, the meeting would not show up in the owner's
+  archive search.
   """
   def taxonomy(conn, %{"id" => id}) do
     account = conn.assigns.current_account
@@ -169,10 +171,10 @@ defmodule VRWeb.API.MeetingController do
   end
 
   @doc """
-  요약을 만든다. 이미 있으면 다시 만든다 (모드 `retry`).
+  Generates a summary. If one already exists, it is regenerated (mode `retry`).
 
-  큐잉만 하고 바로 응답한다 — LLM 호출은 수 분이 걸릴 수 있어
-  HTTP 요청을 붙잡고 있을 수 없다. 완료는 폴링으로 확인한다.
+  Queue only and respond immediately — an LLM call can take minutes, and an
+  HTTP request cannot be held open that long. Completion is checked via polling.
   """
   def summarize(conn, %{"id" => id}) do
     account = conn.assigns.current_account

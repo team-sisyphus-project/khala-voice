@@ -1,11 +1,11 @@
 defmodule VRWeb.API.JSONView do
   @moduledoc """
-  API 응답 직렬화.
+  API response serialization.
 
-  ## 마스킹 규칙
+  ## Masking rules
 
-  Viewer 에게는 `audio_url` 을 내려주지 않는다. 화면에서 버튼을 숨기는 것만으로는
-  API를 직접 호출하면 그만이다. **서버에서 지운다.**
+  Viewers never receive `audio_url`. Hiding the button in the UI is not enough —
+  they could simply call the API directly. **The server strips it.**
   """
 
   alias VR.Access.AccessLevel
@@ -31,7 +31,7 @@ defmodule VRWeb.API.JSONView do
       archived_at: meeting.archived_at,
       inserted_at: meeting.inserted_at,
       updated_at: meeting.updated_at,
-      # 클라이언트가 UI를 그릴 때 쓴다. 판정은 서버가 이미 끝냈다.
+      # Used by the client to render the UI. The server has already made the access decision.
       role: AccessLevel.to_role(level),
       view_level: AccessLevel.to_string!(level)
     }
@@ -49,8 +49,8 @@ defmodule VRWeb.API.JSONView do
           base
 
         %{topics: topics, labels: labels} ->
-          # 이름·색을 동봉한다. 그 회의 전문을 이미 읽을 수 있는 사람에게
-          # 분류 이름을 숨기는 것은 방어가 아니라 화면만 망가뜨리는 일이다.
+          # Include names and colors. Hiding taxonomy names from someone who can
+          # already read the full meeting transcript is not defense — it only breaks the UI.
           base
           |> Map.put(:topic, topics[meeting.topic_id] && topic(topics[meeting.topic_id]))
           |> Map.put(
@@ -86,12 +86,13 @@ defmodule VRWeb.API.JSONView do
       inserted_at: session.inserted_at
     }
 
-    # Viewer 는 오디오 원본에 접근하지 못한다.
+    # Viewers cannot access the original audio.
     #
-    # **URL 을 내려보내지 않는다.** 저장 키는 `meeting_id` · `session_id` ·
-    # `started_at_unix` · 확장자로 완전히 결정되는데 그 값들이 이 응답에 다 들어 있다.
-    # 필드만 지우면 손으로 조립해 원본을 받을 수 있으므로, 서명된 URL 로 리다이렉트하는
-    # 엔드포인트만 알려준다.
+    # **We do not send a URL.** The storage key is fully determined by
+    # `meeting_id`, `session_id`, `started_at_unix`, and the file extension — and all
+    # of those values are in this response. Merely omitting the field would let someone
+    # assemble the URL by hand and fetch the original, so we only expose the endpoint
+    # that redirects to a signed URL.
     if AccessLevel.at_least?(level, :lv1) and present?(session.storage_key) do
       Map.put(base, :audio_href, "/api/sessions/#{session.id}/audio")
     else
@@ -99,7 +100,7 @@ defmodule VRWeb.API.JSONView do
     end
   end
 
-  # 카운트가 붙은 형태를 먼저 매치한다 — 순서가 바뀌면 카운트가 사라진다
+  # Match the count-carrying shape first — reversing the order would drop the count
   def topic(%{topic: topic, meeting_count: count}),
     do: Map.put(topic(topic), :meeting_count, count)
 
@@ -126,9 +127,9 @@ defmodule VRWeb.API.JSONView do
   end
 
   @doc """
-  공유 링크. **`token_hash` · `pin_hash` · 평문 토큰 · 평문 PIN 은 절대 넣지 않는다.**
+  Share link. **Never include `token_hash`, `pin_hash`, the plaintext token, or the plaintext PIN.**
 
-  `token_prefix` 는 목록에서 어느 링크인지 알아보기 위한 것이고 이것만으로는 못 들어온다.
+  `token_prefix` exists only to identify a link in a list; it cannot be used to get in.
   """
   def shared_link(link) do
     %{
@@ -148,7 +149,7 @@ defmodule VRWeb.API.JSONView do
     }
   end
 
-  # ── 요금 ─────────────────────────────────────────────────
+  # ── Billing ─────────────────────────────────────────────
 
   def plan(plan, revision) do
     %{
@@ -179,10 +180,11 @@ defmodule VRWeb.API.JSONView do
   end
 
   @doc """
-  원장 한 줄.
+  A single ledger line.
 
-  `pricing_snapshot` 은 그대로 내보낸다 — **자기 사용 내역**이라 숨길 이유가 없고,
-  "왜 이만큼 나갔나"를 확인할 유일한 근거다.
+  `pricing_snapshot` is exported as-is — it is **the account's own usage history**,
+  so there is nothing to hide, and it is the only evidence for answering
+  "why was I charged this much?".
   """
   def ledger_entry(entry) do
     %{
@@ -207,10 +209,10 @@ defmodule VRWeb.API.JSONView do
       name: account.name,
       locale: account.locale,
       theme: account.theme,
-      # nil = 자동(브라우저 언어). UI 언어(`locale`)와 다른 값이다.
+      # nil = automatic (browser language). Distinct from the UI language (`locale`).
       transcribe_language: account.transcribe_language,
       confirmed: not is_nil(account.confirmed_at),
-      # 링크를 보여줄지 말지에만 쓴다. 접근 판정은 서버가 다시 한다.
+      # Used only to decide whether to show the link. The server re-checks access.
       is_admin: account.is_admin
     }
   end

@@ -1,8 +1,9 @@
 /**
- * **출처: devkanban** `mobile/src/components/TopAppBar.tsx` — 그대로 가져왔다.
+ * **Source: devkanban** `mobile/src/components/TopAppBar.tsx` — brought over verbatim.
  *
- * 버튼의 누름 반응 · 헤더 표현 · 인풋 · 모달의 표현 방식을 그대로 쓰기 위해
- * 마크업(클래스 이름)까지 원본과 같게 둔다. CSS 가 이 이름에 걸려 있다.
+ * To reuse the button press feedback, header treatment, inputs, and modal
+ * styling as-is, even the markup (class names) matches the original. The CSS
+ * is keyed to these names.
  */
 
 import type { ReactNode } from "react"
@@ -15,13 +16,15 @@ type TopAppBarProps = {
   onMenu?: () => void
   menuLabel?: string
   action?: ReactNode
-  // 제목 옆 인라인 컨트롤(채팅 헤더의 로직 모델 피커). __titles 캡슐은 스크롤
-  // 전에는 opacity:0이므로 그 안에 넣으면 첫 화면에서 보이지 않는다 — 항상
-  // 보여야 하는 컨트롤은 캡슐 밖 형제로 그린다.
+  // The inline control beside the title (the logic-model picker in the chat
+  // header). The __titles capsule is opacity:0 before scrolling, so anything
+  // inside it is invisible on the first screen — controls that must always
+  // show are drawn as siblings outside the capsule.
   inlineControl?: ReactNode
   scrolled?: boolean
-  // 원본의 `morphTitle`(제목 글자가 흘러 바뀌는 연출)은 가져오지 않았다 —
-  // devkanban 채팅 제목 전용이고 이 앱에는 그렇게 바뀌는 제목이 없다.
+  // The original's `morphTitle` (the flowing title-change effect) wasn't
+  // brought over — it's specific to devkanban chat titles, and no title in
+  // this app changes that way.
 }
 
 export function TopAppBar({

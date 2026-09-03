@@ -5,15 +5,15 @@ import type { AudioPlayer } from "@/hooks/useAudioPlayer";
 import { Icon } from "@/ui";
 
 /**
- * 하단 고정 플레이어. 화면에 **하나만** 존재한다.
+ * The bottom-pinned player. **Only one** exists on screen.
  *
- * **출처: sisyphus** — 세션마다 `<audio>` 를 두면 둘이 동시에 울린다.
+ * **Source: sisyphus** — an `<audio>` per session means two playing at once.
  */
 export function AudioPlayerBar({ player, label }: { player: AudioPlayer; label?: string }) {
   const { t } = useTranslation();
   const open = player.sessionId !== null;
 
-  // 본문이 플레이어 뒤로 숨지 않도록 아래 여백을 확보한다
+  // Reserve bottom space so the body doesn't hide behind the player
   useEffect(() => {
     if (!open) return;
     document.body.dataset["player"] = "open";

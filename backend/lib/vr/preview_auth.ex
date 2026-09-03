@@ -1,10 +1,11 @@
 defmodule VR.PreviewAuth do
   @moduledoc """
-  Preview 환경에서 관리자 기능을 확인하기 위한 인증 테스트 데이터를 구성한다.
+  Sets up authentication test data for verifying admin features in the preview environment.
 
-  호출할 때마다 세 계정의 비밀번호와 역할을 요구 상태로 맞추고, 관리자에게
-  최근 MFA 확인 시각이 기록된 단일 세션을 보장한다. 운영 시작 경로에서는 이
-  모듈을 호출하지 않으며, 실행 진입점은 명시적인 preview 환경 확인을 요구한다.
+  On every call it brings the three accounts' passwords and roles to the
+  required state and guarantees the admin a single session with a recent MFA
+  verification timestamp recorded. The production startup path never calls this
+  module, and the execution entry point requires an explicit preview-environment check.
   """
 
   import Ecto.Query, warn: false
@@ -15,14 +16,14 @@ defmodule VR.PreviewAuth do
 
   @session_marker "khala-preview-auth-fixture"
   @accounts [
-    admin: {"admin@khala.voice", "Preview 관리자", true},
-    user1: {"user1@khala.voice", "Preview 사용자 1", false},
-    user2: {"user2@khala.voice", "Preview 사용자 2", false}
+    admin: {"admin@khala.voice", "Preview Admin", true},
+    user1: {"user1@khala.voice", "Preview User 1", false},
+    user2: {"user2@khala.voice", "Preview User 2", false}
   ]
 
   def mfa_ttl_seconds, do: Admin.recent_mfa_seconds()
 
-  @doc "테스트 계정 세 개와 관리자의 최근 MFA 세션을 멱등 구성한다."
+  @doc "Idempotently sets up the three test accounts and the admin's recent MFA session."
   def ensure(opts) do
     with {:ok, password} <- validate_password(opts[:password]) do
       Repo.transaction(fn ->

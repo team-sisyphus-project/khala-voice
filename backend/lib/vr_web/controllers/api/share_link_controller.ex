@@ -1,16 +1,18 @@
 defmodule VRWeb.API.ShareLinkController do
   @moduledoc """
-  공유 링크 관리. **Reviewer 만** 쓸 수 있다.
+  Share link management. **Reviewer only.**
 
-  sisyphus 는 (a) lv0 또는 lv1 에게 열어 뒀고 (b) 프로젝트 멤버면 누구든 평문 토큰과
-  PIN 을 읽고 남의 링크를 죽일 수 있었다(`shared_link_controller.ex` `authorized_for_link?`).
-  이 앱은 **그 회의의 Reviewer** 한 사람만이다.
+  sisyphus (a) opened this to lv0 or lv1, and (b) let any project member read
+  plaintext tokens and PINs and kill other people's links
+  (`shared_link_controller.ex` `authorized_for_link?`). In this app it is
+  exactly one person: **the meeting's Reviewer**.
 
-  ## 평문은 한 번만 나간다
+  ## Plaintext goes out only once
 
-  발급(`create`)과 재발급(`rotate`), PIN 켜기(`set_pincode`) 응답에만 평문이 실린다.
-  이후 `index` 에는 `token_prefix` 와 `has_pincode` 만 있다.
-  DB 에도 해시만 있으므로 잃어버리면 재발급뿐이다.
+  Plaintext appears only in the responses of issuance (`create`), rotation
+  (`rotate`), and PIN enablement (`set_pincode`). After that, `index` carries
+  only `token_prefix` and `has_pincode`. The DB stores only hashes, so a lost
+  token can only be reissued.
   """
 
   use VRWeb, :controller
@@ -44,7 +46,7 @@ defmodule VRWeb.API.ShareLinkController do
       |> put_status(:created)
       |> json(
         JSONView.shared_link(link)
-        # 이 응답에만 실린다
+        # Included in this response only
         |> Map.put(:url, Sharing.link_url(token))
         |> Map.put(:pincode, pincode)
       )
@@ -62,7 +64,7 @@ defmodule VRWeb.API.ShareLinkController do
     end
   end
 
-  @doc "주소를 잃어버렸을 때. 설정과 사용 횟수는 유지하고 토큰만 새로 만든다."
+  @doc "For when the URL is lost. Keeps the settings and use count; only the token is regenerated."
   def rotate(conn, %{"id" => id}) do
     with {:ok, link} <- authorize_link(conn, id),
          {:ok, updated, token} <- Sharing.rotate_token(link) do
@@ -79,7 +81,7 @@ defmodule VRWeb.API.ShareLinkController do
     end
   end
 
-  @doc "폐기. **이 링크로 들어와 있는 게스트도 끊긴다.**"
+  @doc "Revoke. **Guests currently inside via this link are disconnected too.**"
   def delete(conn, %{"id" => id}) do
     with {:ok, link} <- authorize_link(conn, id),
          {:ok, _} <- Sharing.revoke_link(link) do
@@ -87,10 +89,11 @@ defmodule VRWeb.API.ShareLinkController do
     end
   end
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ────────────────────────────────────────────
 
-  # 링크 id 로 회의를 찾아 그 회의의 Reviewer 인지 본다.
-  # 링크가 없든 권한이 없든 **응답은 404 로 같다.**
+  # Looks up the meeting via the link id and checks whether the caller is that
+  # meeting's Reviewer. Whether the link is missing or permission is missing,
+  # **the response is identically 404.**
   defp authorize_link(conn, id) do
     account = conn.assigns.current_account
 

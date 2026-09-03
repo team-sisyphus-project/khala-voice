@@ -1,13 +1,14 @@
 defmodule VR.Summarize.LLM.Gemini do
   @moduledoc """
-  Google Gemini 어댑터. **기본 제공자** ([04-pipeline.md](../../../../docs/04-pipeline.md)).
+  Google Gemini adapter. **Default provider** ([04-pipeline.md](../../../../docs/04-pipeline.md)).
 
-  `generateContent` + `responseSchema` 로 구조화 출력을 강제한다.
+  Structured output is enforced via `generateContent` + `responseSchema`.
 
-  ## 스키마를 손봐서 넘긴다
+  ## The schema is adapted before sending
 
-  Gemini 는 JSON Schema 를 그대로 받지 않는다. `additionalProperties` 를
-  모르고, 속성 순서를 `propertyOrdering` 으로 따로 받는다.
+  Gemini does not accept JSON Schema verbatim. It does not understand
+  `additionalProperties`, and it takes property order separately via
+  `propertyOrdering`.
   """
 
   alias VR.Summarize.LLM.HTTP
@@ -41,7 +42,7 @@ defmodule VR.Summarize.LLM.Gemini do
     end
   end
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
   defp base_url(provider) do
     case provider.base_url do
@@ -67,7 +68,7 @@ defmodule VR.Summarize.LLM.Gemini do
     if text == "", do: {:error, :empty_response}, else: {:ok, text}
   end
 
-  # 안전 필터에 걸리면 candidates 가 비거나 finishReason 만 온다
+  # When the safety filter triggers, candidates is empty or only finishReason arrives
   defp extract_text(%{"candidates" => [%{"finishReason" => reason} | _]}) do
     {:error, {:blocked, reason}}
   end
@@ -88,7 +89,7 @@ defmodule VR.Summarize.LLM.Gemini do
   defp usage(_), do: %{input_tokens: 0, output_tokens: 0}
 
   @doc false
-  # Gemini 는 additionalProperties 를 모르고, 순서를 propertyOrdering 으로 받는다
+  # Gemini does not understand additionalProperties and takes ordering via propertyOrdering
   def to_gemini_schema(%{"type" => "object", "properties" => properties} = schema) do
     converted = Map.new(properties, fn {key, value} -> {key, to_gemini_schema(value)} end)
 

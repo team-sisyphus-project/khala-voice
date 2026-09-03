@@ -2,12 +2,13 @@ defmodule VR.Repo.Migrations.BillingUsecTimestamps do
   use Ecto.Migration
 
   @moduledoc """
-  크레딧 묶음·원장의 시각을 마이크로초로 올린다.
+  Raises credit lot/ledger timestamps to microsecond precision.
 
-  초 단위로는 같은 초에 들어간 항목들의 순서를 가릴 수 없다.
-  원장은 "무슨 일이 어떤 순서로 있었나"가 전부라 순서가 흔들리면 안 된다.
+  At second precision, entries inserted within the same second cannot be
+  ordered. The ledger is entirely "what happened, in what order", so the
+  ordering must not wobble.
 
-  **출처: devkanban** — `credit_lot.ex` 도 `utc_datetime_usec` 를 쓴다.
+  **Source: devkanban** — `credit_lot.ex` also uses `utc_datetime_usec`.
   """
 
   def up do

@@ -1,8 +1,9 @@
 defmodule VRWeb.OAuthController do
   @moduledoc """
-  소셜 로그인 진입과 콜백.
+  Social sign-in entry point and callback.
 
-  **꺼진 제공자는 404로 응답한다.** 어드민에서 끄면 라우트 자체가 없는 것처럼 보인다.
+  **Disabled providers respond with 404.** Turning one off in the admin makes
+  the route look as if it does not exist at all.
   """
 
   use VRWeb, :controller
@@ -40,8 +41,8 @@ defmodule VRWeb.OAuthController do
         not_found(conn)
 
       is_nil(expected) or not secure_compare(state, expected) or expected_provider != provider ->
-        # state 불일치 = CSRF 시도이거나 세션 만료
-        fail(conn, "인증 요청이 유효하지 않습니다. 다시 시도해 주세요.")
+        # state mismatch = CSRF attempt or expired session
+        fail(conn, "The authentication request is invalid. Please try again.")
 
       true ->
         config = Providers.get(provider)
@@ -54,9 +55,9 @@ defmodule VRWeb.OAuthController do
     end
   end
 
-  # 사용자가 제공자 화면에서 취소한 경우
+  # The user cancelled on the provider's screen
   def callback(conn, %{"provider" => _provider}) do
-    fail(conn, "소셜 로그인이 취소되었습니다")
+    fail(conn, "Social sign-in was cancelled")
   end
 
   defp complete(conn, provider, config, code) do
@@ -71,17 +72,17 @@ defmodule VRWeb.OAuthController do
             UserAuth.log_in_account(conn, account)
 
           {:error, changeset} ->
-            Logger.warning("[OAuth] 계정 생성 실패: #{inspect(changeset.errors)}")
-            fail(conn, "계정을 만들지 못했습니다. 이미 다른 방식으로 가입된 이메일일 수 있습니다.")
+            Logger.warning("[OAuth] account creation failed: #{inspect(changeset.errors)}")
+            fail(conn, "Could not create the account. This email may already be registered with a different sign-in method.")
         end
 
       {:ok, _profile} ->
-        # 이메일 없이는 계정을 식별할 수 없다
-        fail(conn, "이메일 정보를 가져오지 못했습니다. 제공자에서 이메일 공개를 허용해 주세요.")
+        # Without an email we cannot identify the account
+        fail(conn, "Could not retrieve your email address. Please allow email sharing on the provider.")
 
       {:error, reason} ->
-        Logger.warning("[OAuth] 프로필 조회 실패: #{provider} #{inspect(reason)}")
-        fail(conn, "소셜 로그인에 실패했습니다. 잠시 후 다시 시도해 주세요.")
+        Logger.warning("[OAuth] profile fetch failed: #{provider} #{inspect(reason)}")
+        fail(conn, "Social sign-in failed. Please try again later.")
     end
   end
 
@@ -93,7 +94,7 @@ defmodule VRWeb.OAuthController do
     conn |> put_status(:not_found) |> text("Not Found") |> halt()
   end
 
-  # 타이밍 공격을 피해 상수 시간으로 비교한다
+  # Constant-time comparison to avoid timing attacks
   defp secure_compare(a, b) when is_binary(a) and is_binary(b) do
     byte_size(a) == byte_size(b) and :crypto.hash_equals(a, b)
   end

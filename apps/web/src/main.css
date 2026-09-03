@@ -1,5 +1,5 @@
-/* React 앱 레이아웃.
-   색·간격은 토큰만 쓴다. 리터럴을 쓰면 테마가 따라오지 않는다. */
+/* React app layout.
+   Colors and spacing use tokens only. Literals wouldn't follow the theme. */
 
 @keyframes vr-spin { to { transform: rotate(360deg); } }
 
@@ -10,11 +10,11 @@
 a { color: inherit; }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* ── 껍데기 ── */
+/* ── Shell ── */
 .vr-app {
   min-height: 100vh;
   background: var(--surface-canvas);
-  /* 하단 탭바에 내용이 가리지 않게 (아이폰 홈 인디케이터 포함) */
+  /* Keep content clear of the bottom tab bar (iPhone home indicator included) */
   padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
 }
 
@@ -51,7 +51,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   margin: 0 auto;
 }
 
-/* 플레이어가 떠 있으면 마지막 발언이 그 아래로 숨는다. 그만큼 자리를 비운다. */
+/* With the player up, the last utterance hides beneath it. Leave that much room. */
 body[data-player="open"] .vr-app__main { padding-bottom: 88px; }
 
 .vr-app__title {
@@ -72,7 +72,7 @@ body[data-player="open"] .vr-app__main { padding-bottom: 88px; }
 .vr-app__title p { margin-top: 4px; }
 .vr-app__actions { display: flex; gap: 8px; flex-shrink: 0; }
 
-/* ── 하단 탭바 (좁은 화면) ── */
+/* ── Bottom tab bar (narrow screens) ── */
 .vr-app__tabbar {
   position: fixed;
   bottom: 0;
@@ -92,7 +92,7 @@ body[data-player="open"] .vr-app__main { padding-bottom: 88px; }
   align-items: center;
   justify-content: center;
   gap: 2px;
-  /* 터치 타깃 최소 44px */
+  /* Touch targets at least 44px */
   min-height: 56px;
   padding: 6px 4px;
   font-size: 11px;
@@ -104,7 +104,7 @@ body[data-player="open"] .vr-app__main { padding-bottom: 88px; }
 .vr-tabbar__item .material-symbols-rounded { font-size: 22px; }
 .vr-tabbar__item--active { color: var(--accent); }
 
-/* ── 넓은 화면: 상단 네비, 탭바 숨김 ── */
+/* ── Wide screens: top nav, tab bar hidden ── */
 @media (min-width: 720px) {
   .vr-app { padding-bottom: 0; }
   .vr-app__topnav { display: flex; }

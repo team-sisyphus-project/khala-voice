@@ -1,12 +1,13 @@
 defmodule VR.Summarize.LlmProviders do
   @moduledoc """
-  LLM 제공자 조회/관리.
+  LLM provider lookup and management.
 
-  ## 선택 순서
+  ## Selection order
 
-      enabled = true  AND  api_key 있음  →  priority 오름차순  →  첫 번째
+      enabled = true  AND  api_key present  ->  priority ascending  ->  first
 
-  호출이 실패하면 다음 우선순위로 폴백한다. 전부 실패하면 요약이 실패로 기록된다.
+  If a call fails, we fall back to the next priority. If all fail, the summary
+  is recorded as failed.
   """
 
   import Ecto.Query, warn: false
@@ -18,24 +19,24 @@ defmodule VR.Summarize.LlmProviders do
   @env_provider "LLM_PROVIDER"
   @env_model "LLM_MODEL"
 
-  @doc "어드민용 — 등록된 제공자 전부"
+  @doc "For admin use — every registered provider"
   def list_all do
     Repo.all(from p in LlmProvider, order_by: [asc: :priority, asc: :provider])
     |> Enum.map(&decorate/1)
     |> maybe_append_env_fallback()
   end
 
-  @doc "실제로 호출 가능한 제공자만, 우선순위 순"
+  @doc "Only providers that can actually be called, in priority order"
   def list_usable do
     list_all()
     |> Enum.filter(& &1.usable)
     |> Enum.sort_by(& &1.priority)
   end
 
-  @doc "가장 우선순위가 높은 사용 가능 제공자"
+  @doc "The highest-priority usable provider"
   def primary, do: List.first(list_usable())
 
-  @doc "요약 기능이 동작 가능한가"
+  @doc "Whether the summary feature is operational"
   def ready?, do: list_usable() != []
 
   def get(id) when is_binary(id), do: Repo.get(LlmProvider, id)
@@ -53,7 +54,7 @@ defmodule VR.Summarize.LlmProviders do
 
   def delete(%LlmProvider{} = provider), do: Repo.delete(provider)
 
-  # ── 내부 ─────────────────────────────────────────────────
+  # ── Internal ─────────────────────────────────────────────
 
   defp decorate(%LlmProvider{} = p) do
     key = present(p.api_key) || env_key_for(p.provider)
@@ -66,7 +67,8 @@ defmodule VR.Summarize.LlmProviders do
     })
   end
 
-  # 환경변수로만 설정된 경우에도 요약이 동작하도록, DB에 행이 없으면 가상 항목을 붙인다.
+  # So summaries also work when configured only via env vars, append a virtual
+  # entry when there is no DB row.
   defp maybe_append_env_fallback(providers) do
     env_provider = present(System.get_env(@env_provider))
     env_key = present(System.get_env(@env_key))
@@ -78,7 +80,7 @@ defmodule VR.Summarize.LlmProviders do
       fallback =
         %LlmProvider{
           provider: env_provider,
-          display_name: "#{String.capitalize(env_provider)} (환경변수)",
+          display_name: "#{String.capitalize(env_provider)} (env var)",
           model: env_model,
           enabled: true,
           priority: 1000

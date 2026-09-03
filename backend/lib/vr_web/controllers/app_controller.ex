@@ -1,12 +1,12 @@
 defmodule VRWeb.AppController do
   @moduledoc """
-  React SPA 진입점.
+  React SPA entry point.
 
-  `/app` 아래 모든 경로에서 같은 `index.html` 을 준다.
-  클라이언트 라우터가 경로를 처리하므로, 새로고침이나 링크로 직접 들어와도
-  404 가 나지 않아야 한다.
+  Serves the same `index.html` for every path under `/app`.
+  The client-side router handles the path, so a refresh or a direct
+  link must not produce a 404.
 
-  실제 자산(js/css)은 `Plug.Static` 이 먼저 가로채므로 여기까지 오지 않는다.
+  Actual assets (js/css) are intercepted by `Plug.Static` first and never reach this controller.
   """
 
   use VRWeb, :controller
@@ -18,7 +18,7 @@ defmodule VRWeb.AppController do
       {:ok, html} ->
         conn
         |> put_resp_content_type("text/html")
-        # SPA 셸은 캐시하지 않는다. 자산은 해시 파일명이라 따로 캐시된다.
+        # Never cache the SPA shell. Assets use hashed filenames and are cached separately.
         |> put_resp_header("cache-control", "no-store")
         |> send_resp(200, html)
 
@@ -28,13 +28,13 @@ defmodule VRWeb.AppController do
         |> send_resp(503, """
         <!doctype html><meta charset="utf-8">
         <div style="font-family:system-ui;padding:40px;max-width:520px;margin:0 auto">
-          <h1 style="font-size:20px">프론트엔드가 빌드되지 않았습니다</h1>
+          <h1 style="font-size:20px">Frontend has not been built</h1>
           <p style="color:#6b7684;line-height:1.6">
-            <code>apps/web</code> 을 먼저 빌드하세요.
+            Build <code>apps/web</code> first.
           </p>
           <pre style="background:#f3f4f6;padding:12px;border-radius:8px">cd apps/web
         npm install
-        npm run build      # 또는 개발 중에는 npm run dev</pre>
+        npm run build      # or npm run dev during development</pre>
         </div>
         """)
     end

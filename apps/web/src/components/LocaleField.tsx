@@ -5,25 +5,28 @@ import { DEFAULT_UI_LOCALE, SUPPORTED_UI_LOCALES } from "@/i18n";
 import type { CurrentAccount } from "@core/api";
 
 /**
- * 앱 화면(UI) 표시 언어를 고른다.
+ * Picks the app's display (UI) language.
  *
- * ## 전사 언어(`LanguageField`)와 별도 컴포넌트다
+ * ## A separate component from the transcription language (`LanguageField`)
  *
- * 한국어로 앱을 쓰면서 영어 회의를 녹음하는 일이 흔하다. 그래서 계정에도 두 값이
- * **따로** 있고(`locale` ≠ `transcribe_language`), 고르는 자리도 따로다. 둘을 한
- * 컴포넌트로 묶으면 한쪽을 바꿀 때 다른 쪽까지 건드리게 된다.
+ * Using the app in Korean while recording meetings in English is common. So
+ * the account holds the two values **separately** (`locale` ≠
+ * `transcribe_language`), and they're picked in separate places. Merged into
+ * one component, changing one would end up touching the other.
  *
- * ## 왜 자동 감지가 없나
+ * ## Why no auto-detection
  *
- * 전사 언어는 오추측하면 그 회의 전사가 통째로 버려지지만(크레딧은 나간다), UI
- * 언어 오추측은 이 드롭다운에서 1클릭으로 되돌릴 수 있다. 그래서 기본은 고정 영어
- * (`DEFAULT_UI_LOCALE`)이고 브라우저 감지는 두지 않는다.
+ * A misguessed transcription language throws away an entire meeting's
+ * transcript (while spending credits), but a misguessed UI language is one
+ * click away from being fixed in this dropdown. So the default is fixed
+ * English (`DEFAULT_UI_LOCALE`) with no browser detection.
  *
- * ## 제시 목록
+ * ## The offered list
  *
- * 백엔드는 6개 locale 을 허용하지만, 리뷰된 카탈로그가 있는 언어(`SUPPORTED_UI_LOCALES`)
- * 만 제시한다. 카탈로그 없는 언어를 고르게 하면 화면은 영어로 폴백되어 고른 값과
- * 보이는 언어가 어긋난다.
+ * The backend allows 6 locales, but only languages with a reviewed catalog
+ * (`SUPPORTED_UI_LOCALES`) are offered. Letting someone pick a catalog-less
+ * language makes the screen fall back to English, so the chosen value and the
+ * visible language would disagree.
  */
 
 export function LocaleField({
@@ -37,7 +40,7 @@ export function LocaleField({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 계정을 아직 못 받았으면 기본(영어)으로 보여준다 — 앱이 부팅한 언어와 같다.
+  // Before the account arrives, show the default (English) — the language the app booted in.
   const value = account?.locale ?? DEFAULT_UI_LOCALE;
 
   async function pick(next: string) {
@@ -45,8 +48,8 @@ export function LocaleField({
     setError(null);
 
     try {
-      // onChange(setAccount) 가 캐시를 갱신하고 i18next 언어를 즉시 바꾼다 —
-      // 화면이 다음 새로고침이 아니라 지금 다시 그려진다.
+      // onChange(setAccount) refreshes the cache and switches the i18next
+      // language immediately — the screen redraws now, not on the next reload.
       onChange(await api.updateLocale(next));
     } catch (e) {
       setError(e instanceof Error ? e.message : t("locale.saveError"));

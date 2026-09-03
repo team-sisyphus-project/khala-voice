@@ -1,9 +1,9 @@
 defmodule VRWeb.LogoutTest do
   @moduledoc """
-  로그아웃.
+  Logout.
 
-  **세션만 끊고 "로그인 상태 유지" 쿠키를 남기면 다음 요청에서 다시 로그인된다.**
-  둘 다 끊는지 확인한다.
+  **Killing only the session while leaving the "remember me" cookie logs the user
+  back in on the next request.** Verify both are severed.
   """
 
   use VRWeb.ConnCase, async: true
@@ -31,8 +31,8 @@ defmodule VRWeb.LogoutTest do
     account.id |> Accounts.list_sessions() |> length()
   end
 
-  describe "API 로그아웃 (앱)" do
-    test "세션을 끊고 쿠키를 지운다", %{conn: conn, account: account} do
+  describe "API logout (app)" do
+    test "kills the session and clears the cookie", %{conn: conn, account: account} do
       assert session_count(account) == 1
 
       conn = conn |> recycle_session() |> delete(~p"/api/me/session")
@@ -40,11 +40,11 @@ defmodule VRWeb.LogoutTest do
 
       assert session_count(account) == 0
 
-      # 쿠키를 지우지 않으면 다음 요청에서 되살아난다
+      # Without clearing the cookie, the next request resurrects the login
       assert conn.resp_cookies["_vr_session"][:max_age] == 0
     end
 
-    test "로그아웃한 뒤에는 API 가 막힌다", %{conn: conn} do
+    test "the API is blocked after logout", %{conn: conn} do
       conn = conn |> recycle_session() |> delete(~p"/api/me/session")
 
       conn =
@@ -57,8 +57,8 @@ defmodule VRWeb.LogoutTest do
     end
   end
 
-  describe "폼 로그아웃 (LiveView 화면)" do
-    test "로그인 화면으로 보낸다", %{conn: conn, account: account} do
+  describe "form logout (LiveView screens)" do
+    test "sends you to the login screen", %{conn: conn, account: account} do
       conn = conn |> recycle_session() |> delete(~p"/logout")
 
       assert redirected_to(conn) == ~p"/login"

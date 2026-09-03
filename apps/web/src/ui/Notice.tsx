@@ -1,11 +1,12 @@
 /**
- * 알림 띠.
+ * Notice strip.
  *
- * **출처: devkanban** `mobile/src/components/InlineFailure.tsx` 의 마크업 문법
- * (`mobile-inline-failure`)을 확장했다. 원본은 오류 하나만 다루지만 이 앱은
- * 경고·안내·완료도 같은 자리에서 말해야 해서 색만 tone 으로 나눈다.
+ * **Source: devkanban** — extends the markup grammar of
+ * `mobile/src/components/InlineFailure.tsx` (`mobile-inline-failure`). The
+ * original only handles errors, but this app must also speak warnings, info,
+ * and success in the same spot, so only the color splits by tone.
  *
- * 색은 devkanban 토큰을 그대로 쓴다 — 새로 만들지 않는다.
+ * Colors use devkanban tokens as-is — none invented.
  */
 import type { ReactNode } from "react"
 import { Icon } from "./Icon"

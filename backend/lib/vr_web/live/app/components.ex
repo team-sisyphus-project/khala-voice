@@ -1,5 +1,5 @@
 defmodule VRWeb.AppLive.Components do
-  @moduledoc "로그인 후 앱 화면의 공용 껍데기."
+  @moduledoc "Shared shell for the signed-in app screens."
   use Phoenix.Component
   use VRWeb, :verified_routes
   use Gettext, backend: VRWeb.Gettext
@@ -9,21 +9,24 @@ defmodule VRWeb.AppLive.Components do
   attr :title, :string, required: true
   attr :subtitle, :string, default: nil
 
-  # 뎁스 화면의 뒤로가기 목적지. 주면 상단에 **좌측 원형 버튼**이 서고, 제목은
-  # 상단바가 든다. 최상위 네 탭(회의·아카이브·친구·설정)에는 주지 않는다.
+  # Back destination for detail screens. When given, a **round button on the left**
+  # appears in the top bar and the title moves into it. Do not set it on the four
+  # top-level tabs (meetings, archive, friends, settings).
   attr :back, :string, default: nil
   slot :inner_block, required: true
   slot :actions
 
   @doc """
-  로그인 후 화면의 껍데기.
+  Shell for signed-in screens.
 
-  **웹앱(React `AppShell.tsx`)과 같은 마크업을 쓴다** — `mobile-app` 컨테이너 +
-  상단바 + `mobile-screen` + 하단 `.bottom-nav`. 클래스 이름이 곧 계약이라
-  (CSS 가 `packages/ui-styles/` 한 곳에 있다) 이름을 바꾸면 양쪽이 같이 깨진다.
+  **Uses the same markup as the web app (React `AppShell.tsx`)** — `mobile-app`
+  container + top bar + `mobile-screen` + bottom `.bottom-nav`. The class names
+  are the contract (the CSS lives in one place, `packages/ui-styles/`), so
+  renaming them breaks both sides at once.
 
-  예전에는 여기만 상단 텍스트 내비게이션(회의·친구·설정)을 그렸다. 같은 앱에
-  내비게이션이 두 벌이면 어느 쪽이 진짜인지 알 수 없다.
+  This module used to render its own top text navigation (meetings, friends,
+  settings). With two navigations in the same app, no one can tell which is
+  the real one.
   """
   def app_shell(assigns) do
     ~H"""
@@ -55,7 +58,7 @@ defmodule VRWeb.AppLive.Components do
 
       <div class="mobile-screen">
         <div class="mobile-screen__inner">
-          <%!-- 최상위 탭은 제목이 본문 맨 위에 붙고, 액션이 **같은 줄**에 선다. --%>
+          <%!-- On top-level tabs the title sits at the top of the body, with actions on the **same row**. --%>
           <header
             :if={is_nil(@back)}
             class={["mobile-page-header", @actions != [] && "mobile-page-header--row"]}
@@ -80,12 +83,13 @@ defmodule VRWeb.AppLive.Components do
   attr :active, :atom, required: true
 
   @doc """
-  하단 탭. 웹앱과 **같은 네 칸**이다 (회의 · 아카이브 · 친구 · 설정).
+  Bottom tabs. The **same four slots** as the web app (meetings, archive, friends, settings).
 
-  어드민 링크를 두지 않는다. 시스템 어드민은 **주소를 직접 입력해서만** 들어간다.
-  메뉴에 두면 (a) 일반 사용자에게 그런 화면이 있다는 사실이 드러나고
-  (b) 운영자 본인도 평소 화면에서 실수로 누르기 쉽다.
-  권한 없는 요청에는 서버가 403 이 아니라 404 를 준다.
+  There is no admin link here. The system admin area is reached **only by typing
+  the URL directly**. Putting it in the menu would (a) reveal to regular users
+  that such a screen exists and (b) make it easy for operators themselves to tap
+  it by accident during normal use.
+  Unauthorized requests get a 404 from the server, not a 403.
   """
   def bottom_nav(assigns) do
     ~H"""
@@ -159,7 +163,7 @@ defmodule VRWeb.AppLive.Components do
     """
   end
 
-  @doc "빈 상태."
+  @doc "Empty state."
   attr :icon, :string, required: true
   attr :title, :string, required: true
   attr :desc, :string, default: nil
@@ -176,7 +180,7 @@ defmodule VRWeb.AppLive.Components do
     """
   end
 
-  @doc "이름 첫 글자 아바타."
+  @doc "Avatar showing the first letter of the name."
   attr :account, :map, required: true
   attr :size, :integer, default: 36
 
@@ -199,7 +203,7 @@ defmodule VRWeb.AppLive.Components do
   defp initial(%{email: email}) when is_binary(email), do: String.first(email) |> String.upcase()
   defp initial(_), do: "?"
 
-  # 계정 ID를 해시해 색을 고정한다. 같은 사람은 항상 같은 색이 나온다.
+  # Hash the account ID to pin the color. The same person always gets the same color.
   defp color_for(%{id: id}) when is_binary(id) do
     palette = ~w(#f87171 #60a5fa #4ade80 #c084fc #facc15 #2dd4bf #f472b6 #818cf8 #fb923c #f97316)
     Enum.at(palette, :erlang.phash2(id, length(palette)))

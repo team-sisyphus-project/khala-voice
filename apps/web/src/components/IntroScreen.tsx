@@ -2,18 +2,20 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 
 /**
- * 인트로.
+ * Intro.
  *
- * **출처: khala** `frontend/src/components/intro/IntroScreen.tsx` — 단계(로고 → 퇴장)와
- * 세션당 1회 규칙을 그대로 가져왔다.
+ * **Source: khala** `frontend/src/components/intro/IntroScreen.tsx` — the
+ * phases (logo → exit) and the once-per-session rule carried over as-is.
  *
- * 바꾼 것:
- * - PWA resume 스플래시를 넣지 않았다. khala 는 대화가 이어지는 앱이라 복귀가
- *   잦지만, 여기는 녹음 중 복귀가 잦고 그때마다 로고가 덮으면 방해가 된다
- * - 워드마크를 이미지가 아니라 글자로 그린다 — 테마를 따라가야 한다
+ * What changed:
+ * - No PWA resume splash. khala is a continuing-conversation app with
+ *   frequent returns, but here returns often happen mid-recording, and a logo
+ *   covering the screen each time would be disruptive
+ * - The wordmark is drawn as text, not an image — it must follow the theme
  *
- * 자식은 **항상 마운트**한다. 인트로 중에만 숨긴다 — 원본 주석대로, 트리를
- * 통째로 갈아끼우면 StrictMode 이중 렌더에서 React 가 노드 제거로 터진다.
+ * Children are **always mounted**, only hidden during the intro — per the
+ * original's comment, swapping the whole tree blows up in StrictMode double
+ * renders when React removes nodes.
  */
 
 const SESSION_FLAG = "khala-voice.intro.seen";
@@ -26,7 +28,7 @@ function shouldShow(): boolean {
   try {
     return window.sessionStorage.getItem(SESSION_FLAG) === null;
   } catch {
-    // 시크릿 모드 등 저장소가 막힌 환경. 인트로 없이 바로 앱을 연다.
+    // Storage-blocked environments like private browsing. Open the app right away, no intro.
     return false;
   }
 }
@@ -43,7 +45,7 @@ export function IntroScreen({ children }: { children: ReactNode }) {
       try {
         window.sessionStorage.setItem(SESSION_FLAG, "1");
       } catch {
-        // 저장 못 해도 인트로는 끝난다
+        // Even if it can't be saved, the intro still ends
       }
 
       setShow(false);

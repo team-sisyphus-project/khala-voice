@@ -1,9 +1,9 @@
 defmodule VRWeb.AppLive.SettingsLive do
   @moduledoc """
-  계정 설정 — 프로필, 비밀번호, 기기 세션, 계정 삭제.
+  Account settings — profile, password, device sessions, account deletion.
 
-  기기 세션 목록을 보여주는 이유: 어디서 로그인 중인지 사용자가 직접 확인하고
-  모르는 기기를 끊을 수 있어야 한다.
+  Why we show the device session list: users should be able to see for themselves
+  where they are signed in and disconnect any device they don't recognize.
   """
 
   use VRWeb, :live_view
@@ -46,7 +46,7 @@ defmodule VRWeb.AppLive.SettingsLive do
         {:noreply,
          socket
          |> assign(current_account: account)
-         # 클라이언트가 즉시 반영하고 localStorage 캐시도 갱신한다
+         # The client applies it immediately and refreshes its localStorage cache
          |> push_event("vr:theme", %{theme: account.theme})}
 
       {:error, _} ->
@@ -104,9 +104,11 @@ defmodule VRWeb.AppLive.SettingsLive do
       title={gettext("Account settings")}
     >
       <%!--
-        테마 고르는 자리는 **설정 탭**이다 (`AppSettingsPage`). 화면 모양을 바꾸려고
-        계정 설정까지 들어가는 것은 iOS 문법이 아니다. 값은 여전히 계정에 저장되고
-        `set_theme` 이벤트도 남겨 둔다 — 서버 렌더 시 `html[data-theme]` 의 원본이다.
+        Theme selection lives on the **Settings tab** (`AppSettingsPage`). Making
+        people dig into account settings just to change how the screen looks is
+        not the iOS idiom. The value is still stored on the account, and the
+        `set_theme` event stays — it is the source of `html[data-theme]` at
+        server render time.
       --%>
 
       <div class="vr-card mb-4" data-surface="raised">
@@ -261,21 +263,21 @@ defmodule VRWeb.AppLive.SettingsLive do
       </div>
 
       <%!--
-        로그아웃. **폼 POST 다** — `DELETE /logout` 은 CSRF 토큰을 요구한다.
-        링크(GET)로 두면 이미지 태그 하나로 남을 로그아웃시킬 수 있다.
+        Sign out. **It is a form POST** — `DELETE /logout` requires a CSRF token.
+        As a link (GET), a single image tag could sign someone else out.
       --%>
       <div class="vr-card mb-4">
         <div class="vr-card__body">
-          <h2 class="font-bold mb-1" style="color: var(--text-primary);">로그아웃</h2>
+          <h2 class="font-bold mb-1" style="color: var(--text-primary);">Sign out</h2>
           <p class="vr-hint mb-3">
-            이 기기에서만 나갑니다. 다른 기기는 위의 "로그인된 기기"에서 끊습니다.
+            Signs out this device only. Disconnect other devices under "Signed-in devices" above.
           </p>
 
           <form action={~p"/logout"} method="post">
             <input type="hidden" name="_method" value="delete" />
             <input type="hidden" name="_csrf_token" value={Phoenix.Controller.get_csrf_token()} />
             <button type="submit" data-surface="control" class="vr-btn vr-btn--outline w-full">
-              로그아웃
+              Sign out
             </button>
           </form>
         </div>
@@ -309,7 +311,7 @@ defmodule VRWeb.AppLive.SettingsLive do
 
   defp locales do
     [
-      {"ko", "한국어"},
+      {"ko", "Korean"},
       {"en", "English"},
       {"ja", "日本語"},
       {"zh_CN", "中文 (简体)"},

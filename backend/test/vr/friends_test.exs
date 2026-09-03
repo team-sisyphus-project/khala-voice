@@ -9,31 +9,31 @@ defmodule VR.FriendsTest do
     %{alice: account_fixture(name: "Alice"), bob: account_fixture(name: "Bob")}
   end
 
-  describe "친구 관계" do
-    test "정렬된 쌍 한 행으로 저장된다", %{alice: alice, bob: bob} do
+  describe "friendships" do
+    test "stored as one row with an ordered pair", %{alice: alice, bob: bob} do
       {:ok, f} = Friends.create_friendship(alice.id, bob.id)
       assert f.account_a_id < f.account_b_id
     end
 
-    test "순서를 바꿔 만들어도 같은 관계다", %{alice: alice, bob: bob} do
+    test "creating in reverse order yields the same friendship", %{alice: alice, bob: bob} do
       {:ok, first} = Friends.create_friendship(alice.id, bob.id)
       {:ok, second} = Friends.create_friendship(bob.id, alice.id)
       assert first.id == second.id
     end
 
-    test "양쪽 모두에서 친구로 보인다", %{alice: alice, bob: bob} do
+    test "both sides see each other as friends", %{alice: alice, bob: bob} do
       {:ok, _} = Friends.create_friendship(alice.id, bob.id)
       assert Friends.friends?(alice.id, bob.id)
       assert Friends.friends?(bob.id, alice.id)
     end
 
-    test "자기 자신과는 친구가 될 수 없다", %{alice: alice} do
+    test "cannot befriend yourself", %{alice: alice} do
       assert {:error, changeset} = Friends.create_friendship(alice.id, alice.id)
       assert errors_on(changeset).account_b_id
       refute Friends.friends?(alice.id, alice.id)
     end
 
-    test "친구 목록에 서로가 나온다", %{alice: alice, bob: bob} do
+    test "each appears in the other's friends list", %{alice: alice, bob: bob} do
       {:ok, _} = Friends.create_friendship(alice.id, bob.id)
       assert [%{id: id}] = Friends.list_friends(alice.id)
       assert id == bob.id
@@ -41,7 +41,7 @@ defmodule VR.FriendsTest do
       assert id == alice.id
     end
 
-    test "차단하면 친구가 아니게 된다", %{alice: alice, bob: bob} do
+    test "blocking ends the friendship", %{alice: alice, bob: bob} do
       {:ok, _} = Friends.create_friendship(alice.id, bob.id)
       {:ok, _} = Friends.block(alice.id, bob.id)
 
@@ -50,7 +50,7 @@ defmodule VR.FriendsTest do
       assert Friends.list_friends(bob.id) == []
     end
 
-    test "차단을 건 쪽만 풀 수 있다", %{alice: alice, bob: bob} do
+    test "only the blocker can unblock", %{alice: alice, bob: bob} do
       {:ok, _} = Friends.create_friendship(alice.id, bob.id)
       {:ok, _} = Friends.block(alice.id, bob.id)
 
@@ -59,15 +59,15 @@ defmodule VR.FriendsTest do
       assert Friends.friends?(alice.id, bob.id)
     end
 
-    test "친구를 끊을 수 있다", %{alice: alice, bob: bob} do
+    test "friends can be removed", %{alice: alice, bob: bob} do
       {:ok, _} = Friends.create_friendship(alice.id, bob.id)
       {:ok, _} = Friends.remove_friend(alice.id, bob.id)
       refute Friends.friends?(alice.id, bob.id)
     end
   end
 
-  describe "초대 생성" do
-    test "이메일 초대를 만든다", %{alice: alice} do
+  describe "creating invitations" do
+    test "creates an email invitation", %{alice: alice} do
       assert {:ok, invitation, token} =
                Friends.create_invitation(alice, %{email: "new@example.test"})
 
@@ -76,12 +76,12 @@ defmodule VR.FriendsTest do
       assert is_binary(token)
     end
 
-    test "링크 초대는 이메일이 없다", %{alice: alice} do
+    test "link invitations carry no email", %{alice: alice} do
       assert {:ok, invitation, _token} = Friends.create_invitation(alice)
       assert is_nil(invitation.email)
     end
 
-    test "원본 토큰을 DB에 저장하지 않는다", %{alice: alice} do
+    test "the raw token is not stored in the DB", %{alice: alice} do
       {:ok, invitation, token} = Friends.create_invitation(alice)
 
       %{rows: [[stored]]} =
@@ -91,77 +91,77 @@ defmodule VR.FriendsTest do
       assert stored == :crypto.hash(:sha256, Base.url_decode64!(token, padding: false))
     end
 
-    test "자기 자신은 초대할 수 없다", %{alice: alice} do
+    test "cannot invite yourself", %{alice: alice} do
       assert {:error, :cannot_invite_self} =
                Friends.create_invitation(alice, %{email: alice.email})
     end
 
-    test "이미 친구면 초대할 수 없다", %{alice: alice, bob: bob} do
+    test "cannot invite an existing friend", %{alice: alice, bob: bob} do
       {:ok, _} = Friends.create_friendship(alice.id, bob.id)
       assert {:error, :already_friends} = Friends.create_invitation(alice, %{email: bob.email})
     end
 
-    test "같은 사람에게 중복 초대할 수 없다", %{alice: alice, bob: bob} do
+    test "cannot invite the same person twice", %{alice: alice, bob: bob} do
       {:ok, _, _} = Friends.create_invitation(alice, %{email: bob.email})
       assert {:error, :already_invited} = Friends.create_invitation(alice, %{email: bob.email})
     end
   end
 
-  describe "초대 수락" do
-    test "수락하면 친구가 된다", %{alice: alice, bob: bob} do
+  describe "accepting invitations" do
+    test "accepting creates the friendship", %{alice: alice, bob: bob} do
       {:ok, _invitation, token} = Friends.create_invitation(alice, %{email: bob.email})
 
       assert {:ok, _friendship} = Friends.accept_invitation(token, bob)
       assert Friends.friends?(alice.id, bob.id)
     end
 
-    test "링크 초대는 누구든 수락할 수 있다", %{alice: alice, bob: bob} do
+    test "anyone can accept a link invitation", %{alice: alice, bob: bob} do
       {:ok, _invitation, token} = Friends.create_invitation(alice)
       assert {:ok, _} = Friends.accept_invitation(token, bob)
       assert Friends.friends?(alice.id, bob.id)
     end
 
-    test "같은 토큰을 두 번 쓸 수 없다", %{alice: alice, bob: bob} do
+    test "the same token cannot be used twice", %{alice: alice, bob: bob} do
       {:ok, _, token} = Friends.create_invitation(alice)
       assert {:ok, _} = Friends.accept_invitation(token, bob)
       assert {:error, :not_pending} = Friends.accept_invitation(token, bob)
     end
 
-    test "초대자가 자기 초대를 수락할 수 없다", %{alice: alice} do
+    test "the inviter cannot accept their own invitation", %{alice: alice} do
       {:ok, _, token} = Friends.create_invitation(alice)
       assert {:error, :cannot_accept_own} = Friends.accept_invitation(token, alice)
     end
 
-    test "잘못된 토큰은 거부한다", %{bob: bob} do
+    test "rejects an invalid token", %{bob: bob} do
       assert {:error, :not_found} = Friends.accept_invitation("garbage", bob)
     end
 
-    test "거절하면 친구가 되지 않는다", %{alice: alice, bob: bob} do
+    test "declining does not create the friendship", %{alice: alice, bob: bob} do
       {:ok, _, token} = Friends.create_invitation(alice, %{email: bob.email})
       assert {:ok, _} = Friends.decline_invitation(token, bob)
       refute Friends.friends?(alice.id, bob.id)
     end
 
-    test "취소한 초대는 수락할 수 없다", %{alice: alice, bob: bob} do
+    test "a cancelled invitation cannot be accepted", %{alice: alice, bob: bob} do
       {:ok, invitation, token} = Friends.create_invitation(alice, %{email: bob.email})
       {:ok, _} = Friends.cancel_invitation(invitation.id, alice)
       assert {:error, :not_pending} = Friends.accept_invitation(token, bob)
     end
 
-    test "남의 초대를 취소할 수 없다", %{alice: alice, bob: bob} do
+    test "cannot cancel someone else's invitation", %{alice: alice, bob: bob} do
       {:ok, invitation, _} = Friends.create_invitation(alice)
       assert {:error, :not_owner} = Friends.cancel_invitation(invitation.id, bob)
     end
   end
 
-  describe "초대 목록" do
-    test "보낸 초대를 본다", %{alice: alice} do
+  describe "listing invitations" do
+    test "shows invitations I sent", %{alice: alice} do
       {:ok, _, _} = Friends.create_invitation(alice, %{email: "a@example.test"})
       {:ok, _, _} = Friends.create_invitation(alice, %{email: "b@example.test"})
       assert length(Friends.list_sent_invitations(alice.id)) == 2
     end
 
-    test "내 이메일로 온 초대를 본다", %{alice: alice, bob: bob} do
+    test "shows invitations sent to my email", %{alice: alice, bob: bob} do
       {:ok, _, _} = Friends.create_invitation(alice, %{email: bob.email})
       assert [invitation] = Friends.list_received_invitations(bob)
       assert invitation.invited_by_id == alice.id

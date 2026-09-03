@@ -1,35 +1,35 @@
 /* ============================================================
-   Press — 누르는 동안의 반응 (mobile/src/styles/press.css)
+   Press — feedback while a control is held down (mobile/src/styles/press.css)
    ------------------------------------------------------------
-   iOS Liquid Glass의 누름 문법을 앱 전체에 하나로 적용한다:
-   **손가락 아래에서 커지고 밝아진다.**
+   Applies the iOS Liquid Glass press grammar uniformly across the app:
+   **it grows and brightens under the finger.**
 
-   웹의 관성("누르면 작아진다")과 반대 방향인 것이 핵심이다. 컨트롤은
-   손가락에 가려지므로, 줄어들면 무엇을 누르고 있는지 더 안 보인다. 부풀면
-   가장자리가 손가락 밖으로 삐져나와 스스로를 드러낸다.
+   The key is that this runs opposite to the web habit ("shrink on press"). A control
+   is covered by the finger, so shrinking makes it even harder to see what is being
+   pressed. Swelling pushes the edges out past the finger, revealing the control itself.
 
-   상태를 켜고 끄는 것은 `src/press.ts`(포인터 추적 → `data-pressed`)이고,
-   여기서는 **어떻게 보이는가**만 정한다. 대상은 선택자 하나로 정해지므로
-   컴포넌트는 세기(`--press-scale`)만 고르면 된다.
+   Turning the state on and off is `src/press.ts` (pointer tracking → `data-pressed`);
+   this file only defines **how it looks**. Targets are picked by a single selector,
+   so a component only chooses its strength (`--press-scale`).
 
-   두 밝기 기법을 **섞지 않는다**:
-     · 불투명 컨트롤 → `filter: brightness()` (배경 종류를 안 가린다)
-     · 글래스 컨트롤 → `background`를 직접 갈아 끼우고 filter는 1로 끈다
-   글래스에 filter까지 걸면 뒤가 비치는 유리가 통째로 물들어 탁해진다.
+   The two brightness techniques are **never mixed**:
+     · opaque controls → `filter: brightness()` (works on any kind of background)
+     · glass controls → swap the `background` directly and turn filter off (1)
+   Applying filter to glass tints the whole see-through pane and muddies it.
    ============================================================ */
 
-/* iOS가 그리는 회색 탭 하이라이트를 끈다 — 우리 연출 위에 한 겹 더 깔린다. */
+/* Turn off the gray tap highlight iOS draws — it stacks another layer on top of our effect. */
 :where(button, [role="button"], a[href], summary, [data-press]) {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* 되돌아오는 전이. **누르지 않은 상태에 있어야** 손을 뗄 때도 이어진다.
-   `:not(#_)`는 존재할 수 없는 id로 특이도만 한 단 올리는 장치다 — 이 선택자는
-   요소 이름(0,0,1)이라, 이것 없이는 컴포넌트 클래스(0,1,0)가 이미 갖고 있는
-   `transition` 선언에 밀려 filter·배경이 전이 없이 툭 끊긴다. 누름 타이밍은
-   컴포넌트가 아니라 시스템이 정하는 값이라 여기서 이긴다.
-   기존 선언이 animate하던 속성(opacity 등)도 목록에 함께 싣는다 —
-   이 규칙이 그 선언을 통째로 대체하기 때문이다. */
+/* The return transition. It must live **on the unpressed state** so it also plays on release.
+      `:not(#_)` is an impossible id that bumps specificity by exactly one step — this selector
+      is an element name (0,0,1), so without it the `transition` already declared by component
+      classes (0,1,0) would win and filter/background would snap with no transition. Press
+      timing is a value the system decides, not the component, so it wins here.
+      Properties the existing declarations animated (opacity etc.) are listed here too —
+      because this rule replaces those declarations wholesale. */
 :is(button, [role="button"], a[href], summary, [data-press]):not(#_) {
   transition:
     transform var(--mobile-press-out) var(--mobile-press-ease),
@@ -41,17 +41,17 @@
     color var(--mobile-press-out) var(--mobile-press-ease);
 }
 
-/* 누르는 순간은 빠르게(즉각 반응), 놓을 때는 위 규칙의 느린 값으로 풀린다.
-   같은 시간을 쓰면 놓는 순간이 뚝 끊겨 기계적으로 읽힌다. */
+/* The press-down moment is fast (instant response); release relaxes at the slower values
+      above. With equal durations, the release cuts off abruptly and reads as mechanical. */
 [data-pressed]:not(#_) {
   transform: scale(var(--press-scale, var(--mobile-press-scale-surface)));
   filter: brightness(var(--press-brightness, var(--mobile-press-brightness)));
   transition-duration: var(--mobile-press-in);
 }
 
-/* ---- 세기 1: 떠 있는 원형·알약 컨트롤 ----------------------------------
-   콘텐츠 위에 떠 있어 이웃과 부딪히지 않으므로 가장 크게 부푼다. 화면
-   좌상단 메뉴 버튼처럼 "눌렀다"가 멀리서도 보여야 하는 것들이다. */
+/* ---- Strength 1: floating circular/pill controls ----------------------------------
+      They float above content and never collide with neighbors, so they swell the most.
+      Things like the top-left menu button, where "pressed" must be visible from afar. */
 :is(
   .mobile-top-app-bar__icon-button,
   .mobile-fab,
@@ -88,9 +88,9 @@
   --press-scale: var(--mobile-press-scale-control);
 }
 
-/* ---- 세기 2: 트랙 안에 갇힌 조각 --------------------------------------
-   세그먼트·선택지는 배경 트랙 안에 들어앉아 있어, 크게 부풀면 트랙을 뚫고
-   나온다. 부푸는 것은 같고 폭만 줄인다. */
+/* ---- Strength 2: pieces confined to a track --------------------------------------
+      Segments and options sit inside a background track; swelling too much would break
+      out of it. Same swelling, just a smaller amount. */
 :is(
   .mobile-segmented__item,
   .mobile-theme-option,
@@ -107,14 +107,14 @@
   --press-scale: var(--mobile-press-scale-inline);
 }
 
-/* ---- 세기 3(기본): 목록 행·카드 ---------------------------------------
-   기본값이라 따로 선언하지 않는다. 행은 좌우 여백이 몇 px뿐이라 크게 부풀면
-   화면 밖으로 밀려 잘린다 — 2%가 이웃을 건드리지 않는 상한이다. */
+/* ---- Strength 3 (default): list rows and cards ---------------------------------------
+      The default, so no declaration needed. Rows have only a few px of side margin; a big
+      swell pushes them off-screen and clips — 2% is the ceiling that leaves neighbors alone. */
 
-/* ---- 글래스 컨트롤: 배경을 갈아 끼운다 --------------------------------
-   `--mobile-glass-strong` → `--mobile-glass-pressed`. 어두운 테마에서는
-   은빛으로 차오르고, 밝은 테마에서는 불투명한 흰색으로 채워진다. 유리가
-   차오르는 것이지 물드는 것이 아니라서 filter는 끈다. */
+/* ---- Glass controls: swap the background --------------------------------
+      `--mobile-glass-strong` → `--mobile-glass-pressed`. In dark themes the glass
+      fills up with silver; in light themes it fills with opaque white. The glass
+      fills rather than tints, so filter stays off. */
 :is(
   .mobile-top-app-bar__icon-button,
   .mobile-drawer__icon-button,
@@ -124,8 +124,8 @@
   .mobile-context-sheet__head-button,
   .mobile-home-chat__context-chip,
   .mobile-logic-model__chip,
-  /* 색을 가진 변형(주 액션·위험)은 제 색이 곧 뜻이라 유리로 덮지 않는다 —
-     그쪽은 아래 밝기 규칙을 그대로 탄다. */
+  /* Colored variants (primary action, danger) carry their meaning in their color, so
+        they are not covered with glass — they ride the brightness rules below as-is. */
   .mobile-action-dock__chip:not(.is-primary):not(.is-danger),
   .mobile-workbench-meta__chip
 ) {
@@ -141,8 +141,8 @@
   .mobile-context-sheet__head-button,
   .mobile-home-chat__context-chip,
   .mobile-logic-model__chip,
-  /* 색을 가진 변형(주 액션·위험)은 제 색이 곧 뜻이라 유리로 덮지 않는다 —
-     그쪽은 아래 밝기 규칙을 그대로 탄다. */
+  /* Colored variants (primary action, danger) carry their meaning in their color, so
+        they are not covered with glass — they ride the brightness rules below as-is. */
   .mobile-action-dock__chip:not(.is-primary):not(.is-danger),
   .mobile-workbench-meta__chip
 )[data-pressed] {
@@ -150,14 +150,14 @@
   border-color: var(--mobile-press-border);
 }
 
-/* ---- 액센트로 채워진 컨트롤 -------------------------------------------
-   filter로 밝히면 방향이 테마마다 갈린다(어두운 테마는 밝은 주황, 밝은
-   테마는 짙은 주황). 액센트에는 이미 "한 단 밝은" 값이 있으므로 그것으로
-   갈아 끼워 어느 테마에서든 같은 방향으로 반응하게 한다.
+/* ---- Accent-filled controls -------------------------------------------
+      Brightening via filter goes different directions per theme (dark theme: lighter
+      orange; light theme: darker orange). The accent already has a "one step brighter"
+      value, so swap to that and the response goes the same direction in every theme.
 
-   FAB은 반투명 액센트 글래스인데, 눌리면 불투명해지며 밝아진다 — 유리가
-   차오르는 그 문법이다. `filter`를 안 쓰는 덕에 자기 `backdrop-filter`와
-   부딪힐 일도 없다(같은 요소에 둘을 겹치면 뒤가 비치는 유리까지 물든다). */
+      The FAB is translucent accent glass; pressed, it turns opaque and brightens — the
+      same "glass fills up" grammar. Not using `filter` also avoids clashing with its own
+      `backdrop-filter` (stacking both on one element tints the see-through glass too). */
 :is(
   .mobile-fab,
   .mobile-chat-send:not(.is-cancel),
@@ -176,35 +176,35 @@
   background-color: var(--mobile-accent-strong);
 }
 
-/* ---- 대상에서 뺀다 ------------------------------------------------------
-   스크림은 "닫기"를 받으려고 button으로 깔아 둔 전면 판이다. 화면 전체가
-   부풀고 밝아지면 그건 피드백이 아니라 고장으로 읽힌다. */
+/* ---- Excluded targets ------------------------------------------------------
+      The scrim is a full-screen pane laid down as a button just to receive "close".
+      The whole screen swelling and brightening reads as a bug, not feedback. */
 :is([class*="__scrim"], .mobile-context-sheet__grabber)[data-pressed]:not(#_) {
   transform: none;
   filter: none;
 }
 
-/* 음성 오브는 `transform: scale()`이 **이미 제 상태 표시**다 — 목소리 크기와
-   듣는 중/생각 중이 그 값으로 나타난다(420ms 자체 전이). 누름 연출이 그
-   transform을 빼앗으면 말하는 동안 오브가 죽는다. 마이크가 막혔을 때만
-   버튼이 되는 요소라 `data-press="off"`로 런타임 단계에서 아예 뺐다
-   (`VoiceStage.tsx`). 여기서는 위 전이 규칙이 가져가 버린 제 타이밍만
-   돌려준다 — 그 규칙은 `button`을 통째로 잡으므로 태그 여부와 무관하다. */
+/* The voice orb's `transform: scale()` **is already its state display** — voice level
+      and listening/thinking states appear through that value (its own 420ms transition).
+      If the press effect steals that transform, the orb goes dead while speaking. It only
+      becomes a button when the mic is blocked, so it was excluded entirely at runtime with
+      `data-press="off"` (`VoiceStage.tsx`). Here we only return the timing the transition
+      rule above took away — that rule grabs `button` wholesale, regardless of tags. */
 .mobile-voice-stage__orb:not(#_) {
   transition:
     transform 420ms var(--mobile-press-ease),
     opacity 420ms ease;
 }
 
-/* 비활성 컨트롤은 `press.ts`가 애초에 태그하지 않지만, 눌린 채 비활성이 되는
-   찰나(전송 중 잠김 등)를 위해 그림 쪽에도 같은 규칙을 둔다. */
+/* `press.ts` never tags disabled controls in the first place, but the same rule sits on
+      the visual side for the instant a control goes disabled while held (locked during submit, etc.). */
 :is(:disabled, [aria-disabled="true"])[data-pressed]:not(#_) {
   transform: none;
   filter: none;
 }
 
-/* 모션을 줄이는 사용자: 크기 변화만 뺀다. 밝기는 "지금 이걸 누르고 있다"는
-   유일한 신호라 남긴다 — 둘 다 빼면 아무 반응 없는 화면이 된다. */
+/* Reduced-motion users: drop only the size change. Brightness stays — it is the only
+      signal that "this is being pressed"; dropping both leaves a screen with no response. */
 @media (prefers-reduced-motion: reduce) {
   [data-pressed]:not(#_) {
     transform: none;

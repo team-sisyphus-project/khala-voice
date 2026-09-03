@@ -1,12 +1,12 @@
 /**
- * 브라우저별 오디오 포맷 선택.
+ * Per-browser audio format selection.
  *
- * 브라우저마다 지원 포맷이 다르다.
+ * Supported formats differ by browser.
  * - Chrome / Firefox / Edge → webm + opus
- * - Safari (iOS 포함)       → mp4 + aac
+ * - Safari (incl. iOS)      → mp4 + aac
  *
- * 순서대로 시도해 처음 지원되는 것을 쓴다.
- * 전부 실패하면 `null` 을 주고 브라우저 기본값에 맡긴다.
+ * Candidates are tried in order and the first supported one wins.
+ * If all fail, return `null` and leave it to the browser default.
  */
 
 import type { GuideMessage } from "./permission";
@@ -26,13 +26,13 @@ export function pickMimeType(): string | null {
     try {
       if (MediaRecorder.isTypeSupported(mime)) return mime;
     } catch {
-      // isTypeSupported 자체가 던지는 브라우저가 있다
+      // Some browsers throw from isTypeSupported itself
     }
   }
   return null;
 }
 
-/** MIME 에서 파일 확장자. 서버의 `VR.Storage.extension_for/1` 과 맞춰야 한다. */
+/** File extension from MIME. Must match the server's `VR.Storage.extension_for/1`. */
 export function extensionFor(mimeType: string | null | undefined): string {
   if (!mimeType) return "bin";
   const base = mimeType.split(";")[0]?.trim() ?? "";
@@ -55,13 +55,13 @@ export function extensionFor(mimeType: string | null | undefined): string {
 }
 
 /**
- * getUserMedia 를 쓸 수 있는 환경인가.
+ * Can this environment use getUserMedia?
  *
- * **HTTPS 가 아니면 마이크에 접근할 수 없다.** localhost 는 예외다.
- * 실기기 테스트에서 `http://192.168.x.x` 로 붙으면 여기서 걸린다.
+ * **Without HTTPS the microphone is unreachable.** localhost is the
+ * exception. Real-device testing over `http://192.168.x.x` gets caught here.
  *
- * `message` 는 로케일-프리 키다(`GuideMessage`) — 문안은 UI 셸이 번역한다.
- * core 는 프레임워크·i18n 비의존이어야 한다(프로젝트 규칙 4).
+ * `message` is a locale-free key (`GuideMessage`) — the UI shell translates
+ * the wording. core must stay framework- and i18n-agnostic (project rule 4).
  */
 export function checkEnvironment():
   | { ok: true }

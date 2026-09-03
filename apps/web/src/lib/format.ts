@@ -1,6 +1,6 @@
 import i18n from "@/i18n";
 
-/** 시:분:초. 타이머와 세그먼트 시각에 함께 쓴다. */
+/** H:MM:SS. Used for both the timer and segment timestamps. */
 export function formatDuration(seconds: number | null | undefined): string {
   const total = Math.max(0, Math.floor(seconds ?? 0));
   const h = Math.floor(total / 3600);

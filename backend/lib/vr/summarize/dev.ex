@@ -1,18 +1,18 @@
 defmodule VR.Summarize.Dev do
   @moduledoc """
-  개발 모드 목 요약.
+  Dev-mode mock summary.
 
-  **출처: sisyphus** 의 `stt.dev_mode` 와 같은 발상 —
-  LLM 키 없이도 요약 화면 전체를 확인할 수 있어야 한다.
+  **Origin: sisyphus** — same idea as its `stt.dev_mode`:
+  the whole summary UI must be verifiable without an LLM key.
 
-  ## 진짜 전사에서 뽑는다
+  ## Sourced from the real transcript
 
-  고정된 예시 문장을 돌려주면 `source` 검증이 항상 실패해
-  **점프가 되는지 아닌지를 개발 중에 확인할 수 없다.**
-  그래서 직렬화된 전사의 실제 라벨을 그대로 인용한다.
+  Returning fixed example sentences would make `source` verification fail
+  every time, so **jump behavior could never be checked during development.**
+  Instead we quote the actual labels from the serialized transcript.
   """
 
-  @doc "직렬화된 전사에서 목 요약을 만든다."
+  @doc "Builds a mock summary from the serialized transcript."
   def result(meeting, text) do
     lines =
       text
@@ -25,9 +25,9 @@ defmodule VR.Summarize.Dev do
         "decisions" => decisions(lines),
         "action_items" => action_items(lines),
         "facts" => Enum.map(Enum.take(lines, 2), &quote_of/1),
-        "open_questions" => ["(개발 모드) 실제 LLM 이 연결되면 여기에 미결 사항이 들어간다"],
-        "next_steps" => ["(개발 모드) 어드민 → LLM 제공자에서 키를 넣으면 실제 요약이 생성된다"],
-        "key_topics" => ["개발 모드", "목 요약"]
+        "open_questions" => ["(dev mode) Open questions will appear here once a real LLM is connected"],
+        "next_steps" => ["(dev mode) Add a key under Admin -> LLM Providers to generate real summaries"],
+        "key_topics" => ["dev mode", "mock summary"]
       }
       |> Jason.encode!()
 
@@ -39,17 +39,17 @@ defmodule VR.Summarize.Dev do
     }
   end
 
-  defp one_liner(meeting, []), do: "#{meeting.title || "회의"} — 전사에서 요약할 발화를 찾지 못했다. (개발 모드)"
+  defp one_liner(meeting, []), do: "#{meeting.title || "Meeting"} — no utterances found in the transcript to summarize. (dev mode)"
 
   defp one_liner(meeting, lines) do
-    "#{meeting.title || "회의"} — 발화 #{length(lines)}건을 요약했다. (개발 모드 목 응답)"
+    "#{meeting.title || "Meeting"} — summarized #{length(lines)} utterances. (dev-mode mock response)"
   end
 
   defp decisions(lines) do
     lines
     |> Enum.take(2)
     |> Enum.map(fn line ->
-      %{"text" => "(개발 모드) #{String.slice(quote_of(line), 0, 40)}", "source" => source_of(line)}
+      %{"text" => "(dev mode) #{String.slice(quote_of(line), 0, 40)}", "source" => source_of(line)}
     end)
   end
 
@@ -60,14 +60,14 @@ defmodule VR.Summarize.Dev do
     |> Enum.map(fn line ->
       %{
         "who" => speaker_of(line),
-        "what" => "(개발 모드) #{String.slice(quote_of(line), 0, 40)}",
+        "what" => "(dev mode) #{String.slice(quote_of(line), 0, 40)}",
         "due" => "",
         "source" => source_of(line)
       }
     end)
   end
 
-  # `[session_id|speaker|HH:MM:SS] 발화` 를 되짚는다
+  # Parses `[session_id|speaker|HH:MM:SS] utterance` back apart
   defp source_of(line) do
     case parse(line) do
       {session_id, speaker, label, quote} ->
