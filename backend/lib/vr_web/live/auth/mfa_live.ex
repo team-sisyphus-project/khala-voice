@@ -19,7 +19,7 @@ defmodule VRWeb.AuthLive.MFALive do
     if session["mfa_pending_account_id"] do
       {:ok,
        socket
-       |> assign(page_title: "인증 코드")
+       |> assign(page_title: gettext("Verification code"))
        |> assign(dev_bypass: MFA.dev_bypass?()), layout: false}
     else
       {:ok, redirect(socket, to: ~p"/login"), layout: false}
@@ -29,17 +29,20 @@ defmodule VRWeb.AuthLive.MFALive do
   @impl true
   def render(assigns) do
     ~H"""
-    <.auth_shell title="인증 코드" subtitle="인증기 앱의 6자리 코드를 입력하세요">
+    <.auth_shell
+      title={gettext("Verification code")}
+      subtitle={gettext("Enter the 6-digit code from your authenticator app")}
+    >
       <div :if={@dev_bypass} class="vr-notice vr-notice--warn mb-4">
         <span class="material-symbols-rounded vr-notice__icon">construction</span>
-        <div>개발 환경이라 <strong>6자리 숫자 아무거나</strong> 통과합니다.</div>
+        <div>{raw(gettext("Development mode — <strong>any 6 digits</strong> will pass."))}</div>
       </div>
 
       <form action={~p"/login/mfa"} method="post" class="flex flex-col gap-4">
         <input type="hidden" name="_csrf_token" value={Phoenix.Controller.get_csrf_token()} />
 
         <div>
-          <label class="vr-label mb-1.5" for="code">코드</label>
+          <label class="vr-label mb-1.5" for="code">{gettext("Code")}</label>
           <input
             type="text"
             id="code"
@@ -53,16 +56,18 @@ defmodule VRWeb.AuthLive.MFALive do
             style="letter-spacing:.3em; text-align:center; font-size:18px;"
           />
           <p class="vr-hint mt-1.5" style="font-size:12px;">
-            인증기를 잃었다면 백업 코드를 입력해도 됩니다.
+            {gettext("Lost your authenticator? You can enter a backup code instead.")}
           </p>
         </div>
 
-        <button type="submit" data-surface="control" class="vr-btn vr-btn--primary w-full">확인</button>
+        <button type="submit" data-surface="control" class="vr-btn vr-btn--primary w-full">
+          {gettext("Verify")}
+        </button>
       </form>
 
       <:footer>
         <.link navigate={~p"/login"} style="color: var(--accent); font-weight: 600;">
-          다시 로그인
+          {gettext("Back to sign in")}
         </.link>
       </:footer>
     </.auth_shell>

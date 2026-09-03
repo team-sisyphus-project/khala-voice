@@ -1,12 +1,13 @@
 import { api } from "./api";
 
+// 표시 이름은 i18n 카탈로그(`theme.*`)에서 온다 — id 를 키로 쓴다. `game` 의
+// 표시 이름만 "픽셀/Pixel" 이고 id 는 `game` 그대로다: CSS(`game-skin.css`)와
+// 계정 스키마(`@themes`)가 이 값에 걸려 있다.
 export const THEMES = [
-  { id: "light", label: "라이트", icon: "light_mode" },
-  { id: "dark", label: "다크", icon: "dark_mode" },
-  { id: "pencil-warm", label: "연필", icon: "draw" },
-  // 표시 이름만 "픽셀" 이다. id 는 `game` 그대로 — CSS(`game-skin.css`)와
-  // 계정 스키마(`@themes`)가 이 값에 걸려 있다.
-  { id: "game", label: "픽셀", icon: "videogame_asset" },
+  { id: "light", icon: "light_mode" },
+  { id: "dark", icon: "dark_mode" },
+  { id: "pencil-warm", icon: "draw" },
+  { id: "game", icon: "videogame_asset" },
 ] as const;
 
 export type Theme = (typeof THEMES)[number]["id"];
@@ -32,7 +33,7 @@ export function isTheme(value: unknown): value is Theme {
 
 export function cachedTheme(): Theme {
   const stored = localStorage.getItem(STORAGE_KEY);
-  return isTheme(stored) ? stored : "dark";
+  return isTheme(stored) ? stored : "light";
 }
 
 /** 테마를 적용한다. 네 테마 모두 번들 안에 있어 따로 받지 않는다. */
@@ -48,4 +49,3 @@ export async function applyTheme(theme: Theme, options: { save?: boolean } = {})
     });
   }
 }
-

@@ -11,6 +11,9 @@ defmodule VRWeb.Router do
     plug :protect_from_forgery
     plug :put_secure_browser_headers
     plug VRWeb.UserAuth, :fetch_current_account
+
+    # 계정 `locale` 로 Gettext 로케일과 `<html lang>` 을 맞춘다. 계정을 붙인 뒤에 온다.
+    plug VRWeb.Plugs.Locale
   end
 
   pipeline :api do
@@ -62,7 +65,7 @@ defmodule VRWeb.Router do
     pipe_through [:browser, :redirect_if_authenticated]
 
     live_session :guest,
-      on_mount: [{VRWeb.UserAuth, :mount_current_account}],
+      on_mount: [{VRWeb.UserAuth, :mount_current_account}, {VRWeb.UserAuth, :set_locale}],
       layout: false do
       live "/login", AuthLive.LoginLive, :new
       live "/register", AuthLive.RegisterLive, :new
@@ -154,7 +157,7 @@ defmodule VRWeb.Router do
     pipe_through [:browser, :require_auth]
 
     live_session :authenticated,
-      on_mount: [{VRWeb.UserAuth, :require_authenticated}],
+      on_mount: [{VRWeb.UserAuth, :require_authenticated}, {VRWeb.UserAuth, :set_locale}],
       layout: false do
       live "/friends", AppLive.FriendsLive, :index
       live "/settings", AppLive.SettingsLive, :edit
@@ -166,7 +169,7 @@ defmodule VRWeb.Router do
     pipe_through :browser
 
     live_session :invite,
-      on_mount: [{VRWeb.UserAuth, :mount_current_account}],
+      on_mount: [{VRWeb.UserAuth, :mount_current_account}, {VRWeb.UserAuth, :set_locale}],
       layout: false do
       live "/invite/:token", AppLive.InviteLive, :show
     end
@@ -180,6 +183,7 @@ defmodule VRWeb.Router do
     get "/friends", FriendController, :index
     delete "/me/session", MeController, :logout
     patch "/me/theme", MeController, :update_theme
+    patch "/me/locale", MeController, :update_locale
     patch "/me/transcribe-language", MeController, :update_transcribe_language
     get "/me/billing", BillingController, :show
     get "/me/push", PushController, :show

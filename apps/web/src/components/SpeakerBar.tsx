@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { SpeakerView } from "@core/domain";
 import { timeLabel } from "@core/domain";
 import { Icon } from "@/ui";
@@ -26,6 +27,7 @@ export function SpeakerBar({
   onAdd: () => void;
   onRemove: (key: string) => void;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState<string | null>(null);
 
   if (speakers.length === 0) return null;
@@ -41,7 +43,7 @@ export function SpeakerBar({
             data-speaker={speaker.colorIndex}
             onClick={() => canEdit && setOpen(open === speaker.key ? null : speaker.key)}
             disabled={!canEdit}
-            title={`발화 ${speaker.segmentCount}개 · ${timeLabel(speaker.totalMs)}`}
+            title={t("speaker.segmentTitle", { count: speaker.segmentCount, time: timeLabel(speaker.totalMs) })}
           >
             <span className="vr-speaker-chip__dot" data-speaker={speaker.colorIndex} />
             {speaker.name}
@@ -74,7 +76,7 @@ export function SpeakerBar({
       {canEdit && (
         <button type="button" className="vr-speaker-chip vr-speaker-chip--add" onClick={onAdd}>
           <Icon name="add" />
-          화자 추가
+          {t("speaker.addSpeaker")}
         </button>
       )}
     </div>
@@ -98,6 +100,7 @@ function SpeakerMenu({
   onRemove: () => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState(speaker.name);
 
   return (
@@ -106,7 +109,7 @@ function SpeakerMenu({
       <div className="vr-menu__backdrop" onClick={onClose} />
 
       <div className="vr-menu" data-surface="raised">
-        <label className="mobile-field__label" style={{ marginBottom: 6 }}>이름</label>
+        <label className="mobile-field__label" style={{ marginBottom: 6 }}>{t("speaker.name")}</label>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -123,13 +126,13 @@ function SpeakerMenu({
             style={{ fontFamily: "var(--font-sans)", flex: 1, minWidth: 0 }}
           />
           <button type="submit" className="mobile-button mobile-button--primary mobile-button--fit">
-            저장
+            {t("common.save")}
           </button>
         </form>
 
         {friends.length > 0 && (
           <>
-            <div className="vr-menu__title">친구 연결</div>
+            <div className="vr-menu__title">{t("speaker.linkFriend")}</div>
             <div className="vr-menu__list">
               <button
                 type="button"
@@ -137,7 +140,7 @@ function SpeakerMenu({
                 onClick={() => onAssign(null)}
                 data-active={speaker.accountId === null}
               >
-                연결 안 함
+                {t("speaker.unlinked")}
               </button>
               {friends.map((friend) => (
                 <button
@@ -161,7 +164,7 @@ function SpeakerMenu({
             style={{ color: "var(--status-error)", marginTop: 8, width: "100%" }}
             onClick={onRemove}
           >
-            이 화자 지우기
+            {t("speaker.removeSpeaker")}
           </button>
         )}
       </div>

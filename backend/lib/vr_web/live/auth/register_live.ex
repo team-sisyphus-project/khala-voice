@@ -15,7 +15,7 @@ defmodule VRWeb.AuthLive.RegisterLive do
 
     {:ok,
      socket
-     |> assign(page_title: "가입")
+     |> assign(page_title: gettext("Sign up"))
      |> assign(providers: Providers.list_active())
      |> assign(invite_required: Config.fetch("policy.invite_code_required") == true)
      |> assign(trigger_submit: false)
@@ -52,7 +52,10 @@ defmodule VRWeb.AuthLive.RegisterLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <.auth_shell title="가입" subtitle="회의를 녹음하고 자동으로 정리하세요">
+    <.auth_shell
+      title={gettext("Sign up")}
+      subtitle={gettext("Record your meetings and organize them automatically")}
+    >
       <.form
         :let={f}
         for={@form}
@@ -65,7 +68,7 @@ defmodule VRWeb.AuthLive.RegisterLive do
         class="flex flex-col gap-4"
       >
         <div>
-          <label class="vr-label mb-1.5" for="account_email">이메일</label>
+          <label class="vr-label mb-1.5" for="account_email">{gettext("Email")}</label>
           <input
             type="email"
             id="account_email"
@@ -80,7 +83,7 @@ defmodule VRWeb.AuthLive.RegisterLive do
         </div>
 
         <div>
-          <label class="vr-label mb-1.5" for="account_name">이름</label>
+          <label class="vr-label mb-1.5" for="account_name">{gettext("Name")}</label>
           <input
             type="text"
             id="account_name"
@@ -94,7 +97,7 @@ defmodule VRWeb.AuthLive.RegisterLive do
         </div>
 
         <div>
-          <label class="vr-label mb-1.5" for="account_password">비밀번호</label>
+          <label class="vr-label mb-1.5" for="account_password">{gettext("Password")}</label>
           <input
             type="password"
             id="account_password"
@@ -104,12 +107,12 @@ defmodule VRWeb.AuthLive.RegisterLive do
             class="vr-input"
             style="font-family: var(--font-sans);"
           />
-          <p class="vr-hint mt-1.5" style="font-size: 12px;">10자 이상</p>
+          <p class="vr-hint mt-1.5" style="font-size: 12px;">{gettext("At least 10 characters")}</p>
           <.field_errors field={f[:password]} />
         </div>
 
         <div :if={@invite_required}>
-          <label class="vr-label mb-1.5" for="account_invite_code">초대 코드</label>
+          <label class="vr-label mb-1.5" for="account_invite_code">{gettext("Invite code")}</label>
           <input
             type="text"
             id="account_invite_code"
@@ -122,17 +125,19 @@ defmodule VRWeb.AuthLive.RegisterLive do
         <button
           type="submit"
           class="vr-btn vr-btn--primary w-full mt-1"
-          phx-disable-with="가입 중..."
+          phx-disable-with={gettext("Signing up...")}
         >
-          가입하기
+          {gettext("Sign up")}
         </button>
       </.form>
 
       <.social_buttons providers={@providers} />
 
       <:footer>
-        이미 계정이 있으신가요?
-        <.link navigate={~p"/login"} style="color: var(--accent); font-weight: 600;">로그인</.link>
+        {gettext("Already have an account?")}
+        <.link navigate={~p"/login"} style="color: var(--accent); font-weight: 600;">
+          {gettext("Sign in")}
+        </.link>
       </:footer>
     </.auth_shell>
     """

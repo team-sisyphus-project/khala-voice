@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { api } from "@/lib/api";
 import { AppShell } from "@/components/AppShell";
@@ -9,11 +10,14 @@ import { Notice } from "@/components/ui";
 import { usePrefs } from "@/hooks/usePrefs";
 import { useAccount } from "@/hooks/useAccount";
 import { LanguageField } from "@/components/LanguageField";
+import { LocaleField } from "@/components/LocaleField";
 import { useRoutes } from "@/lib/routes";
 import { isStandalone, onInstallAvailability, promptInstall } from "@/lib/pwa";
 import { applyTheme, cachedTheme, THEMES } from "@/lib/theme";
 import type { Theme } from "@/lib/theme";
 import { Button, Icon, Row, Section } from "@/ui";
+import { SETTINGS_SECTIONS } from "./settingsStructure";
+import type { SettingItem } from "./settingsStructure";
 
 /**
  * 설정 — iOS 설정 앱 문법.
@@ -31,6 +35,7 @@ import { Button, Icon, Row, Section } from "@/ui";
  * 계정 설정까지 들어가는 것은 iOS 문법이 아니다.
  */
 export function AppSettingsPage() {
+  const { t } = useTranslation();
   const routes = useRoutes();
   const [prefs, setPrefs] = usePrefs();
   const { account, setAccount } = useAccount();
@@ -61,96 +66,130 @@ export function AppSettingsPage() {
     await applyTheme(next);
   }
 
+  function renderSetting(item: SettingItem) {
+    switch (item) {
+      case "theme":
+        return (
+          <div className="vr-settings-subgroup" data-setting-group={item}>
+            <h3 className="vr-settings-subgroup__title">테마</h3>
+            <div className="vr-theme-grid">
+              {THEMES.map((themeItem) => (
+                <button
+                  key={themeItem.id}
+                  type="button"
+                  className="vr-theme"
+                  data-active={theme === themeItem.id ? "true" : undefined}
+                  onClick={() => void pickTheme(themeItem.id)}
+                >
+                  <Icon name={themeItem.icon} />
+                  <span>{t(`theme.${themeItem.id}`)}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* UI 언어는 계정에 있다(`locale`) — 기기를 바꿔도 따라온다. 전사 언어와 별개다. */}
+            <LocaleField account={account} onChange={setAccount} />
+          </div>
+        );
+
+      case "install":
+        return (
+          <div className="vr-settings-subgroup" data-setting-group={item}>
+            <h3 className="vr-settings-subgroup__title">홈 화면에 추가</h3>
+            {standalone ? (
+              <Notice kind="ok" icon="check_circle">
+                이미 앱으로 실행 중입니다.
+              </Notice>
+            ) : installable ? (
+              <>
+                <p className="vr-note vr-note--small">
+                  주소창 없이 열리고, 녹음 화면으로 바로 들어갑니다.
+                </p>
+                <Button full onClick={() => void promptInstall()}>
+                  지금 추가
+                </Button>
+              </>
+            ) : (
+              <ol className="vr-note vr-note--small vr-install-guide">
+                <li>
+                  <strong>iPhone · iPad</strong> — 공유 버튼(<Icon name="ios_share" />) →
+                  &ldquo;홈 화면에 추가&rdquo;
+                </li>
+                <li>
+                  <strong>Android</strong> — 메뉴(⋮) → &ldquo;홈 화면에 추가&rdquo;
+                </li>
+                <li>
+                  <strong>데스크톱</strong> — 주소창 오른쪽 설치 아이콘
+                </li>
+              </ol>
+            )}
+          </div>
+        );
+
+      case "microphone-and-language":
+        return (
+          <div className="vr-settings-subgroup" data-setting-group={item}>
+            <Row
+              title="마이크"
+              meta={prefs.micDeviceId ? "고른 장치" : "기본 장치"}
+              chevron
+              onClick={() => setEditingPrefs(true)}
+            />
+            <p className="vr-note vr-note--small">
+              마이크는 <strong>이 기기에서만</strong> 적용됩니다. 회의실 PC 와 폰은 각자
+              다른 마이크를 씁니다.
+            </p>
+            <LanguageField account={account} onChange={setAccount} />
+          </div>
+        );
+
+      case "completion-notification":
+        return (
+          <div className="vr-settings-subgroup" data-setting-group={item}>
+            <NotificationSetting />
+          </div>
+        );
+
+      case "billing":
+        return (
+          <div className="vr-settings-subgroup" data-setting-group={item}>
+            <Link className="vr-nav-row" to={routes.billing}>
+              <span className="vr-nav-row__title">크레딧 보기</span>
+              <span className="vr-nav-row__meta">잔액과 사용 내역</span>
+              <Icon name="chevron_right" />
+            </Link>
+          </div>
+        );
+
+      case "integrations":
+        return (
+          <div className="vr-settings-subgroup" data-setting-group={item}>
+            <IntegrationsSection />
+          </div>
+        );
+
+      case "account":
+        return (
+          <div className="vr-settings-subgroup" data-setting-group={item}>
+            <a className="vr-nav-row" href={routes.account}>
+              <span className="vr-nav-row__title">계정 설정</span>
+              <span className="vr-nav-row__meta">프로필 · 비밀번호 · 로그인된 기기</span>
+              <Icon name="chevron_right" />
+            </a>
+          </div>
+        );
+    }
+  }
+
   return (
     <AppShell active="settings" title="설정">
-      <Section title="화면" card>
-        <div className="vr-theme-grid">
-          {THEMES.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className="vr-theme"
-              data-active={theme === item.id ? "true" : undefined}
-              onClick={() => void pickTheme(item.id)}
-            >
-              <Icon name={item.icon} />
-              <span>{item.label}</span>
-            </button>
+      {SETTINGS_SECTIONS.map((section) => (
+        <Section key={section.id} title={section.title} card className="vr-settings-section">
+          {section.items.map((item) => (
+            <div key={item}>{renderSetting(item)}</div>
           ))}
-        </div>
-      </Section>
-
-      <Section title="녹음" card>
-        <Row
-          title="마이크"
-          meta={prefs.micDeviceId ? "고른 장치" : "기본 장치"}
-          chevron
-          onClick={() => setEditingPrefs(true)}
-        />
-        <p className="vr-note vr-note--small">
-          마이크는 <strong>이 기기에서만</strong> 적용됩니다. 회의실 PC 와 폰은 각자 다른
-          마이크를 씁니다.
-        </p>
-
-        {/* 언어는 계정에 있다 — 기기를 바꿔도 따라온다 */}
-        <LanguageField account={account} onChange={setAccount} />
-      </Section>
-
-      {/* 카드 안이 "작업 완료 알림"이라 그룹 제목이 같은 말을 두 번 한다. */}
-      <Section card>
-        <NotificationSetting />
-      </Section>
-
-      <Section card>
-        <Link className="vr-nav-row" to={routes.billing}>
-          <span className="vr-nav-row__title">크레딧 보기</span>
-          <span className="vr-nav-row__meta">잔액과 사용 내역</span>
-          <Icon name="chevron_right" />
-        </Link>
-      </Section>
-
-      <IntegrationsSection />
-
-      <Section card>
-        <a className="vr-nav-row" href={routes.account}>
-          <span className="vr-nav-row__title">계정 설정</span>
-          <span className="vr-nav-row__meta">프로필 · 비밀번호 · 로그인된 기기</span>
-          <Icon name="chevron_right" />
-        </a>
-      </Section>
-
-      <Section title="홈 화면에 추가" card>
-        {standalone ? (
-          <Notice kind="ok" icon="check_circle">
-            이미 앱으로 실행 중입니다.
-          </Notice>
-        ) : installable ? (
-          <>
-            <p className="vr-note vr-note--small">
-              주소창 없이 열리고, 녹음 화면으로 바로 들어갑니다.
-            </p>
-            <Button full onClick={() => void promptInstall()}>
-              지금 추가
-            </Button>
-          </>
-        ) : (
-          /* iOS Safari 는 beforeinstallprompt 를 지원하지 않는다.
-             버튼을 띄울 수 없으니 손으로 하는 방법을 적어 둔다. */
-          <ol className="vr-note vr-note--small" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.8 }}>
-            <li>
-              <strong>iPhone · iPad</strong> — 공유 버튼(
-              <Icon name="ios_share" />
-              ) → &ldquo;홈 화면에 추가&rdquo;
-            </li>
-            <li>
-              <strong>Android</strong> — 메뉴(⋮) → &ldquo;홈 화면에 추가&rdquo;
-            </li>
-            <li>
-              <strong>데스크톱</strong> — 주소창 오른쪽 설치 아이콘
-            </li>
-          </ol>
-        )}
-      </Section>
+        </Section>
+      ))}
 
       {/* 로그아웃은 **맨 아래**다. iOS 설정 문법이고, 실수로 누르기 어려운 자리다. */}
       <Section card>

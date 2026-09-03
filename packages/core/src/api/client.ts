@@ -127,6 +127,11 @@ export class ApiClient {
     return this.#request("PATCH", "/api/me/theme", { theme });
   }
 
+  /** UI 표시 언어를 바꾼다. 전사 언어와 별개다. */
+  updateLocale(locale: string): Promise<CurrentAccount> {
+    return this.#request("PATCH", "/api/me/locale", { locale });
+  }
+
   /** 친구 목록. 화자를 사람에 연결할 때 쓴다. */
   friends(): Promise<{ friends: Friend[] }> {
     return this.#request("GET", "/api/friends");

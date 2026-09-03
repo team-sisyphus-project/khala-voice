@@ -31,6 +31,19 @@ defmodule VRWeb.API.MeController do
   end
 
   @doc """
+  UI 표시 언어 변경. 설정 화면을 거치지 않고 즉시 저장한다.
+
+  전사 언어(`transcribe_language`)와 별개다 — UI 언어만 바꾼다.
+  """
+  def update_locale(conn, %{"locale" => locale}) do
+    account = conn.assigns.current_account
+
+    with {:ok, updated} <- Accounts.update_locale(account, locale) do
+      json(conn, JSONView.account(updated))
+    end
+  end
+
+  @doc """
   지금 이 기기에서 로그아웃한다.
 
   다른 기기는 그대로 둔다 — 세션 목록에서 따로 끊는다. 비밀번호를 바꿀 때만

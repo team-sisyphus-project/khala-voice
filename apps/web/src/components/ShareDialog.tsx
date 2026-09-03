@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { Chip, EmptyState, Notice, Spinner } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
@@ -27,6 +28,7 @@ export function ShareDialog({
   onClose: () => void;
   onMeetingChanged: () => void;
 }) {
+  const { t } = useTranslation();
   const [links, setLinks] = useState<SharedLink[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -44,10 +46,10 @@ export function ShareDialog({
       const { share_links } = await api.listShareLinks(meeting.id);
       setLinks(share_links);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "링크를 불러오지 못했습니다");
+      setError(e instanceof Error ? e.message : t("shareDialog.loadError"));
       setLinks([]);
     }
-  }, [meeting.id]);
+  }, [meeting.id, t]);
 
   useEffect(() => {
     void load();
@@ -60,7 +62,7 @@ export function ShareDialog({
     try {
       await action();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "처리하지 못했습니다");
+      setError(e instanceof Error ? e.message : t("shareDialog.actionError"));
     } finally {
       setBusy(false);
     }
@@ -69,14 +71,13 @@ export function ShareDialog({
   const guestEnabled = meeting.guest_link_enabled;
 
   return (
-    <Sheet title="공유 링크" onClose={onClose}>
+    <Sheet title={t("shareDialog.title")} onClose={onClose}>
 
         {error && <Notice kind="error" icon="error" className="mb-4">{error}</Notice>}
 
         {!guestEnabled && (
           <Notice kind="warn" icon="link_off" className="mb-4">
-            이 회의는 <strong>게스트 접근이 꺼져 있습니다.</strong> 링크를 만들어도
-            로그인하지 않은 사람은 열 수 없습니다.
+            <Trans t={t} i18nKey="shareDialog.guestOff" components={{ strong: <strong /> }} />
             <button
               className="mobile-button mobile-button--primary mobile-button--fit"
               style={{ marginTop: 8, display: "block" }}
@@ -88,23 +89,22 @@ export function ShareDialog({
                 })
               }
             >
-              게스트 접근 켜기
+              {t("shareDialog.enableGuest")}
             </button>
           </Notice>
         )}
 
         {issued && (
           <Notice kind="ok" icon="check_circle" className="mb-4">
-            <strong>지금만 볼 수 있습니다.</strong> 이 창을 닫으면 다시 확인할 수 없습니다
-            (서버에도 해시만 저장됩니다).
-            <CopyRow label="링크" value={issued.url ?? ""} />
+            <Trans t={t} i18nKey="shareDialog.issued" components={{ strong: <strong /> }} />
+            <CopyRow label={t("shareDialog.linkLabel")} value={issued.url ?? ""} />
             {issued.pincode && <CopyRow label="PIN" value={issued.pincode} mono />}
           </Notice>
         )}
 
         <section className="vr-share__form">
           <div className="vr-filter__row">
-            <span className="mobile-field__label">역할</span>
+            <span className="mobile-field__label">{t("shareDialog.role")}</span>
             {(["viewer", "contributor"] as GrantedRole[]).map((value) => (
               <button
                 key={value}
@@ -122,17 +122,17 @@ export function ShareDialog({
 
           <p className="vr-note" style={{ fontSize: 12, margin: 0 }}>
             {role === "viewer"
-              ? "읽기 전용입니다. 오디오 원본에는 접근할 수 없습니다."
-              : "전사와 화자를 편집할 수 있습니다. 녹음·요약·삭제는 못 합니다."}
+              ? t("shareDialog.roleViewerNote")
+              : t("shareDialog.roleContributorNote")}
           </p>
 
           <div className="vr-filter__row">
-            <Toggle checked={oneTime} onChange={setOneTime} label="1회만 사용" />
-            <Toggle checked={withPincode} onChange={setWithPincode} label="PIN 걸기" />
+            <Toggle checked={oneTime} onChange={setOneTime} label={t("shareDialog.oneTime")} />
+            <Toggle checked={withPincode} onChange={setWithPincode} label={t("shareDialog.withPin")} />
           </div>
 
           <label style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span className="mobile-field__label">만료</span>
+            <span className="mobile-field__label">{t("shareDialog.expires")}</span>
             <input
               type="date"
               className="mobile-field__input"
@@ -142,7 +142,7 @@ export function ShareDialog({
             />
             {expiresAt && (
               <button className="mobile-button mobile-button--ghost mobile-button--fit" onClick={() => setExpiresAt("")}>
-                지우기
+                {t("shareDialog.clearDate")}
               </button>
             )}
           </label>
@@ -165,15 +165,15 @@ export function ShareDialog({
               })
             }
           >
-            링크 만들기
+            {t("shareDialog.createLink")}
           </button>
         </section>
 
         <section style={{ marginTop: 16 }}>
           {links === null ? (
-            <Spinner label="불러오는 중" />
+            <Spinner label={t("common.loading")} />
           ) : links.length === 0 ? (
-            <EmptyState icon="link" title="아직 발급한 링크가 없습니다" />
+            <EmptyState icon="link" title={t("shareDialog.noLinks")} />
           ) : (
             <div style={{ display: "flex", flexDirection: "column" }}>
               {links.map((link) => (
@@ -190,9 +190,7 @@ export function ShareDialog({
                   }
                   onRevoke={() =>
                     void run(async () => {
-                      const ok = window.confirm(
-                        "이 링크를 폐기하면 지금 이 링크로 보고 있는 사람도 즉시 끊깁니다. 계속할까요?",
-                      );
+                      const ok = window.confirm(t("shareDialog.revokeConfirm"));
                       if (!ok) return;
                       await api.deleteShareLink(link.id);
                       setIssued(null);
@@ -219,6 +217,7 @@ function LinkRow({
   onRotate: () => void;
   onRevoke: () => void;
 }) {
+  const { t } = useTranslation();
   const exhausted = link.max_uses !== null && link.use_count >= link.max_uses;
   const expired = link.expires_at !== null && new Date(link.expires_at) < new Date();
   const dead = !link.is_active || exhausted || expired;
@@ -231,20 +230,22 @@ function LinkRow({
             {link.granted_role === "contributor" ? "Contributor" : "Viewer"}
           </Chip>
           {link.has_pincode && <Chip kind="neutral">PIN</Chip>}
-          {link.max_uses === 1 && <Chip kind="neutral">1회용</Chip>}
-          {dead && <Chip kind="warn">{expired ? "만료됨" : exhausted ? "사용됨" : "꺼짐"}</Chip>}
+          {link.max_uses === 1 && <Chip kind="neutral">{t("shareDialog.oneTimeChip")}</Chip>}
+          {dead && <Chip kind="warn">{expired ? t("shareDialog.expiredChip") : exhausted ? t("shareDialog.usedChip") : t("shareDialog.offChip")}</Chip>}
         </div>
 
         <div className="vr-note vr-note--small" style={{ marginTop: 4 }}>
           <code>{link.token_prefix}…</code>
           {" · "}
-          {link.max_uses ? `${link.use_count}/${link.max_uses}회` : `${link.use_count}회 사용`}
-          {link.expires_at && ` · ${formatDateTime(link.expires_at)}까지`}
+          {link.max_uses
+            ? t("shareDialog.usesOf", { used: link.use_count, max: link.max_uses })
+            : t("shareDialog.usesCount", { count: link.use_count })}
+          {link.expires_at && ` · ${t("shareDialog.expiresUntil", { date: formatDateTime(link.expires_at) })}`}
         </div>
       </div>
 
       <button className="mobile-button mobile-button--secondary mobile-button--fit" onClick={onRotate} disabled={busy}>
-        재발급
+        {t("shareDialog.rotate")}
       </button>
       <button
         className="mobile-button mobile-button--ghost mobile-button--fit"
@@ -252,13 +253,14 @@ function LinkRow({
         onClick={onRevoke}
         disabled={busy}
       >
-        폐기
+        {t("shareDialog.revoke")}
       </button>
     </div>
   );
 }
 
 function CopyRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  const { t } = useTranslation();
   const [state, setState] = useState<"idle" | "copied" | "manual">("idle");
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -293,7 +295,7 @@ function CopyRow({ label, value, mono }: { label: string; value: string; mono?: 
         style={{ flex: 1, minWidth: 0, fontFamily: mono ? "var(--font-mono)" : "var(--font-sans)" }}
       />
       <button className="mobile-button mobile-button--secondary mobile-button--fit" onClick={() => void copy()}>
-        {state === "copied" ? "복사됨" : state === "manual" ? "Ctrl+C" : "복사"}
+        {state === "copied" ? t("shareDialog.copied") : state === "manual" ? "Ctrl+C" : t("shareDialog.copy")}
       </button>
     </div>
   );

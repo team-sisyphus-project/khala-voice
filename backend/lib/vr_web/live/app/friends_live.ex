@@ -16,7 +16,8 @@ defmodule VRWeb.AppLive.FriendsLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign(page_title: "친구", invite_link: nil) |> load(), layout: false}
+    {:ok, socket |> assign(page_title: gettext("Friends"), invite_link: nil) |> load(),
+     layout: false}
   end
 
   defp load(socket) do
@@ -48,7 +49,10 @@ defmodule VRWeb.AppLive.FriendsLive do
             assign(socket, invite_link: link)
           else
             Accounts.Notifier.deliver_friend_invitation(email, account, token, params["message"])
-            socket |> put_flash(:info, "#{email} 으로 초대를 보냈습니다") |> assign(invite_link: nil)
+
+            socket
+            |> put_flash(:info, gettext("Invitation sent to %{email}", email: email))
+            |> assign(invite_link: nil)
           end
 
         {:noreply, load(socket)}
@@ -69,22 +73,25 @@ defmodule VRWeb.AppLive.FriendsLive do
 
   def handle_event("cancel", %{"id" => id}, socket) do
     case Friends.cancel_invitation(id, socket.assigns.current_account) do
-      {:ok, _} -> {:noreply, socket |> put_flash(:info, "초대를 취소했습니다") |> load()}
-      {:error, _} -> {:noreply, put_flash(socket, :error, "취소하지 못했습니다")}
+      {:ok, _} ->
+        {:noreply, socket |> put_flash(:info, gettext("Invitation canceled")) |> load()}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, gettext("Couldn't cancel the invitation"))}
     end
   end
 
   def handle_event("remove", %{"id" => other_id}, socket) do
     Friends.remove_friend(socket.assigns.current_account.id, other_id)
-    {:noreply, socket |> put_flash(:info, "친구를 끊었습니다") |> load()}
+    {:noreply, socket |> put_flash(:info, gettext("Friend removed")) |> load()}
   end
 
   def handle_event("clear_link", _, socket), do: {:noreply, assign(socket, invite_link: nil)}
 
-  defp invite_error(:cannot_invite_self), do: "자기 자신은 초대할 수 없습니다"
-  defp invite_error(:already_friends), do: "이미 친구입니다"
-  defp invite_error(:already_invited), do: "이미 초대를 보냈습니다"
-  defp invite_error(_), do: "초대를 만들지 못했습니다"
+  defp invite_error(:cannot_invite_self), do: gettext("You can't invite yourself")
+  defp invite_error(:already_friends), do: gettext("You're already friends")
+  defp invite_error(:already_invited), do: gettext("You already sent an invitation")
+  defp invite_error(_), do: gettext("Couldn't create the invitation")
 
   @impl true
   def render(assigns) do
@@ -92,30 +99,30 @@ defmodule VRWeb.AppLive.FriendsLive do
     <.app_shell
       current_account={@current_account}
       active={:friends}
-      title="친구"
-      subtitle="친구와 회의록을 공유할 수 있습니다"
+      title={gettext("Friends")}
+      subtitle={gettext("Share meeting notes with friends")}
     >
       <div class="vr-card mb-4">
         <div class="vr-card__body">
-          <h2 class="font-bold mb-3" style="color: var(--text-primary);">초대하기</h2>
+          <h2 class="font-bold mb-3" style="color: var(--text-primary);">{gettext("Invite")}</h2>
 
           <.form for={@form} phx-submit="invite" class="flex flex-col gap-3">
             <div>
               <label class="vr-label mb-1.5" for="invite_email">
-                이메일 <span class="vr-hint">(선택)</span>
+                {gettext("Email")} <span class="vr-hint">{gettext("(optional)")}</span>
               </label>
               <input
                 type="email"
                 id="invite_email"
                 name="invite[email]"
-                placeholder="비워두면 공유 링크만 만듭니다"
+                placeholder={gettext("Leave empty to create a share link only")}
                 class="vr-input"
                 style="font-family: var(--font-sans);"
               />
             </div>
             <div>
               <label class="vr-label mb-1.5" for="invite_message">
-                메시지 <span class="vr-hint">(선택)</span>
+                {gettext("Message")} <span class="vr-hint">{gettext("(optional)")}</span>
               </label>
               <input
                 type="text"
@@ -127,14 +134,16 @@ defmodule VRWeb.AppLive.FriendsLive do
               />
             </div>
             <div class="flex justify-end">
-              <button type="submit" class="vr-btn vr-btn--primary vr-btn--sm">초대 만들기</button>
+              <button type="submit" class="vr-btn vr-btn--primary vr-btn--sm">
+                {gettext("Create invitation")}
+              </button>
             </div>
           </.form>
 
           <div :if={@invite_link} class="vr-notice vr-notice--ok mt-3">
             <span class="material-symbols-rounded vr-notice__icon">link</span>
             <div class="min-w-0 flex-1">
-              <div class="vr-notice__title">초대 링크를 만들었습니다</div>
+              <div class="vr-notice__title">{gettext("Invitation link created")}</div>
 
               <%!--
                 링크를 손으로 옮겨 적게 두지 않는다. 토큰이 길어서 한 글자만 틀려도
@@ -149,17 +158,17 @@ defmodule VRWeb.AppLive.FriendsLive do
                   readonly
                   data-copy-source
                   onfocus="this.select()"
-                  aria-label="초대 링크"
+                  aria-label={gettext("Invitation link")}
                 />
                 <button type="button" class="vr-btn vr-btn--sm shrink-0" data-copy-trigger>
-                  복사
+                  {gettext("Copy")}
                 </button>
               </div>
 
-              <p class="vr-hint mt-1.5" style="font-size: 12px;">14일간 유효합니다.</p>
+              <p class="vr-hint mt-1.5" style="font-size: 12px;">{gettext("Valid for 14 days.")}</p>
             </div>
             <button class="vr-btn vr-btn--sm vr-btn--ghost shrink-0" phx-click="clear_link">
-              닫기
+              {gettext("Close")}
             </button>
           </div>
         </div>
@@ -168,10 +177,10 @@ defmodule VRWeb.AppLive.FriendsLive do
       <div :if={@received != []} class="vr-card mb-4">
         <div class="vr-card__body">
           <h2 class="font-bold mb-3" style="color: var(--text-primary);">
-            받은 초대 <span class="vr-hint">({length(@received)})</span>
+            {gettext("Received invitations")} <span class="vr-hint">({length(@received)})</span>
           </h2>
           <p class="vr-hint">
-            메일의 링크를 열면 수락할 수 있습니다.
+            {gettext("Open the link in the email to accept.")}
           </p>
         </div>
       </div>
@@ -179,7 +188,7 @@ defmodule VRWeb.AppLive.FriendsLive do
       <div :if={@sent != []} class="vr-card mb-4">
         <div class="vr-card__body">
           <h2 class="font-bold mb-3" style="color: var(--text-primary);">
-            보낸 초대 <span class="vr-hint">({length(@sent)})</span>
+            {gettext("Sent invitations")} <span class="vr-hint">({length(@sent)})</span>
           </h2>
           <ul class="flex flex-col gap-2">
             <li
@@ -187,14 +196,14 @@ defmodule VRWeb.AppLive.FriendsLive do
               class="flex items-center justify-between gap-3"
               style="font-size: 14px;"
             >
-              <span>{i.email || "공유 링크"}</span>
+              <span>{i.email || gettext("Share link")}</span>
               <button
                 class="vr-btn vr-btn--sm vr-btn--ghost"
                 style="color: var(--status-error);"
                 phx-click="cancel"
                 phx-value-id={i.id}
               >
-                취소
+                {gettext("Cancel")}
               </button>
             </li>
           </ul>
@@ -204,14 +213,14 @@ defmodule VRWeb.AppLive.FriendsLive do
       <div class="vr-card">
         <div class="vr-card__body">
           <h2 class="font-bold mb-3" style="color: var(--text-primary);">
-            친구 <span class="vr-hint">({length(@friends)})</span>
+            {gettext("Friends")} <span class="vr-hint">({length(@friends)})</span>
           </h2>
 
           <.empty_state
             :if={@friends == []}
             icon="group"
-            title="아직 친구가 없습니다"
-            desc="위에서 초대를 보내보세요."
+            title={gettext("No friends yet")}
+            desc={gettext("Send an invitation above.")}
           />
 
           <ul :if={@friends != []} class="flex flex-col">
@@ -232,9 +241,9 @@ defmodule VRWeb.AppLive.FriendsLive do
                 style="color: var(--status-error);"
                 phx-click="remove"
                 phx-value-id={f.id}
-                data-confirm={"#{f.name || f.email} 님과 친구를 끊습니다. 계속할까요?"}
+                data-confirm={gettext("Remove %{name} from your friends?", name: f.name || f.email)}
               >
-                끊기
+                {gettext("Remove")}
               </button>
             </li>
           </ul>

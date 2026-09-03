@@ -1,3 +1,5 @@
+import i18n from "@/i18n";
+
 /** 시:분:초. 타이머와 세그먼트 시각에 함께 쓴다. */
 export function formatDuration(seconds: number | null | undefined): string {
   const total = Math.max(0, Math.floor(seconds ?? 0));
@@ -21,17 +23,17 @@ export function formatRelative(iso: string | null | undefined): string {
   const date = new Date(iso);
   const diff = Math.floor((Date.now() - date.getTime()) / 1000);
 
-  if (diff < 60) return "방금";
-  if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
-  if (diff < 86_400) return `${Math.floor(diff / 3600)}시간 전`;
-  if (diff < 7 * 86_400) return `${Math.floor(diff / 86_400)}일 전`;
+  if (diff < 60) return i18n.t("time.justNow");
+  if (diff < 3600) return i18n.t("time.minutesAgo", { count: Math.floor(diff / 60) });
+  if (diff < 86_400) return i18n.t("time.hoursAgo", { count: Math.floor(diff / 3600) });
+  if (diff < 7 * 86_400) return i18n.t("time.daysAgo", { count: Math.floor(diff / 86_400) });
 
-  return date.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
+  return date.toLocaleDateString(i18n.language, { year: "numeric", month: "long", day: "numeric" });
 }
 
 export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return "-";
-  return new Date(iso).toLocaleString("ko-KR", {
+  return new Date(iso).toLocaleString(i18n.language, {
     year: "numeric",
     month: "long",
     day: "numeric",

@@ -1,6 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
+import { I18nextProvider } from "react-i18next";
+import i18n from "@/i18n";
 import { MobileApp } from "@/MobileApp";
 import { DesktopApp } from "@/DesktopApp";
 import { SurfaceEntry } from "@/SurfaceEntry";
@@ -20,13 +22,14 @@ registerServiceWorker();
 installPressFeedback();
 
 const root = document.getElementById("root");
-if (!root) throw new Error("#root 를 찾을 수 없습니다");
+if (!root) throw new Error("Root element #root not found");
 
 createRoot(root).render(
   <StrictMode>
-    <IntroScreen>
-      <BrowserRouter>
-        <Routes>
+    <I18nextProvider i18n={i18n}>
+      <IntroScreen>
+        <BrowserRouter>
+          <Routes>
           {/* 표면을 정하지 않은 진입 — 폭(또는 사용자가 고른 값)으로 고른다 */}
           <Route path="/" element={<SurfaceEntry />} />
           <Route path="/app" element={<SurfaceEntry />} />
@@ -43,8 +46,9 @@ createRoot(root).render(
           <Route path="/share/:token" element={<SharePage />} />
 
           <Route path="*" element={<SurfaceEntry />} />
-        </Routes>
-      </BrowserRouter>
-    </IntroScreen>
+          </Routes>
+        </BrowserRouter>
+      </IntroScreen>
+    </I18nextProvider>
   </StrictMode>,
 );

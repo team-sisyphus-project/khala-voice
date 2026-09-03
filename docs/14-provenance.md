@@ -192,6 +192,7 @@ sisyphus 는 n8n 워크플로에 위임했다. **이 앱은 LLM 을 직접 호�
 | 칩의 점(`::before`) 제거 | 사용자 요청 — 칩 자체가 이미 색을 들고 있다 |
 | 연필 스킨을 이 앱의 상자에 확장 | `media-skin.css` 는 devkanban 마크업(`.mobile-row` · `.mobile-button` …)만 겨냥한다. 이 앱이 새로 만든 `.mobile-section--card` · `.vr-*` 는 스킨이 모르는 이름이라 연필 테마에서 혼자 매끈한 사각형으로 남았다. **같은 재료**(`--pc-stroke` · `--pc-ink`)를 빌려 우리 이름에 다시 걸었다 |
 | 녹음 버튼 마이크를 `FILL 1` 로 | 빨간 원 안의 외곽선 마이크는 획이 가늘어 비어 보인다. `opsz` 도 실제 렌더 크기와 맞춘다 |
+| `.vr-rec-button[data-blocked]` (빗금 테두리) · `.vr-mic-trouble*` | devkanban 에는 "권한이 막혀 못 누른다" 를 말하는 자리가 없다. `:disabled` 만으로는 **회의가 끝나서** 못 누르는 것과 구분되지 않아, 마이크 차단은 붉은 빗금으로 따로 세우고 그 아래 기기별 해제 절차를 번호로 세운다. 색·간격은 전부 원본 토큰(`--mobile-danger` · `--mobile-space-*`)을 쓴다 |
 | 게임 테마에서 아이콘 글꼴 되돌리기 | `[data-theme="game"] *` 가 **모든 요소**의 글꼴을 도트 폰트로 바꾼다. devkanban 은 아이콘이 인라인 SVG 라 안 걸렸는데, 이 앱은 Material Symbols(합자 폰트)라 아이콘 **이름이 글자 그대로** 찍혔다 |
 
 **devkanban 의 결정 기록**
@@ -294,7 +295,7 @@ devkanban 의 인라인 SVG 레지스트리(`mobile/src/Icon.tsx`)를 그대로 
 | `VR.Storage` presign 직접 구현 | sisyphus 는 n8n 웹훅에 위임했다 |
 | `VR.Summarize` LLM 직접 호출 | 〃 |
 | `packages/core` 로직/UI 분리 | sisyphus 는 데스크톱·모바일에 로직을 두 벌 복사했다 |
-| 지연 로드 테마 | devkanban 은 전부 번들에 넣는다. 이 앱은 모바일 우선이라 66KB 를 미룬다 |
+| 테마 번들 통합 | 옛 지연 로드 파일이 현재 토큰 이름을 덮지 못해 제거하고 devkanban처럼 전부 번들에 둔다 |
 | `mix vr.doctor` | 외부 의존이 많아 무엇이 왜 안 되는지 한 화면에 필요했다 |
 
 ---

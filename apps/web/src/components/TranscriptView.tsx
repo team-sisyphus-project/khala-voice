@@ -1,5 +1,7 @@
 import { Icon } from "@/ui";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import {
   changeSegmentSpeaker,
   colorIndexMap,
@@ -43,6 +45,7 @@ export function TranscriptView({
   onPlaySegment: (startMs: number) => void;
   onSave: (patch: { transcript?: Transcript; speaker_map?: Record<string, SpeakerMapEntry> }) => void;
 }) {
+  const { t } = useTranslation();
   const transcript = session.transcript;
   const speakerMap = session.speaker_map ?? {};
 
@@ -100,7 +103,7 @@ export function TranscriptView({
         onAdd={() => {
           let n = speakers.length + 1;
           while (speakerMap[`speaker_${n}`]) n += 1;
-          save({ speaker_map: { ...speakerMap, [`speaker_${n}`]: { name: `화자 ${n}`, account_id: null } } });
+          save({ speaker_map: { ...speakerMap, [`speaker_${n}`]: { name: t("speaker.default", { n }), account_id: null } } });
         }}
         onRemove={(key) => {
           const moveTo = speakers.find((s) => s.key !== key)?.key;
@@ -123,7 +126,7 @@ export function TranscriptView({
 
       {canEdit && hasEdits(transcript) && (
         <Notice kind="info" icon="history" className="mb-4">
-          전사를 편집했습니다.
+          {t("transcript.editedNotice")}
           <button
             className="mobile-button mobile-button--ghost mobile-button--fit"
             style={{ marginLeft: 8 }}
@@ -132,7 +135,7 @@ export function TranscriptView({
               if (restored) save({ transcript: restored });
             }}
           >
-            원본으로 되돌리기
+            {t("transcript.restoreOriginal")}
           </button>
         </Notice>
       )}
@@ -156,7 +159,7 @@ export function TranscriptView({
                   data-speaker={colors[segment.speaker] ?? 1}
                   onClick={() => canEdit && setMenuFor(menuFor === index ? null : index)}
                   disabled={!canEdit}
-                  title={canEdit ? "이 발언의 화자만 바꾸기" : undefined}
+                  title={canEdit ? t("transcript.changeThisSpeaker") : undefined}
                 >
                   {speaker?.name ?? segment.speaker}
                 </button>
@@ -165,7 +168,7 @@ export function TranscriptView({
                   type="button"
                   className="vr-msg__time"
                   onClick={() => onPlaySegment(segment.start_ms)}
-                  title="여기부터 재생"
+                  title={t("transcript.playFromHere")}
                 >
                   {timeLabel(segment.start_ms)}
                 </button>
@@ -179,7 +182,7 @@ export function TranscriptView({
                         setDraft(segment.text);
                         setSplitting(null);
                       }}
-                      title="고치기"
+                      title={t("transcript.editRemark")}
                     >
                       <Icon name="edit" />
                     </button>
@@ -189,7 +192,7 @@ export function TranscriptView({
                         setSplitting(splitting === index ? null : index);
                         setEditing(null);
                       }}
-                      title="둘로 나누기"
+                      title={t("transcript.splitRemark")}
                     >
                       <Icon name="content_cut" />
                     </button>
@@ -201,7 +204,7 @@ export function TranscriptView({
                 <>
                   <div className="vr-menu__backdrop" onClick={() => setMenuFor(null)} />
                   <div className="vr-menu vr-menu--inline" data-surface="raised">
-                    <div className="vr-menu__title">이 발언의 화자</div>
+                    <div className="vr-menu__title">{t("transcript.thisRemarkSpeaker")}</div>
                     <div className="vr-menu__list">
                       {speakers.map((option) => (
                         <button
@@ -236,7 +239,7 @@ export function TranscriptView({
                   />
                   <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 6 }}>
                     <button className="mobile-button mobile-button--ghost mobile-button--fit" onClick={() => setEditing(null)}>
-                      취소
+                      {t("common.cancel")}
                     </button>
                     <button
                       className="mobile-button mobile-button--primary mobile-button--fit"
@@ -245,7 +248,7 @@ export function TranscriptView({
                         setEditing(null);
                       }}
                     >
-                      저장
+                      {t("common.save")}
                     </button>
                   </div>
                 </div>
@@ -281,11 +284,12 @@ function SplitEditor({
   onCancel: () => void;
   onSplit: (charIndex: number) => void;
 }) {
+  const { t } = useTranslation();
   const [at, setAt] = useState(Math.floor(text.length / 2));
 
   return (
     <div className="vr-msg__edit">
-      <p className="vr-note" style={{ marginBottom: 6 }}>나눌 지점을 고르세요.</p>
+      <p className="vr-note" style={{ marginBottom: 6 }}>{t("transcript.splitPrompt")}</p>
 
       <p className="vr-msg__text" style={{ marginBottom: 8 }}>
         {text.slice(0, at)}
@@ -303,9 +307,9 @@ function SplitEditor({
       />
 
       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 6 }}>
-        <button className="mobile-button mobile-button--ghost mobile-button--fit" onClick={onCancel}>취소</button>
+        <button className="mobile-button mobile-button--ghost mobile-button--fit" onClick={onCancel}>{t("common.cancel")}</button>
         <button className="mobile-button mobile-button--primary mobile-button--fit" onClick={() => onSplit(at)}>
-          나누기
+          {t("transcript.split")}
         </button>
       </div>
     </div>
@@ -315,26 +319,26 @@ function SplitEditor({
 function emptyTitle(status: RecordingSession["status"]): string {
   switch (status) {
     case "transcribing":
-      return "전사 중입니다";
+      return i18n.t("transcript.emptyTranscribing");
     case "splitting":
-      return "긴 녹음을 나누는 중입니다";
+      return i18n.t("transcript.emptySplitting");
     case "failed":
-      return "전사에 실패했습니다";
+      return i18n.t("transcript.emptyFailed");
     case "uploaded":
-      return "아직 전사하지 않았습니다";
+      return i18n.t("transcript.emptyUploaded");
     default:
-      return "전사 결과가 없습니다";
+      return i18n.t("transcript.emptyNone");
   }
 }
 
 function emptyDesc(status: RecordingSession["status"]): string | undefined {
   switch (status) {
     case "transcribing":
-      return "길이에 따라 몇 분 걸립니다. 끝나면 자동으로 나타납니다.";
+      return i18n.t("transcript.emptyDescTranscribing");
     case "splitting":
-      return "20분이 넘어 19분 단위로 나눕니다. 나뉜 조각마다 따로 전사됩니다.";
+      return i18n.t("transcript.emptyDescSplitting");
     case "uploaded":
-      return "세션 탭에서 전사를 시작하세요.";
+      return i18n.t("transcript.emptyDescUploaded");
     default:
       return undefined;
   }

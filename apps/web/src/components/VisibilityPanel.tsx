@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { Icon } from "@/ui";
 import { Notice } from "@/components/ui";
@@ -40,6 +41,7 @@ export function VisibilityPanel({
   onError: (message: string | null) => void;
   onLostAccess: () => void;
 }) {
+  const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [transferTo, setTransferTo] = useState<string | null>(null);
@@ -62,20 +64,20 @@ export function VisibilityPanel({
    */
   async function save(body: Record<string, unknown>, opts: { transfer?: boolean } = {}) {
     setSaving(true);
-    setStatus("저장 중…");
+    setStatus(t("visibility.saving"));
     onError(null);
 
     try {
       const updated = await api.updateMeetingPermissions(meeting.id, body);
       onSaved(updated);
-      setStatus("저장했습니다");
+      setStatus(t("visibility.saved"));
 
       // 양도했으면 이 화면을 더 볼 수 없다. 처리하지 않으면 다음 폴링에서
       // 404 를 맞고 화면이 깨진다.
       if (opts.transfer && updated.role !== "reviewer") onLostAccess();
     } catch (e) {
       setStatus(null);
-      onError(e instanceof Error ? e.message : "저장하지 못했습니다");
+      onError(e instanceof Error ? e.message : t("common.saveError"));
     } finally {
       setSaving(false);
       setTransferTo(null);
@@ -94,12 +96,12 @@ export function VisibilityPanel({
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div>
-        <h3 className="mobile-section__title">공개 범위</h3>
+        <h3 className="mobile-section__title">{t("visibility.scopeTitle")}</h3>
         <p className="vr-note" style={{ fontSize: 12, margin: "2px 0 10px" }}>
-          Reviewer 와 Contributor 는 여기 설정과 상관없이 항상 볼 수 있습니다.
+          {t("visibility.scopeNote")}
         </p>
 
-        <div className="vr-scope" role="radiogroup" aria-label="공개 범위">
+        <div className="vr-scope" role="radiogroup" aria-label={t("visibility.scopeAria")}>
           {VIEW_SCOPES.map((scope) => {
             const blocked = scope.needsFriends && noFriends;
 
@@ -117,13 +119,13 @@ export function VisibilityPanel({
                 <span className="vr-scope__icon"><Icon name={scope.icon} /></span>
                 <span className="vr-scope__meta">
                   <span className="vr-scope__name">
-                    {scope.label}
+                    {t(`visibility.scopes.${scope.mode}.label`)}
                     {scope.mode === "assignees_only" && (
-                      <span className="vr-chip vr-chip--neutral" style={{ marginLeft: 6 }}>기본</span>
+                      <span className="vr-chip vr-chip--neutral" style={{ marginLeft: 6 }}>{t("visibility.defaultChip")}</span>
                     )}
                   </span>
                   <span className="vr-scope__hint">
-                    {blocked ? "친구를 추가하면 쓸 수 있습니다" : scope.hint}
+                    {blocked ? t("visibility.needsFriends") : t(`visibility.scopes.${scope.mode}.hint`)}
                   </span>
                 </span>
                 {view.mode === scope.mode && (
@@ -136,7 +138,7 @@ export function VisibilityPanel({
 
         {noFriends && (
           <p className="vr-note" style={{ fontSize: 12, marginTop: 8 }}>
-            <a href="/friends">친구 추가하기</a>
+            <a href="/friends">{t("visibility.addFriends")}</a>
           </p>
         )}
       </div>
@@ -158,14 +160,14 @@ export function VisibilityPanel({
               selected={view.accountIds}
               multiple
               disabled={saving}
-              label="친구 고르기"
+              label={t("visibility.pickFriends")}
               onChange={setSelectedFriends}
             />
           </div>
 
           {view.accountIds.length === 0 && (
             <Notice kind="warn" icon="info" className="mt-2">
-              아직 아무도 고르지 않았습니다 — 지금은 Reviewer 와 Contributor 만 볼 수 있습니다.
+              {t("visibility.noneSelected")}
             </Notice>
           )}
         </div>
@@ -173,7 +175,7 @@ export function VisibilityPanel({
 
       {view.mode === "all_friends" && (
         <p className="vr-note" style={{ fontSize: 12 }}>
-          지금 {friends.length}명입니다. 친구가 늘면 자동으로 포함됩니다.
+          {t("visibility.allFriendsCount", { count: friends.length })}
         </p>
       )}
 
@@ -181,16 +183,15 @@ export function VisibilityPanel({
           "나만" 으로 바꿔도 Contributor 는 계속 본다 — 사용자는 비공개로 만들었다고 믿는다. */}
       {leakyPrivate(meeting, view) && (
         <Notice kind="warn" icon="warning">
-          <strong>Contributor 는 계속 볼 수 있습니다.</strong> Contributor 로 지정된{" "}
-          {meeting.contributor_ids.length}명은 공개 범위와 상관없이 이 회의에 접근합니다.
-          완전히 비공개로 하려면 Contributor 를 모두 해제하세요.
+          <strong>{t("visibility.leakyTitle")}</strong>{" "}
+          {t("visibility.leakyBody", { count: meeting.contributor_ids.length })}
           <button
             className="mobile-button mobile-button--secondary mobile-button--fit"
             style={{ display: "block", marginTop: 8 }}
             disabled={saving}
             onClick={() => void save({ contributor_ids: [] })}
           >
-            Contributor 모두 해제
+            {t("visibility.clearContributors")}
           </button>
         </Notice>
       )}
@@ -198,9 +199,9 @@ export function VisibilityPanel({
       <hr style={{ border: 0, borderTop: "var(--hairline-width) solid var(--border-subtle)" }} />
 
       <div>
-        <h3 className="mobile-section__title">Contributor</h3>
+        <h3 className="mobile-section__title">{t("visibility.contributorTitle")}</h3>
         <p className="vr-note" style={{ fontSize: 12, margin: "2px 0 8px" }}>
-          녹음 · 전사 편집 · 요약을 할 수 있습니다. 삭제와 권한 변경은 못 합니다.
+          {t("visibility.contributorNote")}
         </p>
 
         <FriendTokens
@@ -220,28 +221,28 @@ export function VisibilityPanel({
             selected={meeting.contributor_ids}
             multiple
             disabled={saving}
-            label="Contributor 지정"
+            label={t("visibility.assignContributor")}
             onChange={(ids) => void save({ contributor_ids: ids })}
           />
         </div>
       </div>
 
       <div>
-        <h3 className="mobile-section__title">Reviewer 양도</h3>
+        <h3 className="mobile-section__title">{t("visibility.transferTitle")}</h3>
         <p className="vr-note" style={{ fontSize: 12, margin: "2px 0 8px" }}>
-          전권을 넘깁니다. 넘기고 나면 되돌릴 수 없습니다.
+          {t("visibility.transferNote")}
         </p>
 
         {transferTo ? (
           <Notice kind="warn" icon="warning">
-            <strong>Reviewer 를 넘기시겠습니까?</strong>{" "}
-            {displayName(transferTo, friends, me) ?? "이 사람"} 님이 이 회의의 전권을 갖게 되고,
-            나는 공개 범위를 더 이상 바꿀 수 없습니다.
+            <strong>{t("visibility.transferConfirmTitle")}</strong>{" "}
+            {t("visibility.transferConfirmBody", {
+              name: displayName(transferTo, friends, me) ?? t("visibility.transferThisPerson"),
+            })}
             {view.mode === "all_friends" && (
               <>
                 {" "}
-                공개 범위가 <strong>내 친구 전체</strong>입니다 — 넘기면 공개 대상이 그 사람의
-                친구 목록으로 바뀝니다.
+                <Trans t={t} i18nKey="visibility.transferAllFriends" components={{ strong: <strong /> }} />
               </>
             )}
             <label style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 10 }}>
@@ -250,7 +251,7 @@ export function VisibilityPanel({
                 checked={keepMeAsContributor}
                 onChange={(e) => setKeepMe(e.target.checked)}
               />
-              나를 Contributor 로 남기기 (해제하면 이 회의를 못 보게 됩니다)
+              {t("visibility.keepMeContributor")}
             </label>
             <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
               <button
@@ -268,13 +269,13 @@ export function VisibilityPanel({
                   );
                 }}
               >
-                넘기기
+                {t("visibility.transferConfirm")}
               </button>
               <button
                 className="mobile-button mobile-button--ghost mobile-button--fit"
                 onClick={() => setTransferTo(null)}
               >
-                취소
+                {t("common.cancel")}
               </button>
             </div>
           </Notice>
@@ -284,7 +285,7 @@ export function VisibilityPanel({
             me={me}
             selected={[]}
             disabled={saving}
-            label="Reviewer 넘기기"
+            label={t("visibility.transferPick")}
             onChange={(ids) => setTransferTo(ids[0] ?? null)}
           />
         )}

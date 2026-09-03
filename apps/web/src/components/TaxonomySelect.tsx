@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Tag } from "@/components/Tag";
 import { Button, Icon, Sheet } from "@/ui";
 import type { Label, Topic } from "@core/api";
@@ -63,6 +64,7 @@ export function TopicSelect({
   /** 새 토픽을 만들고 그 id 를 돌려준다. 없으면 만들기 줄을 숨긴다 */
   onCreate?: (name: string) => Promise<Topic | null>;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
@@ -96,19 +98,19 @@ export function TopicSelect({
 
   return (
     <>
-      <Trigger label="토픽" empty={!picked} onClick={() => setOpen(true)}>
-        {picked ? <Tag item={picked} kind="topic" /> : "고르지 않음"}
+      <Trigger label={t("taxonomySelect.topic")} empty={!picked} onClick={() => setOpen(true)}>
+        {picked ? <Tag item={picked} kind="topic" /> : t("taxonomySelect.none")}
       </Trigger>
 
       {open && (
-        <Sheet title="토픽" onClose={() => setOpen(false)}>
+        <Sheet title={t("taxonomySelect.topic")} onClose={() => setOpen(false)}>
           <div className="vr-filter">
             <input
               className="mobile-field__input"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={onCreate ? "찾거나 새로 만들기" : "토픽 찾기"}
-              aria-label="토픽 찾기"
+              placeholder={onCreate ? t("taxonomySelect.searchOrCreate") : t("taxonomySelect.findTopic")}
+              aria-label={t("taxonomySelect.findTopic")}
               autoFocus
             />
 
@@ -122,7 +124,7 @@ export function TopicSelect({
                   setOpen(false);
                 }}
               >
-                <span className="vr-options__name">고르지 않음</span>
+                <span className="vr-options__name">{t("taxonomySelect.none")}</span>
                 {value === null && <Icon name="check" />}
               </button>
 
@@ -144,13 +146,13 @@ export function TopicSelect({
               ))}
 
               {shown.length === 0 && !canCreate && (
-                <p className="vr-note vr-note--small">찾는 토픽이 없습니다.</p>
+                <p className="vr-note vr-note--small">{t("taxonomySelect.noTopicFound")}</p>
               )}
             </div>
 
             {canCreate && (
-              <Button icon="add" full onClick={() => void create()} pending={creating} loadingLabel="만드는 중">
-                “{typed}” 토픽 만들기
+              <Button icon="add" full onClick={() => void create()} pending={creating} loadingLabel={t("taxonomySelect.creating")}>
+                {t("taxonomySelect.createTopicNamed", { name: typed })}
               </Button>
             )}
           </div>
@@ -169,6 +171,7 @@ export function LabelSelect({
   value: string[];
   onChange: (labelIds: string[]) => void;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -181,19 +184,19 @@ export function LabelSelect({
 
   return (
     <>
-      <Trigger label="라벨" empty={picked.length === 0} onClick={() => setOpen(true)}>
-        {picked.length > 0 ? picked.map((l) => <Tag key={l.id} item={l} />) : "고르지 않음"}
+      <Trigger label={t("taxonomySelect.label")} empty={picked.length === 0} onClick={() => setOpen(true)}>
+        {picked.length > 0 ? picked.map((l) => <Tag key={l.id} item={l} />) : t("taxonomySelect.none")}
       </Trigger>
 
       {open && (
-        <Sheet title="라벨" onClose={() => setOpen(false)}>
+        <Sheet title={t("taxonomySelect.label")} onClose={() => setOpen(false)}>
           <div className="vr-filter">
             <input
               className="mobile-field__input"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="라벨 찾기"
-              aria-label="라벨 찾기"
+              placeholder={t("taxonomySelect.findLabel")}
+              aria-label={t("taxonomySelect.findLabel")}
               autoFocus
             />
 
@@ -218,15 +221,15 @@ export function LabelSelect({
               {shown.length === 0 && (
                 <p className="vr-note vr-note--small">
                   {labels.length === 0
-                    ? "만들어진 라벨이 없습니다. 분류 화면에서 먼저 만듭니다."
-                    : "찾는 라벨이 없습니다."}
+                    ? t("taxonomySelect.noLabelsYet")
+                    : t("taxonomySelect.noLabelFound")}
                 </p>
               )}
             </div>
 
             {/* 라벨은 여러 개를 고르는 동안 열어 둔다 */}
             <Button full onClick={() => setOpen(false)}>
-              완료
+              {t("taxonomySelect.done")}
             </Button>
           </div>
         </Sheet>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { Notice } from "@/components/ui";
 import { Button, Icon, Sheet } from "@/ui";
@@ -21,6 +22,7 @@ export function KhalaSendSheet({
   meeting: Meeting;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [inboxes, setInboxes] = useState<KhalaInbox[] | null>(null);
   const [recipient, setRecipient] = useState<string>("");
   const [attach, setAttach] = useState(true);
@@ -40,7 +42,7 @@ export function KhalaSendSheet({
       })
       .catch((e: unknown) => {
         setInboxes([]);
-        setError(e instanceof Error ? e.message : "인박스를 불러오지 못했습니다");
+        setError(e instanceof Error ? e.message : t("khalaSend.loadError"));
       });
   }, []);
 
@@ -56,34 +58,34 @@ export function KhalaSendSheet({
 
       setSent(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "보내지 못했습니다");
+      setError(e instanceof Error ? e.message : t("khalaSend.sendError"));
     } finally {
       setSending(false);
     }
   }
 
   return (
-    <Sheet title="칼라로 보내기" onClose={onClose}>
+    <Sheet title={t("khalaSend.title")} onClose={onClose}>
       <div className="vr-filter">
         {sent ? (
           <>
-            <Notice kind="ok" icon="check_circle" title="보냈습니다">
-              칼라 인박스에서 확인하세요.
+            <Notice kind="ok" icon="check_circle" title={t("khalaSend.sentTitle")}>
+              {t("khalaSend.sentBody")}
             </Notice>
             <Button full onClick={onClose}>
-              닫기
+              {t("common.close")}
             </Button>
           </>
         ) : (
           <>
             <div className="vr-filter__group">
-              <span className="vr-filter__label">받는 인박스</span>
+              <span className="vr-filter__label">{t("khalaSend.recipient")}</span>
 
-              {inboxes === null && <p className="vr-note vr-note--small">불러오는 중…</p>}
+              {inboxes === null && <p className="vr-note vr-note--small">{t("common.loading")}</p>}
 
               {inboxes?.length === 0 && (
                 <p className="vr-note vr-note--small">
-                  보낼 수 있는 인박스가 없습니다. 칼라에서 인박스를 먼저 만드세요.
+                  {t("khalaSend.noInboxes")}
                 </p>
               )}
 
@@ -92,9 +94,9 @@ export function KhalaSendSheet({
                   className="mobile-field__input"
                   value={recipient}
                   onChange={(e) => setRecipient(e.target.value)}
-                  aria-label="받는 인박스"
+                  aria-label={t("khalaSend.recipient")}
                 >
-                  <option value="">고르지 않음</option>
+                  <option value="">{t("khalaSend.notSelected")}</option>
                   {inboxes.map((inbox) => (
                     <option key={inbox.code} value={inbox.code ?? ""}>
                       {inbox.name || inbox.code}
@@ -112,14 +114,13 @@ export function KhalaSendSheet({
             >
               <Icon name={attach ? "check_box" : "check_box_outline_blank"} />
               <span>
-                전사 원문 첨부
-                <span className="vr-note vr-note--small">끄면 요약만 보냅니다</span>
+                {t("khalaSend.attachTranscript")}
+                <span className="vr-note vr-note--small">{t("khalaSend.attachHint")}</span>
               </span>
             </button>
 
             <p className="vr-note vr-note--small">
-              본문은 <strong>요약</strong>입니다. 오디오는 보내지 않습니다 —
-              음성이 필요하면 공유 링크를 쓰세요.
+              <Trans t={t} i18nKey="khalaSend.bodyNote" components={{ strong: <strong /> }} />
             </p>
 
             {error && (
@@ -133,10 +134,10 @@ export function KhalaSendSheet({
               icon="share"
               disabled={!recipient}
               pending={sending}
-              loadingLabel="보내는 중"
+              loadingLabel={t("khalaSend.sending")}
               onClick={() => void send()}
             >
-              보내기
+              {t("khalaSend.send")}
             </Button>
           </>
         )}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { useRoutes } from "@/lib/routes";
 import { LabelSelect, TopicSelect } from "@/components/TaxonomySelect";
@@ -25,6 +26,7 @@ export function MeetingTitleSheet({
   onSaved: (meeting: Meeting) => void;
   onError: (message: string | null) => void;
 }) {
+  const { t } = useTranslation();
   const routes = useRoutes();
   const [title, setTitle] = useState(meeting.title ?? "");
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -49,7 +51,7 @@ export function MeetingTitleSheet({
       try {
         onSaved(await api.updateMeeting(meeting.id, body));
       } catch (e) {
-        onError(e instanceof Error ? e.message : "저장하지 못했습니다");
+        onError(e instanceof Error ? e.message : t("common.saveError"));
       } finally {
         setSaving(false);
       }
@@ -78,7 +80,7 @@ export function MeetingTitleSheet({
         setTopics((prev) => [...prev, topic]);
         return topic;
       } catch (e) {
-        onError(e instanceof Error ? e.message : "토픽을 만들지 못했습니다");
+        onError(e instanceof Error ? e.message : t("meetingTitle.topicCreateError"));
         return null;
       }
     },
@@ -86,16 +88,16 @@ export function MeetingTitleSheet({
   );
 
   return (
-    <Sheet title="회의 정보" onClose={onClose}>
+    <Sheet title={t("meetingTitle.title")} onClose={onClose}>
       <div className="vr-filter">
         <div className="vr-filter__group">
-          <span className="vr-filter__label">제목</span>
+          <span className="vr-filter__label">{t("meetingTitle.titleLabel")}</span>
           <input
             className="mobile-field__input"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="회의 제목"
-            aria-label="회의 제목"
+            placeholder={t("meetingTitle.titlePlaceholder")}
+            aria-label={t("meetingTitle.titlePlaceholder")}
             autoFocus
           />
         </div>
@@ -115,13 +117,13 @@ export function MeetingTitleSheet({
 
         {labels.length === 0 && (
           <p className="vr-note vr-note--small">
-            라벨은 <a href={routes.taxonomy}>분류 화면</a>에서 만듭니다. 여기서는 만들어진 것 중에 고릅니다.
+            <Trans t={t} i18nKey="meetingTitle.labelsHint" components={{ link: <a href={routes.taxonomy} /> }} />
           </p>
         )}
 
         <div className="vr-filter__actions">
-          <Button full onClick={() => void done()} pending={saving} loadingLabel="저장 중">
-            완료
+          <Button full onClick={() => void done()} pending={saving} loadingLabel={t("common.saving")}>
+            {t("meetingTitle.done")}
           </Button>
         </div>
       </div>

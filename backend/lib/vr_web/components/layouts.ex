@@ -6,17 +6,26 @@ defmodule VRWeb.Layouts do
   use VRWeb, :html
 
   @doc """
-  현재 계정의 테마. 로그인 전에는 기본값(다크)으로 칠하고, 클라이언트가
+  현재 계정의 테마. 로그인 전에는 기본값(라이트)으로 칠하고, 클라이언트가
   localStorage 캐시가 있으면 그것으로 정정한다.
-
-  기본값을 비워 두면 devkanban 토큰의 `:root` 기본값(라이트)이 잡혀
-  로그인 화면이 흰색으로 한 프레임 번쩍인다.
   """
   def theme(assigns) do
     case assigns[:current_account] do
       %{theme: theme} when is_binary(theme) -> theme
-      _ -> "dark"
+      _ -> "light"
     end
+  end
+
+  @doc """
+  현재 계정의 표시 언어를 `<html lang>` 용 BCP-47 태그로 낸다.
+
+  계정의 `locale`(`VRWeb.Plugs.Locale` 이 assign 에 심는다)을 쓰고, 없으면
+  기본값(영어). 계정 값은 `zh_CN` 처럼 밑줄을 쓰므로 `zh-CN` 으로 바꿔 준다 —
+  HTML `lang` 은 하이픈을 쓴다.
+  """
+  def locale(assigns) do
+    (assigns[:locale] || VRWeb.Plugs.Locale.resolve(assigns[:current_account]))
+    |> String.replace("_", "-")
   end
 
   # Embed all files in layouts/* within this module.
