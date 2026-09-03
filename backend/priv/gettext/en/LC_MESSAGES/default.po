@@ -693,3 +693,9 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "or"
 msgstr ""
+
+#: lib/vr_web/user_auth.ex:85
+#: lib/vr_web/user_auth.ex:179
+#, elixir-autogen, elixir-format
+msgid "You must sign in to continue"
+msgstr ""

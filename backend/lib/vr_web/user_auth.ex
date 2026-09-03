@@ -17,6 +17,8 @@ defmodule VRWeb.UserAuth do
   import Plug.Conn
   import Phoenix.Controller
 
+  use Gettext, backend: VRWeb.Gettext
+
   alias VR.Accounts
 
   # 파이프라인에서 `plug VRWeb.UserAuth, :fetch_current_account` 형태로 쓴다
@@ -80,7 +82,7 @@ defmodule VRWeb.UserAuth do
       conn
     else
       conn
-      |> put_flash(:error, "로그인이 필요합니다")
+      |> put_flash(:error, gettext("You must sign in to continue"))
       |> maybe_store_return_to()
       |> redirect(to: ~p"/login")
       |> halt()
@@ -174,7 +176,7 @@ defmodule VRWeb.UserAuth do
     else
       {:halt,
        socket
-       |> Phoenix.LiveView.put_flash(:error, "로그인이 필요합니다")
+       |> Phoenix.LiveView.put_flash(:error, gettext("You must sign in to continue"))
        |> Phoenix.LiveView.redirect(to: ~p"/login")}
     end
   end
