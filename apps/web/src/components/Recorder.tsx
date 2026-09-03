@@ -9,7 +9,7 @@ import { Button, Icon } from "@/ui";
 import { RecordingPrefsSheet } from "./RecordingPrefsSheet";
 import { usePrefs } from "@/hooks/usePrefs";
 import { useAccount } from "@/hooks/useAccount";
-import { languageLabel, resolveLanguage } from "@/lib/prefs";
+import { resolveLanguage } from "@/lib/prefs";
 import { micRecoveryGuide } from "@core/recorder";
 import { errorTitle, guideText } from "@/lib/recorderGuide";
 import type {
@@ -323,7 +323,7 @@ export function RecorderPanel({
           */}
           {!recorder.isActive && (
             <button type="button" className="vr-rec-prefs" onClick={() => setPicking(true)}>
-              {prefs.micDeviceId ? t("recorder.micPicked") : t("recorder.micDefault")} · {languageLabel(language)}
+              {prefs.micDeviceId ? t("recorder.micPicked") : t("recorder.micDefault")} · {t(`language.names.${language}`)}
             </button>
           )}
         </div>

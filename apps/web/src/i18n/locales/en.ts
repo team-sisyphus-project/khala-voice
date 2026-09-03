@@ -60,6 +60,22 @@ export const en = {
     auto: "Auto — {{label}}",
     note: "This is <strong>what language meetings are transcribed in</strong>. It is separate from the app's display language and applies across all your devices.",
     saveError: "Couldn't save the language",
+    // Transcription-language display names, rendered in the active UI language
+    // (exonyms). The picker and the "Auto — {name}" label read these, so under
+    // English the auto option reads "Auto — Korean" (the ko catalog localizes it
+    // to its own language instead).
+    names: {
+      "ko-KR": "Korean",
+      "en-US": "English (US)",
+      "en-GB": "English (UK)",
+      "ja-JP": "Japanese",
+      "cmn-Hans-CN": "Chinese (Simplified)",
+      "cmn-Hant-TW": "Chinese (Traditional)",
+      "es-ES": "Spanish",
+      "fr-FR": "French",
+      "de-DE": "German",
+      "vi-VN": "Vietnamese",
+    },
   },
 
   recordingPrefs: {
@@ -642,6 +658,13 @@ export const en = {
     label: "Display language",
     note: "The language the <strong>app interface</strong> is shown in. Separate from the language meetings are transcribed in, and it applies across all your devices.",
     saveError: "Couldn't save the language",
+    // UI display-language names. The picker renders each option in its own
+    // language (endonym, via `{ lng }`), so a speaker recognizes it regardless
+    // of the current UI language — only the option's own-catalog value is shown.
+    names: {
+      en: "English",
+      ko: "Korean",
+    },
   },
 
   theme: {

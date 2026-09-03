@@ -53,6 +53,18 @@ export const ko: UiCatalog = {
     auto: "자동 — {{label}}",
     note: "회의를 <strong>어떤 언어로 전사할지</strong>입니다. 앱 화면의 언어와는 별개이고, 모든 기기에 함께 적용됩니다.",
     saveError: "언어를 저장하지 못했습니다",
+    names: {
+      "ko-KR": "한국어",
+      "en-US": "영어 (미국)",
+      "en-GB": "영어 (영국)",
+      "ja-JP": "일본어",
+      "cmn-Hans-CN": "중국어 (간체)",
+      "cmn-Hant-TW": "중국어 (번체)",
+      "es-ES": "스페인어",
+      "fr-FR": "프랑스어",
+      "de-DE": "독일어",
+      "vi-VN": "베트남어",
+    },
   },
 
   recordingPrefs: {
@@ -612,6 +624,10 @@ export const ko: UiCatalog = {
     label: "화면 언어",
     note: "<strong>앱 화면</strong>이 보이는 언어입니다. 회의를 전사할 언어와는 별개이고, 모든 기기에 함께 적용됩니다.",
     saveError: "언어를 저장하지 못했습니다",
+    names: {
+      en: "English",
+      ko: "한국어",
+    },
   },
 
   theme: {

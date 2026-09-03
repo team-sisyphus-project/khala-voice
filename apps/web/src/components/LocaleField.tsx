@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { DEFAULT_UI_LOCALE, SUPPORTED_UI_LOCALES } from "@/i18n";
-import type { UiLocale } from "@/i18n";
 import type { CurrentAccount } from "@core/api";
 
 /**
@@ -26,12 +25,6 @@ import type { CurrentAccount } from "@core/api";
  * 만 제시한다. 카탈로그 없는 언어를 고르게 하면 화면은 영어로 폴백되어 고른 값과
  * 보이는 언어가 어긋난다.
  */
-
-/** 언어별 표시 이름 — 각 언어의 원어명으로 적는다(고르는 사람이 자기 언어를 알아본다). */
-const UI_LOCALE_LABELS: Record<UiLocale, string> = {
-  en: "English",
-  ko: "한국어",
-};
 
 export function LocaleField({
   account,
@@ -74,8 +67,10 @@ export function LocaleField({
         aria-label={t("locale.label")}
       >
         {SUPPORTED_UI_LOCALES.map((locale) => (
+          // Each option renders in its own language (endonym) via `lng`, so a
+          // speaker recognizes it regardless of the active UI language.
           <option key={locale} value={locale}>
-            {UI_LOCALE_LABELS[locale]}
+            {t(`locale.names.${locale}`, { lng: locale })}
           </option>
         ))}
       </select>

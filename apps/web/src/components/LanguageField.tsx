@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
-import { autoLanguage, languageLabel, LANGUAGES } from "@/lib/prefs";
+import { autoLanguage, LANGUAGES } from "@/lib/prefs";
 import type { CurrentAccount } from "@core/api";
 
 /**
@@ -59,10 +59,12 @@ export function LanguageField({
         onChange={(e) => void pick(e.target.value)}
         aria-label={t("language.label")}
       >
-        <option value="">{t("language.auto", { label: languageLabel(autoLanguage()) })}</option>
+        <option value="">
+          {t("language.auto", { label: t(`language.names.${autoLanguage()}`) })}
+        </option>
         {LANGUAGES.map((item) => (
           <option key={item.id} value={item.id}>
-            {item.label}
+            {t(`language.names.${item.id}`)}
           </option>
         ))}
       </select>

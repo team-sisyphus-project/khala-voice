@@ -117,6 +117,43 @@ test("feature-component plurals and interpolation resolve in both catalogs", asy
   await setUiLanguage("en");
 });
 
+test("transcription-language names render in the active UI language (case 3)", async () => {
+  await setUiLanguage("en");
+  assert.equal(i18n.t("language.names.ko-KR"), "Korean");
+  assert.equal(i18n.t("language.names.en-US"), "English (US)");
+  assert.equal(i18n.t("language.names.cmn-Hans-CN"), "Chinese (Simplified)");
+  // The "Auto — {name}" label localizes the name too: no residual Korean under en.
+  assert.equal(i18n.t("language.auto", { label: i18n.t("language.names.ko-KR") }), "Auto — Korean");
+
+  await setUiLanguage("ko");
+  assert.equal(i18n.t("language.names.ko-KR"), "한국어");
+  assert.equal(i18n.t("language.names.en-US"), "영어 (미국)");
+  assert.equal(i18n.t("language.auto", { label: i18n.t("language.names.ko-KR") }), "자동 — 한국어");
+
+  await setUiLanguage("en");
+});
+
+test("every transcription-language id has an en/ko name (key parity)", () => {
+  const ids = [
+    "ko-KR", "en-US", "en-GB", "ja-JP", "cmn-Hans-CN",
+    "cmn-Hant-TW", "es-ES", "fr-FR", "de-DE", "vi-VN",
+  ];
+  for (const id of ids) {
+    for (const lng of ["en", "ko"] as const) {
+      const name = i18n.getResource(lng, "translation", `language.names.${id}`);
+      assert.equal(typeof name, "string", `missing ${lng} name for ${id}`);
+      assert.ok(name.length > 0, `empty ${lng} name for ${id}`);
+    }
+  }
+});
+
+test("UI display-language picker renders each option as its own endonym", () => {
+  // The picker forces `{ lng: locale }`, so the option shows the language's own
+  // name whatever the active UI language is.
+  assert.equal(i18n.t("locale.names.en", { lng: "en" }), "English");
+  assert.equal(i18n.t("locale.names.ko", { lng: "ko" }), "한국어");
+});
+
 test("<Trans> markup keys carry the embedded tags in every catalog", () => {
   // The <strong> / <link> / <icon> placeholders must survive so react-i18next's
   // <Trans> can map them onto real elements at render time.
