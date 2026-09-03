@@ -19,6 +19,18 @@ defmodule VRWeb.Layouts do
     end
   end
 
+  @doc """
+  현재 계정의 표시 언어를 `<html lang>` 용 BCP-47 태그로 낸다.
+
+  계정의 `locale`(`VRWeb.Plugs.Locale` 이 assign 에 심는다)을 쓰고, 없으면
+  기본값(영어). 계정 값은 `zh_CN` 처럼 밑줄을 쓰므로 `zh-CN` 으로 바꿔 준다 —
+  HTML `lang` 은 하이픈을 쓴다.
+  """
+  def locale(assigns) do
+    (assigns[:locale] || VRWeb.Plugs.Locale.resolve(assigns[:current_account]))
+    |> String.replace("_", "-")
+  end
+
   # Embed all files in layouts/* within this module.
   # The default root.html.heex file contains the HTML
   # skeleton of your application, namely HTML headers

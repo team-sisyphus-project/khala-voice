@@ -150,9 +150,20 @@ defmodule VRWeb.UserAuth do
       on_mount {VRWeb.UserAuth, :require_authenticated}
       on_mount {VRWeb.UserAuth, :require_admin}
       on_mount {VRWeb.UserAuth, :mount_current_account}
+      on_mount {VRWeb.UserAuth, :set_locale}
   """
   def on_mount(:mount_current_account, _params, session, socket) do
     {:cont, assign_current_account(socket, session)}
+  end
+
+  # 현재 계정의 `locale` 로 이 LiveView 프로세스의 Gettext 로케일을 맞춘다.
+  # `VRWeb.Plugs.Locale` 의 LiveView 짝이다 — 컨트롤러는 플러그가, LiveView 는
+  # 이 훅이 같은 규칙(계정 `locale`, 없으면 영어)을 적용한다. 계정을 읽는 훅
+  # (`:mount_current_account`·`:require_authenticated`) **뒤에** 둔다.
+  def on_mount(:set_locale, _params, _session, socket) do
+    locale = VRWeb.Plugs.Locale.resolve(socket.assigns[:current_account])
+    Gettext.put_locale(VRWeb.Gettext, locale)
+    {:cont, Phoenix.Component.assign(socket, :locale, locale)}
   end
 
   def on_mount(:require_authenticated, _params, session, socket) do
