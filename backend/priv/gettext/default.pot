@@ -1,0 +1,476 @@
+## This file is a PO Template file.
+##
+## "msgid"s here are often extracted from source code.
+## Add new messages manually only if they're dynamic
+## messages that can't be statically extracted.
+##
+## Run "mix gettext.extract" to bring this file up to
+## date. Leave "msgstr"s empty as changing them here has no
+## effect: edit them in PO (.po) files instead.
+#
+msgid ""
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:344
+#, elixir-autogen, elixir-format
+msgid "%{count} hr ago"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:343
+#, elixir-autogen, elixir-format
+msgid "%{count} min ago"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:112
+#: lib/vr_web/live/app/friends_live.ex:125
+#, elixir-autogen, elixir-format
+msgid "(optional)"
+msgstr ""
+
+#: lib/vr_web/live/app/invite_live.ex:85
+#, elixir-autogen, elixir-format
+msgid "Accept"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:104
+#, elixir-autogen, elixir-format
+msgid "Account settings"
+msgstr ""
+
+#: lib/vr_web/components/core_components.ex:342
+#, elixir-autogen, elixir-format
+msgid "Actions"
+msgstr ""
+
+#: lib/vr_web/live/app/components.ex:105
+#, elixir-autogen, elixir-format
+msgid "Archive"
+msgstr ""
+
+#: lib/vr_web/live/app/invite_live.ex:122
+#, elixir-autogen, elixir-format
+msgid "Ask the person who invited you for a new link."
+msgstr ""
+
+#: lib/vr_web/components/layouts.ex:125
+#: lib/vr_web/components/layouts.ex:137
+#, elixir-autogen, elixir-format
+msgid "Attempting to reconnect"
+msgstr ""
+
+#: lib/vr_web/live/app/components.ex:40
+#, elixir-autogen, elixir-format
+msgid "Back"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:317
+#, elixir-autogen, elixir-format
+msgid "Browser"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:206
+#, elixir-autogen, elixir-format
+msgid "Cancel"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:214
+#, elixir-autogen, elixir-format
+msgid "Change password"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:163
+#, elixir-autogen, elixir-format
+msgid "Changing it signs out every device except this one."
+msgstr ""
+
+#: lib/vr_web/live/app/invite_live.ex:138
+#, elixir-autogen, elixir-format
+msgid "Check that the link is correct."
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:171
+#, elixir-autogen, elixir-format
+msgid "Close"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:193
+#, elixir-autogen, elixir-format
+msgid "Confirm password"
+msgstr ""
+
+#: lib/vr_web/live/app/components.ex:151
+#, elixir-autogen, elixir-format
+msgid "Confirm your email"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:164
+#, elixir-autogen, elixir-format
+msgid "Copy"
+msgstr ""
+
+#: lib/vr_web/live/app/invite_live.ex:48
+#, elixir-autogen, elixir-format
+msgid "Couldn't accept the invitation"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:80
+#, elixir-autogen, elixir-format
+msgid "Couldn't cancel the invitation"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:53
+#, elixir-autogen, elixir-format
+msgid "Couldn't change the theme"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:94
+#, elixir-autogen, elixir-format
+msgid "Couldn't create the invitation"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:138
+#, elixir-autogen, elixir-format
+msgid "Create invitation"
+msgstr ""
+
+#: lib/vr_web/live/app/invite_live.ex:82
+#, elixir-autogen, elixir-format
+msgid "Decline"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:265
+#, elixir-autogen, elixir-format
+msgid "Delete account"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:112
+#: lib/vr_web/live/app/settings_live.ex:118
+#, elixir-autogen, elixir-format
+msgid "Email"
+msgstr ""
+
+#: lib/vr_web/live/app/invite_live.ex:24
+#: lib/vr_web/live/app/invite_live.ex:31
+#: lib/vr_web/live/app/invite_live.ex:67
+#, elixir-autogen, elixir-format
+msgid "Friend invitation"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:86
+#, elixir-autogen, elixir-format
+msgid "Friend removed"
+msgstr ""
+
+#: lib/vr_web/live/app/components.ex:112
+#: lib/vr_web/live/app/friends_live.ex:19
+#: lib/vr_web/live/app/friends_live.ex:102
+#: lib/vr_web/live/app/friends_live.ex:216
+#, elixir-autogen, elixir-format
+msgid "Friends"
+msgstr ""
+
+#: lib/vr_web/live/app/invite_live.ex:152
+#, elixir-autogen, elixir-format
+msgid "Home"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:227
+#, elixir-autogen, elixir-format
+msgid "If you don't recognize a device, sign it out and change your password."
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:77
+#, elixir-autogen, elixir-format
+msgid "Invitation canceled"
+msgstr ""
+
+#: lib/vr_web/live/app/invite_live.ex:113
+#, elixir-autogen, elixir-format
+msgid "Invitation declined"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:161
+#, elixir-autogen, elixir-format
+msgid "Invitation link"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:146
+#, elixir-autogen, elixir-format
+msgid "Invitation link created"
+msgstr ""
+
+#: lib/vr_web/live/app/invite_live.ex:136
+#, elixir-autogen, elixir-format
+msgid "Invitation not found"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:54
+#, elixir-autogen, elixir-format
+msgid "Invitation sent to %{email}"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:107
+#, elixir-autogen, elixir-format
+msgid "Invite"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:139
+#, elixir-autogen, elixir-format
+msgid "Language"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:118
+#, elixir-autogen, elixir-format
+msgid "Leave empty to create a share link only"
+msgstr ""
+
+#: lib/vr_web/live/app/components.ex:92
+#, elixir-autogen, elixir-format
+msgid "Main menu"
+msgstr ""
+
+#: lib/vr_web/live/app/components.ex:98
+#, elixir-autogen, elixir-format
+msgid "Meetings"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:125
+#, elixir-autogen, elixir-format
+msgid "Message"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:128
+#, elixir-autogen, elixir-format
+msgid "Name"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:173
+#, elixir-autogen, elixir-format
+msgid "New password"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:222
+#, elixir-autogen, elixir-format
+msgid "No friends yet"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:183
+#, elixir-autogen, elixir-format
+msgid "Open the link in the email to accept."
+msgstr ""
+
+#: lib/vr_web/live/app/components.ex:153
+#, elixir-autogen, elixir-format
+msgid "Open the link in the email we sent you. Some features are limited until you confirm."
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:161
+#, elixir-autogen, elixir-format
+msgid "Password"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:79
+#, elixir-autogen, elixir-format
+msgid "Password changed. All other devices have been signed out."
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:114
+#, elixir-autogen, elixir-format
+msgid "Profile"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:180
+#, elixir-autogen, elixir-format
+msgid "Received invitations"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:246
+#, elixir-autogen, elixir-format
+msgid "Remove"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:244
+#, elixir-autogen, elixir-format
+msgid "Remove %{name} from your friends?"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:152
+#, elixir-autogen, elixir-format
+msgid "Save"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:64
+#, elixir-autogen, elixir-format
+msgid "Saved"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:276
+#, elixir-autogen, elixir-format
+msgid "Schedule account deletion? Sign in within %{days} days to cancel."
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:281
+#, elixir-autogen, elixir-format
+msgid "Schedule deletion"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:223
+#, elixir-autogen, elixir-format
+msgid "Send an invitation above."
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:191
+#, elixir-autogen, elixir-format
+msgid "Sent invitations"
+msgstr ""
+
+#: lib/vr_web/live/app/components.ex:119
+#: lib/vr_web/live/app/settings_live.ex:22
+#, elixir-autogen, elixir-format
+msgid "Settings"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:199
+#, elixir-autogen, elixir-format
+msgid "Share link"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:103
+#, elixir-autogen, elixir-format
+msgid "Share meeting notes with friends"
+msgstr ""
+
+#: lib/vr_web/live/app/invite_live.ex:147
+#, elixir-autogen, elixir-format
+msgid "Share this link with someone else."
+msgstr ""
+
+#: lib/vr_web/live/app/invite_live.ex:92
+#, elixir-autogen, elixir-format
+msgid "Sign in"
+msgstr ""
+
+#: lib/vr_web/live/app/invite_live.ex:90
+#, elixir-autogen, elixir-format
+msgid "Sign in to accept this invitation."
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:256
+#, elixir-autogen, elixir-format
+msgid "Sign out"
+msgstr ""
+
+#: lib/vr_web/live/app/invite_live.ex:95
+#, elixir-autogen, elixir-format
+msgid "Sign up"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:89
+#, elixir-autogen, elixir-format
+msgid "Signed out that device"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:224
+#, elixir-autogen, elixir-format
+msgid "Signed-in devices"
+msgstr ""
+
+#: lib/vr_web/live/app/invite_live.ex:178
+#, elixir-autogen, elixir-format
+msgid "Someone"
+msgstr ""
+
+#: lib/vr_web/components/layouts.ex:132
+#, elixir-autogen, elixir-format
+msgid "Something went wrong!"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:243
+#, elixir-autogen, elixir-format
+msgid "This device"
+msgstr ""
+
+#: lib/vr_web/live/app/invite_live.ex:120
+#, elixir-autogen, elixir-format
+msgid "This invitation has expired"
+msgstr ""
+
+#: lib/vr_web/live/app/invite_live.ex:129
+#, elixir-autogen, elixir-format
+msgid "This invitation was already handled"
+msgstr ""
+
+#: lib/vr_web/live/app/invite_live.ex:145
+#, elixir-autogen, elixir-format
+msgid "This is your own invitation"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:328
+#, elixir-autogen, elixir-format
+msgid "Unknown"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:334
+#, elixir-autogen, elixir-format
+msgid "Unknown device"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:168
+#, elixir-autogen, elixir-format
+msgid "Valid for 14 days."
+msgstr ""
+
+#: lib/vr_web/components/layouts.ex:120
+#, elixir-autogen, elixir-format
+msgid "We can't find the internet"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:93
+#, elixir-autogen, elixir-format
+msgid "You already sent an invitation"
+msgstr ""
+
+#: lib/vr_web/live/app/invite_live.ex:106
+#, elixir-autogen, elixir-format
+msgid "You can now share meeting notes with each other."
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:91
+#, elixir-autogen, elixir-format
+msgid "You can't invite yourself"
+msgstr ""
+
+#: lib/vr_web/live/app/friends_live.ex:92
+#, elixir-autogen, elixir-format
+msgid "You're already friends"
+msgstr ""
+
+#: lib/vr_web/live/app/invite_live.ex:104
+#, elixir-autogen, elixir-format
+msgid "You're now connected"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:267
+#, elixir-autogen, elixir-format
+msgid "Your account will be deleted in %{days} days. Sign in again before then to cancel."
+msgstr ""
+
+#: lib/vr_web/components/core_components.ex:74
+#, elixir-autogen, elixir-format
+msgid "close"
+msgstr ""
+
+#: lib/vr_web/live/app/invite_live.ex:70
+#, elixir-autogen, elixir-format
+msgid "invited you as a friend."
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:342
+#, elixir-autogen, elixir-format
+msgid "just now"
+msgstr ""
+
+#: lib/vr_web/live/app/settings_live.ex:247
+#, elixir-autogen, elixir-format
+msgid "last active"
+msgstr ""

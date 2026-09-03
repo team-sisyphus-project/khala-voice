@@ -19,7 +19,7 @@ defmodule VRWeb.AppLive.SettingsLive do
 
     {:ok,
      socket
-     |> assign(page_title: "설정")
+     |> assign(page_title: gettext("Settings"))
      |> assign(current_token: session["account_token"])
      |> assign(profile_form: to_form(Account.profile_changeset(account, %{}), as: :profile))
      |> assign(password_form: to_form(%{}, as: :password))
@@ -50,7 +50,7 @@ defmodule VRWeb.AppLive.SettingsLive do
          |> push_event("vr:theme", %{theme: account.theme})}
 
       {:error, _} ->
-        {:noreply, put_flash(socket, :error, "테마를 바꾸지 못했습니다")}
+        {:noreply, put_flash(socket, :error, gettext("Couldn't change the theme"))}
     end
   end
 
@@ -61,7 +61,7 @@ defmodule VRWeb.AppLive.SettingsLive do
          socket
          |> assign(current_account: account)
          |> assign(profile_form: to_form(Account.profile_changeset(account, %{}), as: :profile))
-         |> put_flash(:info, "저장했습니다")}
+         |> put_flash(:info, gettext("Saved"))}
 
       {:error, changeset} ->
         {:noreply, assign(socket, profile_form: to_form(changeset, as: :profile))}
@@ -76,7 +76,7 @@ defmodule VRWeb.AppLive.SettingsLive do
         {:noreply,
          socket
          |> assign(current_account: account)
-         |> put_flash(:info, "비밀번호를 변경했습니다. 다른 기기의 로그인은 모두 해제되었습니다.")
+         |> put_flash(:info, gettext("Password changed. All other devices have been signed out."))
          |> load_sessions()}
 
       {:error, changeset} ->
@@ -86,7 +86,7 @@ defmodule VRWeb.AppLive.SettingsLive do
 
   def handle_event("revoke_session", %{"id" => id}, socket) do
     Accounts.revoke_session_by_id(socket.assigns.current_account.id, id)
-    {:noreply, socket |> put_flash(:info, "해당 기기의 로그인을 해제했습니다") |> load_sessions()}
+    {:noreply, socket |> put_flash(:info, gettext("Signed out that device")) |> load_sessions()}
   end
 
   def handle_event("schedule_deletion", _, socket) do
@@ -101,7 +101,7 @@ defmodule VRWeb.AppLive.SettingsLive do
       current_account={@current_account}
       active={:settings}
       back="/go/settings"
-      title="계정 설정"
+      title={gettext("Account settings")}
     >
       <%!--
         테마 고르는 자리는 **설정 탭**이다 (`AppSettingsPage`). 화면 모양을 바꾸려고
@@ -111,11 +111,11 @@ defmodule VRWeb.AppLive.SettingsLive do
 
       <div class="vr-card mb-4" data-surface="raised">
         <div class="vr-card__body">
-          <h2 class="font-bold mb-3" style="color: var(--text-primary);">프로필</h2>
+          <h2 class="font-bold mb-3" style="color: var(--text-primary);">{gettext("Profile")}</h2>
 
           <.form :let={f} for={@profile_form} phx-submit="save_profile" class="flex flex-col gap-3">
             <div>
-              <label class="vr-label mb-1.5">이메일</label>
+              <label class="vr-label mb-1.5">{gettext("Email")}</label>
               <input
                 type="text"
                 value={@current_account.email}
@@ -125,7 +125,7 @@ defmodule VRWeb.AppLive.SettingsLive do
               />
             </div>
             <div>
-              <label class="vr-label mb-1.5" for="profile_name">이름</label>
+              <label class="vr-label mb-1.5" for="profile_name">{gettext("Name")}</label>
               <input
                 type="text"
                 id="profile_name"
@@ -136,7 +136,7 @@ defmodule VRWeb.AppLive.SettingsLive do
               />
             </div>
             <div>
-              <label class="vr-label mb-1.5" for="profile_locale">언어</label>
+              <label class="vr-label mb-1.5" for="profile_locale">{gettext("Language")}</label>
               <select id="profile_locale" name="profile[locale]" class="vr-input">
                 <option
                   :for={{code, label} <- locales()}
@@ -148,7 +148,9 @@ defmodule VRWeb.AppLive.SettingsLive do
               </select>
             </div>
             <div class="flex justify-end">
-              <button type="submit" class="vr-btn vr-btn--sm vr-btn--primary">저장</button>
+              <button type="submit" class="vr-btn vr-btn--sm vr-btn--primary">
+                {gettext("Save")}
+              </button>
             </div>
           </.form>
         </div>
@@ -156,9 +158,9 @@ defmodule VRWeb.AppLive.SettingsLive do
 
       <div class="vr-card mb-4">
         <div class="vr-card__body">
-          <h2 class="font-bold mb-1" style="color: var(--text-primary);">비밀번호</h2>
+          <h2 class="font-bold mb-1" style="color: var(--text-primary);">{gettext("Password")}</h2>
           <p class="vr-hint mb-3">
-            변경하면 지금 쓰는 기기를 제외한 모든 로그인이 해제됩니다.
+            {gettext("Changing it signs out every device except this one.")}
           </p>
 
           <.form
@@ -168,7 +170,7 @@ defmodule VRWeb.AppLive.SettingsLive do
             class="flex flex-col gap-3"
           >
             <div>
-              <label class="vr-label mb-1.5" for="password_password">새 비밀번호</label>
+              <label class="vr-label mb-1.5" for="password_password">{gettext("New password")}</label>
               <input
                 type="password"
                 id="password_password"
@@ -187,7 +189,9 @@ defmodule VRWeb.AppLive.SettingsLive do
               </p>
             </div>
             <div>
-              <label class="vr-label mb-1.5" for="password_confirmation">비밀번호 확인</label>
+              <label class="vr-label mb-1.5" for="password_confirmation">
+                {gettext("Confirm password")}
+              </label>
               <input
                 type="password"
                 id="password_confirmation"
@@ -206,7 +210,9 @@ defmodule VRWeb.AppLive.SettingsLive do
               </p>
             </div>
             <div class="flex justify-end">
-              <button type="submit" class="vr-btn vr-btn--sm vr-btn--primary">비밀번호 변경</button>
+              <button type="submit" class="vr-btn vr-btn--sm vr-btn--primary">
+                {gettext("Change password")}
+              </button>
             </div>
           </.form>
         </div>
@@ -214,8 +220,12 @@ defmodule VRWeb.AppLive.SettingsLive do
 
       <div class="vr-card mb-4">
         <div class="vr-card__body">
-          <h2 class="font-bold mb-1" style="color: var(--text-primary);">로그인된 기기</h2>
-          <p class="vr-hint mb-3">모르는 기기가 있으면 해제하고 비밀번호를 바꾸세요.</p>
+          <h2 class="font-bold mb-1" style="color: var(--text-primary);">
+            {gettext("Signed-in devices")}
+          </h2>
+          <p class="vr-hint mb-3">
+            {gettext("If you don't recognize a device, sign it out and change your password.")}
+          </p>
 
           <ul class="flex flex-col">
             <li
@@ -230,11 +240,11 @@ defmodule VRWeb.AppLive.SettingsLive do
                 <div style="font-size: 14px; color: var(--text-primary);">
                   {device_label(s.user_agent)}
                   <span :if={s.id == @current_session_id} class="vr-chip vr-chip--ok ml-1">
-                    현재 기기
+                    {gettext("This device")}
                   </span>
                 </div>
                 <div class="vr-hint" style="font-size: 12px;">
-                  {s.ip_address} · 마지막 활동 {format_time(s.last_activity_at)}
+                  {s.ip_address} · {gettext("last active")} {format_time(s.last_activity_at)}
                 </div>
               </div>
               <button
@@ -243,7 +253,7 @@ defmodule VRWeb.AppLive.SettingsLive do
                 phx-click="revoke_session"
                 phx-value-id={s.id}
               >
-                해제
+                {gettext("Sign out")}
               </button>
             </li>
           </ul>
@@ -252,16 +262,23 @@ defmodule VRWeb.AppLive.SettingsLive do
 
       <div class="vr-card" style="border-color: rgba(240,68,82,.2);">
         <div class="vr-card__body">
-          <h2 class="font-bold mb-1" style="color: var(--danger);">계정 삭제</h2>
+          <h2 class="font-bold mb-1" style="color: var(--danger);">{gettext("Delete account")}</h2>
           <p class="vr-hint mb-3">
-            {Account.deletion_grace_days()}일 뒤에 삭제됩니다. 그 안에 다시 로그인하면 취소됩니다.
+            {gettext(
+              "Your account will be deleted in %{days} days. Sign in again before then to cancel.",
+              days: Account.deletion_grace_days()
+            )}
           </p>
           <button
             class="vr-btn vr-btn--sm vr-btn--danger"
             phx-click="schedule_deletion"
-            data-confirm={"계정 삭제를 예약합니다. #{Account.deletion_grace_days()}일 안에 로그인하면 취소됩니다. 계속할까요?"}
+            data-confirm={
+              gettext("Schedule account deletion? Sign in within %{days} days to cancel.",
+                days: Account.deletion_grace_days()
+              )
+            }
           >
-            계정 삭제 예약
+            {gettext("Schedule deletion")}
           </button>
         </div>
       </div>
@@ -297,7 +314,7 @@ defmodule VRWeb.AppLive.SettingsLive do
         String.contains?(ua, "Chrome") -> "Chrome"
         String.contains?(ua, "Firefox") -> "Firefox"
         String.contains?(ua, "Safari") -> "Safari"
-        true -> "브라우저"
+        true -> gettext("Browser")
       end
 
     os =
@@ -308,13 +325,13 @@ defmodule VRWeb.AppLive.SettingsLive do
         String.contains?(ua, "Mac OS X") -> "macOS"
         String.contains?(ua, "Windows") -> "Windows"
         String.contains?(ua, "Linux") -> "Linux"
-        true -> "알 수 없음"
+        true -> gettext("Unknown")
       end
 
     "#{browser} · #{os}"
   end
 
-  defp device_label(_), do: "알 수 없는 기기"
+  defp device_label(_), do: gettext("Unknown device")
 
   defp format_time(nil), do: "-"
 
@@ -322,9 +339,9 @@ defmodule VRWeb.AppLive.SettingsLive do
     diff = DateTime.diff(DateTime.utc_now(), dt, :second)
 
     cond do
-      diff < 60 -> "방금"
-      diff < 3600 -> "#{div(diff, 60)}분 전"
-      diff < 86_400 -> "#{div(diff, 3600)}시간 전"
+      diff < 60 -> gettext("just now")
+      diff < 3600 -> gettext("%{count} min ago", count: div(diff, 60))
+      diff < 86_400 -> gettext("%{count} hr ago", count: div(diff, 3600))
       true -> Calendar.strftime(dt, "%Y-%m-%d")
     end
   end
