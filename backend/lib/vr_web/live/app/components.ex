@@ -2,6 +2,7 @@ defmodule VRWeb.AppLive.Components do
   @moduledoc "로그인 후 앱 화면의 공용 껍데기."
   use Phoenix.Component
   use VRWeb, :verified_routes
+  use Gettext, backend: VRWeb.Gettext
 
   attr :current_account, :map, required: true
   attr :active, :atom, required: true
@@ -36,7 +37,7 @@ defmodule VRWeb.AppLive.Components do
             :if={@back}
             navigate={@back}
             class="mobile-top-app-bar__icon-button"
-            aria-label="뒤로"
+            aria-label={gettext("Back")}
           >
             <span aria-hidden="true" class="material-symbols-rounded mobile-icon">arrow_back</span>
           </.link>
@@ -88,17 +89,35 @@ defmodule VRWeb.AppLive.Components do
   """
   def bottom_nav(assigns) do
     ~H"""
-    <nav class="bottom-nav" aria-label="주 메뉴">
-      <.nav_tab active={@active} id={:meetings} path="/go/meetings" icon="mic" label="회의" />
+    <nav class="bottom-nav" aria-label={gettext("Main menu")}>
+      <.nav_tab
+        active={@active}
+        id={:meetings}
+        path="/go/meetings"
+        icon="mic"
+        label={gettext("Meetings")}
+      />
       <.nav_tab
         active={@active}
         id={:archive}
         path="/go/archive"
         icon="inventory_2"
-        label="아카이브"
+        label={gettext("Archive")}
       />
-      <.nav_tab active={@active} id={:friends} path={~p"/friends"} icon="group" label="친구" />
-      <.nav_tab active={@active} id={:settings} path="/go/settings" icon="settings" label="설정" />
+      <.nav_tab
+        active={@active}
+        id={:friends}
+        path={~p"/friends"}
+        icon="group"
+        label={gettext("Friends")}
+      />
+      <.nav_tab
+        active={@active}
+        id={:settings}
+        path="/go/settings"
+        icon="settings"
+        label={gettext("Settings")}
+      />
     </nav>
     """
   end
@@ -129,9 +148,11 @@ defmodule VRWeb.AppLive.Components do
     <div :if={is_nil(@account.confirmed_at)} class="mobile-inline-failure vr-notice--warn">
       <span aria-hidden="true" class="material-symbols-rounded mobile-icon">mark_email_unread</span>
       <div>
-        <strong>이메일 확인이 필요합니다</strong>
+        <strong>{gettext("Confirm your email")}</strong>
         <p class="vr-note vr-note--small">
-          보내드린 메일의 링크를 열어 주세요. 확인 전에는 일부 기능이 제한될 수 있습니다.
+          {gettext(
+            "Open the link in the email we sent you. Some features are limited until you confirm."
+          )}
         </p>
       </div>
     </div>

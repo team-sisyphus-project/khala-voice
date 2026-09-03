@@ -62,7 +62,9 @@ defmodule VR.Accounts.Account do
     field :name, :string
     field :confirmed_at, :utc_datetime
 
-    field :locale, :string, default: "ko"
+    # 앱 UI 표시 언어. **전사 언어(`transcribe_language`)와 다른 값이다.**
+    # 신규 계정 기본값은 영어다 — 앱은 영어를 우선 언어로 낸다.
+    field :locale, :string, default: "en"
     field :country, :string
     field :time_zone, :string
 
@@ -164,6 +166,21 @@ defmodule VR.Accounts.Account do
     account
     |> cast(%{theme: theme}, [:theme])
     |> validate_inclusion(:theme, @themes, message: "알 수 없는 테마입니다")
+  end
+
+  @doc """
+  UI 표시 언어만 바꾼다. 프로필 폼을 거치지 않고 즉시 저장할 때 쓴다.
+
+  **전사 언어(`transcribe_language`)와 다른 값이다** — UI 언어는 `locale`
+  코드(`ko` · `en` 등)를 쓴다.
+  """
+  def locale_changeset(account, locale) do
+    account
+    # empty_values: [] 로 빈 문자열도 그대로 받는다 — API 경계에서 빈 값은
+    # 무시(no-op)가 아니라 명시적으로 거부한다.
+    |> cast(%{locale: locale}, [:locale], empty_values: [])
+    |> validate_required([:locale])
+    |> validate_locale()
   end
 
   @doc "MFA 설정. 시스템 어드민에게만 쓴다."

@@ -53,6 +53,22 @@ defmodule VR.AccountsTest do
       assert VR.IdGenerator.valid?(account.id, :account)
     end
 
+    test "locale 을 주지 않으면 영어로 가입한다" do
+      account = account_fixture()
+      assert account.locale == "en"
+    end
+
+    test "가입할 때 locale 을 지정할 수 있다" do
+      {:ok, account} =
+        Accounts.register_account(%{
+          email: unique_email(),
+          password: valid_password(),
+          locale: "ko"
+        })
+
+      assert account.locale == "ko"
+    end
+
     test "새 계정의 기본 테마는 라이트다" do
       assert account_fixture().theme == "light"
     end
@@ -264,6 +280,40 @@ defmodule VR.AccountsTest do
       assert linked.social_provider == "google"
       # 기존 비밀번호는 그대로 남는다
       assert Accounts.get_account_by_email_and_password(existing.email, valid_password())
+    end
+  end
+
+  describe "update_locale/2" do
+    test "허용된 언어로 바꾼다" do
+      account = account_fixture()
+      {:ok, updated} = Accounts.update_locale(account, "ja")
+      assert updated.locale == "ja"
+    end
+
+    test "지원하지 않는 언어를 거부한다" do
+      account = account_fixture()
+      {:error, changeset} = Accounts.update_locale(account, "fr")
+      assert "is invalid" in errors_on(changeset).locale
+    end
+
+    test "빈 값을 거부한다" do
+      account = account_fixture()
+      {:error, changeset} = Accounts.update_locale(account, "")
+      assert errors_on(changeset).locale != []
+    end
+
+    test "nil 을 거부한다" do
+      account = account_fixture()
+      {:error, changeset} = Accounts.update_locale(account, nil)
+      assert "can't be blank" in errors_on(changeset).locale
+    end
+
+    test "다른 필드는 건드리지 않는다" do
+      account = account_fixture(locale: "ko")
+      {:ok, updated} = Accounts.update_locale(account, "en")
+      assert updated.locale == "en"
+      assert updated.transcribe_language == account.transcribe_language
+      assert updated.theme == account.theme
     end
   end
 

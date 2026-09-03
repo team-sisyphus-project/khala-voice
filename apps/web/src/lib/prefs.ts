@@ -20,20 +20,24 @@ export interface Prefs {
  * Google STT v2 (Chirp) 가 화자분리와 함께 지원하는 것 위주로 골랐다.
  * 여기 없는 언어를 넣고 싶으면 전사 품질을 먼저 확인해야 한다 —
  * 화자분리는 언어마다 지원 여부가 다르다.
+ *
+ * 표시 이름은 여기 두지 않는다 — 선택된 UI 언어로 렌더해야 하므로
+ * i18n 카탈로그(`language.names.<id>`)가 문자열의 단일 출처다. 여기는 STT
+ * 코드(id)만 담는다.
  */
 export const LANGUAGES = [
-  { id: "ko-KR", label: "한국어" },
-  { id: "en-US", label: "English (US)" },
-  { id: "en-GB", label: "English (UK)" },
-  { id: "ja-JP", label: "日本語" },
+  { id: "ko-KR" },
+  { id: "en-US" },
+  { id: "en-GB" },
+  { id: "ja-JP" },
   // 중국어는 `zh-*` 가 아니라 `cmn-*` 다 — Google STT v2 의 코드가 그렇다.
   // 문서(`docs/04-pipeline.md`)와 여기가 다르면 전사가 통째로 실패한다.
-  { id: "cmn-Hans-CN", label: "中文 (简体)" },
-  { id: "cmn-Hant-TW", label: "中文 (繁體)" },
-  { id: "es-ES", label: "Español" },
-  { id: "fr-FR", label: "Français" },
-  { id: "de-DE", label: "Deutsch" },
-  { id: "vi-VN", label: "Tiếng Việt" },
+  { id: "cmn-Hans-CN" },
+  { id: "cmn-Hant-TW" },
+  { id: "es-ES" },
+  { id: "fr-FR" },
+  { id: "de-DE" },
+  { id: "vi-VN" },
 ] as const;
 
 /**
@@ -88,10 +92,6 @@ function detectLanguage(): string {
 const KEY = "vr:prefs";
 const EVENT = "vr:prefs-change";
 
-export function languageLabel(id: string): string {
-  return LANGUAGES.find((l) => l.id === id)?.label ?? id;
-}
-
 export function readPrefs(): Prefs {
   try {
     const raw = localStorage.getItem(KEY);
@@ -116,7 +116,10 @@ export function resolveLanguage(account: { transcribe_language?: string | null }
   return LANGUAGES.some((l) => l.id === chosen) ? (chosen as string) : detectLanguage();
 }
 
-/** 자동일 때 지금 무엇으로 정해지는지. 설정 화면이 "자동 (한국어)" 로 보여준다. */
+/**
+ * 자동일 때 지금 무엇으로 정해지는지. 설정 화면이 "자동 — {이름}" 으로 보여주며,
+ * 이름은 셸이 선택된 UI 언어의 `language.names.<id>` 로 렌더한다.
+ */
 export function autoLanguage(): string {
   return detectLanguage();
 }

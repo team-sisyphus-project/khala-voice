@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { api } from "@/lib/api";
 import { AppShell } from "@/components/AppShell";
@@ -9,6 +10,7 @@ import { Notice } from "@/components/ui";
 import { usePrefs } from "@/hooks/usePrefs";
 import { useAccount } from "@/hooks/useAccount";
 import { LanguageField } from "@/components/LanguageField";
+import { LocaleField } from "@/components/LocaleField";
 import { useRoutes } from "@/lib/routes";
 import { isStandalone, onInstallAvailability, promptInstall } from "@/lib/pwa";
 import { applyTheme, cachedTheme, THEMES } from "@/lib/theme";
@@ -33,6 +35,7 @@ import type { SettingItem } from "./settingsStructure";
  * 계정 설정까지 들어가는 것은 iOS 문법이 아니다.
  */
 export function AppSettingsPage() {
+  const { t } = useTranslation();
   const routes = useRoutes();
   const [prefs, setPrefs] = usePrefs();
   const { account, setAccount } = useAccount();
@@ -79,10 +82,13 @@ export function AppSettingsPage() {
                   onClick={() => void pickTheme(themeItem.id)}
                 >
                   <Icon name={themeItem.icon} />
-                  <span>{themeItem.label}</span>
+                  <span>{t(`theme.${themeItem.id}`)}</span>
                 </button>
               ))}
             </div>
+
+            {/* UI 언어는 계정에 있다(`locale`) — 기기를 바꿔도 따라온다. 전사 언어와 별개다. */}
+            <LocaleField account={account} onChange={setAccount} />
           </div>
         );
 

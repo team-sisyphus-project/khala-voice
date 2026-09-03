@@ -8,6 +8,7 @@
  * 이 앱은 데스크톱에서도 같은 화면을 쓰기 때문이다.
  */
 import { useEffect } from "react"
+import { useTranslation } from "react-i18next"
 import type { ReactNode } from "react"
 import { Icon } from "./Icon"
 
@@ -18,6 +19,8 @@ type SheetProps = {
 }
 
 export function Sheet({ title, onClose, children }: SheetProps) {
+  const { t } = useTranslation()
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose()
@@ -29,14 +32,14 @@ export function Sheet({ title, onClose, children }: SheetProps) {
 
   return (
     <div aria-label={title} aria-modal="true" className="mobile-context-sheet" role="dialog">
-      <button aria-label="닫기" className="mobile-context-sheet__scrim" onClick={onClose} type="button" />
+      <button aria-label={t("common.close")} className="mobile-context-sheet__scrim" onClick={onClose} type="button" />
       <div className="mobile-context-sheet__panel">
         <span aria-hidden="true" className="mobile-context-sheet__grabber" />
         <div className="mobile-context-sheet__head">
           <h2 className="mobile-context-sheet__title">{title}</h2>
           <div className="mobile-context-sheet__head-actions">
             <button
-              aria-label="닫기"
+              aria-label={t("common.close")}
               className="mobile-context-sheet__head-button"
               onClick={onClose}
               type="button"

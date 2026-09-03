@@ -1,6 +1,6 @@
 /** 녹음 엔진의 공개 타입. */
 
-import type { MicPermissionState, RecoveryGuide } from "./permission";
+import type { GuideMessage, MicPermissionState, RecoveryGuide } from "./permission";
 
 export type RecorderState =
   | "idle"
@@ -38,8 +38,8 @@ export interface RecorderResult {
  */
 export interface RecorderError {
   code: RecorderErrorCode;
-  /** 한 줄 원인. 알림 띠 본문 */
-  message: string;
+  /** 한 줄 원인. 알림 띠 본문. 로케일-프리 키 — UI 셸이 `t()` 로 번역한다 */
+  message: GuideMessage;
   /** 권한 계열일 때 브라우저가 보고한 상태. Safari 는 `unknown` */
   permission?: MicPermissionState;
   /** 이 기기에서 할 일 */
@@ -84,7 +84,14 @@ export type RecorderErrorCode =
 
 export interface MicDevice {
   deviceId: string;
+  /**
+   * 브라우저가 준 장치 이름. **권한을 받기 전에는 비어 있다**(지문 방지 정책).
+   * 비었을 때의 대체 표기("마이크 N")는 UI 셸이 `index` 로 만든다 — core 는
+   * 로케일 문안을 만들지 않는다.
+   */
   label: string;
+  /** 1부터 시작하는 순번. 라벨이 비었을 때 셸이 "마이크 N" 을 만들 근거. */
+  index: number;
 }
 
 /** 마이크 목록 조회 결과. */
@@ -98,8 +105,8 @@ export interface MicListResult {
    */
   needsPermission: boolean;
   permission: MicPermissionState;
-  /** 목록조차 못 읽은 이유. HTTPS 아님 · 미지원 등 */
-  blocked?: { code: RecorderErrorCode; message: string; recovery: RecoveryGuide };
+  /** 목록조차 못 읽은 이유. HTTPS 아님 · 미지원 등. `message` 는 로케일-프리 키 */
+  blocked?: { code: RecorderErrorCode; message: GuideMessage; recovery: RecoveryGuide };
 }
 
 /** 권한만 받아 보는 요청의 결과. */

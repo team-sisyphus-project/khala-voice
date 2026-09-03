@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import type { Meeting, RecordingSession, SummaryData, SummarySource } from "@core/api";
 import { Chip, EmptyState, Notice } from "@/components/ui";
 import { Icon } from "@/ui";
@@ -30,6 +32,7 @@ export function SummaryView({
   onSummarize: () => void;
   onJump: (source: SummarySource) => void;
 }) {
+  const { t } = useTranslation();
   const data = meeting.summary_data;
   const transcribed = sessions.some((s) => s.transcript?.segments?.length);
 
@@ -37,16 +40,16 @@ export function SummaryView({
     return (
       <EmptyState
         icon="summarize"
-        title="아직 요약이 없습니다"
+        title={t("summary.emptyTitle")}
         desc={
           transcribed
-            ? "전사를 바탕으로 AI가 결정사항과 할 일을 뽑아냅니다."
-            : "먼저 녹음을 전사하세요. 전사가 있어야 요약할 수 있습니다."
+            ? t("summary.emptyDescTranscribed")
+            : t("summary.emptyDescNoTranscript")
         }
       >
         {canEdit && transcribed && (
           <button className="mobile-button mobile-button--primary mobile-button--full" onClick={onSummarize} disabled={busy}>
-            {busy ? "요약하는 중…" : "요약 만들기"}
+            {busy ? t("summary.summarizing") : t("summary.create")}
           </button>
         )}
       </EmptyState>
@@ -71,19 +74,18 @@ export function SummaryView({
 
       {(data.chunk_count ?? 1) > 1 && (
         <Notice kind="info" icon="info">
-          긴 회의라 <strong>{data.chunk_count}개로 나눠 요약</strong>한 뒤 합쳤습니다.
-          빠진 구간은 없습니다.
+          <Trans t={t} i18nKey="summary.chunkNotice" values={{ count: data.chunk_count }} components={{ strong: <strong /> }} />
         </Notice>
       )}
 
       {(data.skipped_session_ids?.length ?? 0) > 0 && (
         <Notice kind="warn" icon="info">
-          전사가 없는 녹음 {data.skipped_session_ids!.length}개는 요약에서 빠졌습니다.
+          {t("summary.skippedNotice", { count: data.skipped_session_ids!.length })}
         </Notice>
       )}
 
       <Sourced
-        title="결정사항"
+        title={t("summary.decisions")}
         icon="gavel"
         items={data.decisions}
         render={(d) => d.text}
@@ -91,7 +93,7 @@ export function SummaryView({
       />
 
       <Sourced
-        title="할 일"
+        title={t("summary.actionItems")}
         icon="task_alt"
         items={data.action_items}
         render={(a) => (
@@ -107,9 +109,9 @@ export function SummaryView({
         onJump={onJump}
       />
 
-      <Plain title="주요 사실" icon="fact_check" items={data.facts} />
-      <Plain title="열린 질문" icon="help" items={data.open_questions} />
-      <Plain title="다음 단계" icon="arrow_forward" items={data.next_steps} />
+      <Plain title={t("summary.facts")} icon="fact_check" items={data.facts} />
+      <Plain title={t("summary.openQuestions")} icon="help" items={data.open_questions} />
+      <Plain title={t("summary.nextSteps")} icon="arrow_forward" items={data.next_steps} />
 
       <footer
         style={{
@@ -122,14 +124,14 @@ export function SummaryView({
         }}
       >
         <span className="mobile-row__meta" style={{ fontSize: 12 }}>
-          {[data.model, data.generated_at && new Date(data.generated_at).toLocaleString("ko-KR")]
+          {[data.model, data.generated_at && new Date(data.generated_at).toLocaleString(i18n.language)]
             .filter(Boolean)
             .join(" · ")}
         </span>
 
         {canEdit && (
           <button className="mobile-button mobile-button--secondary mobile-button--fit" onClick={onSummarize} disabled={busy}>
-            {busy ? "요약하는 중…" : "다시 요약"}
+            {busy ? t("summary.summarizing") : t("summary.resummarize")}
           </button>
         )}
       </footer>
@@ -175,6 +177,7 @@ function SourceLine({
   source: SummarySource;
   onJump: (source: SummarySource) => void;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
   return (
@@ -183,7 +186,7 @@ function SourceLine({
         type="button"
         className="vr-summary__jump"
         onClick={() => onJump(source)}
-        title="이 발언 지점부터 재생"
+        title={t("summary.playFromHere")}
       >
         <Icon name="play_arrow" />
         {source.speaker} · {source.time_label}
@@ -195,7 +198,7 @@ function SourceLine({
         onClick={() => setOpen(!open)}
         aria-expanded={open}
       >
-        {open ? "원문 접기" : "원문 보기"}
+        {open ? t("summary.collapseQuote") : t("summary.showQuote")}
       </button>
 
       {open && <blockquote className="vr-summary__quote">{source.quote}</blockquote>}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useRoutes } from "@/lib/routes";
 import type { Routes } from "@/lib/routes";
 import type { ReactNode } from "react";
@@ -26,7 +27,7 @@ import { InstallBanner } from "@/components/InstallBanner";
  */
 type Tab = "meetings" | "archive" | "friends" | "settings";
 
-type TabDef = { id: Tab; label: string; icon: string; to: string; external?: boolean };
+type TabDef = { id: Tab; labelKey: string; icon: string; to: string; external?: boolean };
 
 /**
  * 하단 탭. 주소는 **표면마다 다르다**(`/m/*` · `/app/*`) — 그래서 상수가 아니라
@@ -34,10 +35,10 @@ type TabDef = { id: Tab; label: string; icon: string; to: string; external?: boo
  */
 function tabsFor(routes: Routes): TabDef[] {
   return [
-    { id: "meetings", label: "회의", icon: "mic", to: routes.meetings },
-    { id: "archive", label: "아카이브", icon: "inventory_2", to: routes.archive },
-    { id: "friends", label: "친구", icon: "group", to: routes.friends, external: true },
-    { id: "settings", label: "설정", icon: "settings", to: routes.settings },
+    { id: "meetings", labelKey: "nav.meetings", icon: "mic", to: routes.meetings },
+    { id: "archive", labelKey: "nav.archive", icon: "inventory_2", to: routes.archive },
+    { id: "friends", labelKey: "nav.friends", icon: "group", to: routes.friends, external: true },
+    { id: "settings", labelKey: "nav.settings", icon: "settings", to: routes.settings },
   ];
 }
 
@@ -68,6 +69,7 @@ export function AppShell({
   fill?: boolean;
   children: ReactNode;
 }) {
+  const { t } = useTranslation();
   const routes = useRoutes();
   const navigate = useNavigate();
   const location = useLocation();
@@ -137,7 +139,7 @@ export function AppShell({
         {children}
       </Screen>
 
-      <nav className="bottom-nav" aria-label="주 메뉴">
+      <nav className="bottom-nav" aria-label={t("nav.menu")}>
         {tabsFor(routes).map((tab) => {
           const isActive = active === tab.id;
 
@@ -157,7 +159,7 @@ export function AppShell({
               }}
             >
               <Icon name={tab.icon} />
-              <span>{tab.label}</span>
+              <span>{t(tab.labelKey)}</span>
             </button>
           );
         })}

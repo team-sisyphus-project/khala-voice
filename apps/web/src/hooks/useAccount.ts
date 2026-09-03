@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { applyTheme, isTheme } from "@/lib/theme";
+import { setUiLanguage } from "@/i18n";
 import type { CurrentAccount } from "@core/api";
 
 let cached: CurrentAccount | null = null;
@@ -22,6 +23,9 @@ export function useAccount(): {
   // 옛 언어로 세션을 만든다.
   const setAccount = useCallback((next: CurrentAccount) => {
     cached = next;
+    // UI language follows the account too — a settings change must re-render the
+    // shell immediately, not on the next reload. No-op if unchanged.
+    void setUiLanguage(next.locale);
     setLocal(next);
   }, []);
 
@@ -41,6 +45,10 @@ export function useAccount(): {
           if (isTheme(me.theme) && me.theme !== localStorage.getItem("vr:theme")) {
             void applyTheme(me.theme, { save: false });
           }
+
+          // Correct the display language to the account's stored value. The app
+          // booted in English (the default); switch only if the account differs.
+          void setUiLanguage(me.locale);
 
           for (const w of waiters) w(me);
           waiters.clear();

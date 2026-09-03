@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
-import { autoLanguage, languageLabel, LANGUAGES } from "@/lib/prefs";
+import { autoLanguage, LANGUAGES } from "@/lib/prefs";
 import type { CurrentAccount } from "@core/api";
 
 /**
@@ -26,6 +27,7 @@ export function LanguageField({
   account: CurrentAccount | null;
   onChange: (account: CurrentAccount) => void;
 }) {
+  const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +42,7 @@ export function LanguageField({
     try {
       onChange(await api.updateTranscribeLanguage(next === "" ? null : next));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "언어를 저장하지 못했습니다");
+      setError(e instanceof Error ? e.message : t("language.saveError"));
     } finally {
       setSaving(false);
     }
@@ -48,26 +50,27 @@ export function LanguageField({
 
   return (
     <div className="vr-filter__group">
-      <span className="vr-filter__label">전사 언어</span>
+      <span className="vr-filter__label">{t("language.label")}</span>
 
       <select
         className="mobile-field__input"
         value={value}
         disabled={saving || account === null}
         onChange={(e) => void pick(e.target.value)}
-        aria-label="전사 언어"
+        aria-label={t("language.label")}
       >
-        <option value="">자동 — {languageLabel(autoLanguage())}</option>
+        <option value="">
+          {t("language.auto", { label: t(`language.names.${autoLanguage()}`) })}
+        </option>
         {LANGUAGES.map((item) => (
           <option key={item.id} value={item.id}>
-            {item.label}
+            {t(`language.names.${item.id}`)}
           </option>
         ))}
       </select>
 
       <p className="vr-note vr-note--small">
-        회의를 <strong>어떤 언어로 전사할지</strong>입니다. 앱 화면의 언어와는 별개이고,
-        모든 기기에 함께 적용됩니다.
+        <Trans t={t} i18nKey="language.note" components={{ strong: <strong /> }} />
       </p>
 
       {error && (

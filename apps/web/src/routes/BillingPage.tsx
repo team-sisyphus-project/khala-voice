@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
+import i18n from "@/i18n";
 import { api } from "@/lib/api";
 import { useRoutes } from "@/lib/routes";
 import { AppShell } from "@/components/AppShell";
@@ -21,6 +23,7 @@ import { Icon } from "@/ui";
  * 왜 줄었는지 설명할 수 없다.
  */
 export function BillingPage() {
+  const { t } = useTranslation();
   const routes = useRoutes();
   const navigate = useNavigate();
   const [summary, setSummary] = useState<BillingSummary | null>(null);
@@ -31,13 +34,13 @@ export function BillingPage() {
       .billing()
       .then(setSummary)
       .catch((e: unknown) => {
-        setError(e instanceof Error ? e.message : "요금 정보를 불러오지 못했습니다");
+        setError(e instanceof Error ? e.message : t("billing.loadError"));
       });
-  }, []);
+  }, [t]);
 
   if (error) {
     return (
-      <AppShell active="settings" title="크레딧">
+      <AppShell active="settings" title={t("billing.title")}>
         <Notice kind="error" icon="error">{error}</Notice>
       </AppShell>
     );
@@ -45,8 +48,8 @@ export function BillingPage() {
 
   if (!summary) {
     return (
-      <AppShell active="settings" title="크레딧">
-        <Spinner label="불러오는 중" />
+      <AppShell active="settings" title={t("billing.title")}>
+        <Spinner label={t("common.loading")} />
       </AppShell>
     );
   }
@@ -56,8 +59,8 @@ export function BillingPage() {
   return (
     <AppShell
       active="settings"
-      title="크레딧"
-      subtitle="잔액과 사용 내역"
+      title={t("billing.title")}
+      subtitle={t("billing.subtitle")}
       onBack={() => navigate(routes.settings)}
     >
       <Card className="mb-4">
@@ -71,15 +74,15 @@ export function BillingPage() {
                 color: overdrawn ? "var(--status-error)" : "var(--text-primary)",
               }}
             >
-              {summary.balance.toLocaleString("ko-KR")}
+              {summary.balance.toLocaleString(i18n.language)}
             </span>
-            <span className="mobile-row__meta">크레딧</span>
+            <span className="mobile-row__meta">{t("billing.creditsUnit")}</span>
 
             {summary.plan && (
               <Chip kind="info">
                 {summary.plan.display_name}
                 {summary.plan.included_credits
-                  ? ` · 월 ${summary.plan.included_credits.toLocaleString("ko-KR")}`
+                  ? ` · ${t("billing.perMonth", { amount: summary.plan.included_credits.toLocaleString(i18n.language) })}`
                   : ""}
               </Chip>
             )}
@@ -87,14 +90,16 @@ export function BillingPage() {
 
           {summary.subscription && (
             <p className="vr-note" style={{ marginTop: 8, fontSize: 12 }}>
-              이번 기간 {formatDateTime(summary.subscription.current_period_start)} ~{" "}
-              {formatDateTime(summary.subscription.current_period_end)}
+              {t("billing.currentPeriod", {
+                start: formatDateTime(summary.subscription.current_period_start),
+                end: formatDateTime(summary.subscription.current_period_end),
+              })}
             </p>
           )}
 
           {overdrawn && (
             <Notice kind="warn" icon="info" className="mt-2">
-              잔액이 음수입니다. 서비스는 계속 쓸 수 있고, 다음 지급분에서 먼저 차감됩니다.
+              {t("billing.negativeBalance")}
             </Notice>
           )}
         </CardBody>
@@ -103,9 +108,9 @@ export function BillingPage() {
       {summary.lots.length > 0 && (
         <Card className="mb-4">
           <CardBody>
-            <h2 className="mobile-section__title">남은 크레딧</h2>
+            <h2 className="mobile-section__title">{t("billing.remaining")}</h2>
             <p className="vr-note" style={{ fontSize: 12, margin: "2px 0 10px" }}>
-              만료가 임박한 것부터 먼저 씁니다.
+              {t("billing.expiryOrder")}
             </p>
 
             <div style={{ display: "flex", flexDirection: "column" }}>
@@ -126,7 +131,9 @@ export function BillingPage() {
                       {lotLabel(lot.source)}
                     </div>
                     <div className="vr-note vr-note--small">
-                      {lot.expires_at ? `${formatDateTime(lot.expires_at)} 만료` : "만료 없음"}
+                      {lot.expires_at
+                        ? t("billing.expiresAt", { date: formatDateTime(lot.expires_at) })
+                        : t("billing.noExpiry")}
                     </div>
                   </div>
 
@@ -136,7 +143,7 @@ export function BillingPage() {
                       color: lot.remaining < 0 ? "var(--status-error)" : "var(--text-primary)",
                     }}
                   >
-                    {lot.remaining.toLocaleString("ko-KR")}
+                    {lot.remaining.toLocaleString(i18n.language)}
                   </span>
                 </div>
               ))}
@@ -147,10 +154,10 @@ export function BillingPage() {
 
       <Card>
         <CardBody>
-          <h2 className="mobile-section__title">사용 내역</h2>
+          <h2 className="mobile-section__title">{t("billing.usageHistory")}</h2>
 
           {summary.entries.length === 0 ? (
-            <EmptyState icon="receipt_long" title="아직 사용 내역이 없습니다" />
+            <EmptyState icon="receipt_long" title={t("billing.noUsage")} />
           ) : (
             <div style={{ display: "flex", flexDirection: "column", marginTop: 8 }}>
               {summary.entries.map((entry) => (
@@ -165,6 +172,7 @@ export function BillingPage() {
 }
 
 function EntryRow({ entry }: { entry: LedgerEntry }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const spent = entry.delta < 0;
   const details = detailLines(entry);
@@ -198,7 +206,7 @@ function EntryRow({ entry }: { entry: LedgerEntry }) {
           }}
         >
           {spent ? "" : "+"}
-          {entry.delta.toLocaleString("ko-KR")}
+          {entry.delta.toLocaleString(i18n.language)}
         </span>
 
         {details.length > 0 && (
@@ -206,7 +214,7 @@ function EntryRow({ entry }: { entry: LedgerEntry }) {
             className="mobile-button mobile-button--ghost mobile-button--fit"
             onClick={() => setOpen(!open)}
             aria-expanded={open}
-            aria-label="계산 근거"
+            aria-label={t("billing.calcBasis")}
           >
             <Icon name={open ? "expand_less" : "expand_more"} />
           </button>
@@ -235,19 +243,24 @@ function detailLines(entry: LedgerEntry): [string, string][] {
   const lines: [string, string][] = [];
   const get = (key: string) => snapshot[key];
 
-  if (get("minutes")) lines.push(["길이", `${String(get("minutes"))}분`]);
-  if (get("model")) lines.push(["모델", String(get("model"))]);
+  if (get("minutes"))
+    lines.push([
+      i18n.t("billing.detailLength"),
+      i18n.t("billing.detailLengthValue", { minutes: String(get("minutes")) }),
+    ]);
+  if (get("model")) lines.push([i18n.t("billing.detailModel"), String(get("model"))]);
 
   if (get("input_tokens") || get("output_tokens")) {
     lines.push([
-      "토큰",
-      `입력 ${Number(get("input_tokens") ?? 0).toLocaleString("ko-KR")} · 출력 ${Number(
-        get("output_tokens") ?? 0,
-      ).toLocaleString("ko-KR")}`,
+      i18n.t("billing.detailTokens"),
+      i18n.t("billing.detailTokensValue", {
+        input: Number(get("input_tokens") ?? 0).toLocaleString(i18n.language),
+        output: Number(get("output_tokens") ?? 0).toLocaleString(i18n.language),
+      }),
     ]);
   }
 
-  if (entry.usage_cost_usd) lines.push(["원가", `$${entry.usage_cost_usd}`]);
+  if (entry.usage_cost_usd) lines.push([i18n.t("billing.detailCost"), `$${entry.usage_cost_usd}`]);
 
   return lines;
 }
@@ -268,15 +281,15 @@ function domainIcon(entry: LedgerEntry): string {
 function sourceLabel(source: string): string {
   switch (source) {
     case "plan_grant":
-      return "플랜 지급";
+      return i18n.t("billing.sourcePlanGrant");
     case "admin_grant":
-      return "관리자 지급";
+      return i18n.t("billing.sourceAdminGrant");
     case "usage":
-      return "사용";
+      return i18n.t("billing.sourceUsage");
     case "expiry":
-      return "만료";
+      return i18n.t("billing.sourceExpiry");
     case "admin_revoke":
-      return "관리자 회수";
+      return i18n.t("billing.sourceAdminRevoke");
     default:
       return source;
   }
@@ -285,11 +298,11 @@ function sourceLabel(source: string): string {
 function lotLabel(source: string): string {
   switch (source) {
     case "plan_grant":
-      return "플랜 지급분";
+      return i18n.t("billing.lotPlanGrant");
     case "admin_grant":
-      return "관리자 지급분";
+      return i18n.t("billing.lotAdminGrant");
     case "overdraft":
-      return "부족분";
+      return i18n.t("billing.lotOverdraft");
     default:
       return source;
   }

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import i18n from "@/i18n";
 import { EmptyState as DkEmptyState, Notice as DkNotice, StatusChip } from "@/ui";
 import type { NoticeTone } from "@/ui";
 
@@ -88,7 +89,7 @@ export function EmptyState({
 
 /** 로딩은 별도 연출 없이 빈 상태 문구로 말한다 — devkanban 문법이다. */
 export function Spinner({ label }: { label?: string }) {
-  return <DkEmptyState title={label ?? "불러오는 중"} />;
+  return <DkEmptyState title={label ?? i18n.t("common.loading")} />;
 }
 
 export function Avatar({ id, name, size = 32 }: { id: string; name?: string | null; size?: number }) {

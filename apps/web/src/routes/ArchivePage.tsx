@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { Link } from "react-router";
+import i18n from "@/i18n";
 import { api } from "@/lib/api";
 import { useRoutes } from "@/lib/routes";
 import { formatDuration, formatRelative } from "@/lib/format";
@@ -13,11 +15,11 @@ import { Button, Icon, IconButton, SegmentedControl, Sheet, StatusChip } from "@
 
 const PAGE_SIZE = 30;
 
-const STATUS_TABS: { value: ArchiveStatus; label: string }[] = [
-  { value: "all", label: "전체" },
-  { value: "active", label: "진행 중" },
-  { value: "completed", label: "완료" },
-  { value: "archived", label: "보관" },
+const STATUS_TABS: { value: ArchiveStatus; labelKey: string }[] = [
+  { value: "all", labelKey: "archive.statusAll" },
+  { value: "active", labelKey: "archive.statusActive" },
+  { value: "completed", labelKey: "archive.statusCompleted" },
+  { value: "archived", labelKey: "archive.statusArchived" },
 ];
 
 /**
@@ -32,6 +34,7 @@ const STATUS_TABS: { value: ArchiveStatus; label: string }[] = [
  * 필터 상태는 URL 에 있다 (`useArchiveFilters`) — 찾은 화면을 그대로 공유할 수 있어야 한다.
  */
 export function ArchivePage() {
+  const { t } = useTranslation();
   const routes = useRoutes();
   const { filters, update, toggleLabel, reset, active } = useArchiveFilters();
 
@@ -97,7 +100,7 @@ export function ArchivePage() {
       setMeetings(result.meetings);
       setTotal(result.total);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "검색하지 못했습니다");
+      setError(e instanceof Error ? e.message : t("archive.searchError"));
       setMeetings([]);
     }
   }, [params]);
@@ -134,13 +137,13 @@ export function ArchivePage() {
   return (
     <AppShell
       active="archive"
-      title="아카이브"
-      subtitle="회의 목록에서 찾습니다"
+      title={t("archive.title")}
+      subtitle={t("archive.subtitle")}
       actions={
         <>
           <IconButton
             icon="tune"
-            label={narrowed ? "검색 조건 (적용됨)" : "검색 조건"}
+            label={narrowed ? t("archive.filtersApplied") : t("archive.filters")}
             active={narrowed}
             onClick={() => setSheet(true)}
           />
@@ -148,8 +151,8 @@ export function ArchivePage() {
           <Link
             className="mobile-top-app-bar__icon-button"
             to={routes.taxonomy}
-            aria-label="분류 관리"
-            title="분류 관리"
+            aria-label={t("archive.manageTaxonomy")}
+            title={t("archive.manageTaxonomy")}
           >
             <span aria-hidden="true" className="material-symbols-rounded mobile-icon">
               sell
@@ -161,42 +164,42 @@ export function ArchivePage() {
       {error && <Notice kind="error" icon="error">{error}</Notice>}
 
       <SegmentedControl
-        options={STATUS_TABS}
+        options={STATUS_TABS.map((tab) => ({ value: tab.value, label: t(tab.labelKey) }))}
         value={filters.status}
         onChange={(value) => update({ status: value as ArchiveStatus })}
       />
 
       <div className="vr-filter__summary vr-filter__summary--bare">
         <span>
-          {meetings === null ? "찾는 중…" : `${total}개`}
-          {narrowed && " · 조건 적용됨"}
+          {meetings === null ? t("archive.searching") : t("archive.results", { count: total })}
+          {narrowed && t("archive.filteredSuffix")}
         </span>
         {active && (
           <Button variant="ghost" fit onClick={reset}>
-            조건 지우기
+            {t("archive.clearFilters")}
           </Button>
         )}
       </div>
 
-      {meetings === null && <Spinner label="찾는 중" />}
+      {meetings === null && <Spinner label={t("archive.searching")} />}
 
       {meetings?.length === 0 && (
         <Card>
           <CardBody>
             <EmptyState
               icon="inventory_2"
-              title={narrowed ? "조건에 맞는 회의가 없습니다" : "아직 회의가 없습니다"}
+              title={narrowed ? t("archive.emptyNarrowedTitle") : t("archive.emptyTitle")}
               desc={
                 narrowed
                   ? multipleLabels && filters.labelMode === "and"
-                    ? "라벨을 '하나라도'로 바꾸면 더 넓게 찾습니다."
-                    : "조건을 줄여보세요."
-                  : "회의 탭에서 녹음을 시작하면 여기에 모입니다."
+                    ? t("archive.emptyHintLabels")
+                    : t("archive.emptyHintNarrow")
+                  : t("archive.emptyHintNone")
               }
             >
               {active && (
                 <Button variant="secondary" full onClick={reset}>
-                  조건 지우기
+                  {t("archive.clearFilters")}
                 </Button>
               )}
             </EmptyState>
@@ -217,17 +220,17 @@ export function ArchivePage() {
 
           {meetings.length < total && (
             <Button variant="secondary" full onClick={() => setShown((n) => n + PAGE_SIZE)}>
-              더 보기 ({meetings.length}/{total})
+              {t("archive.loadMore", { shown: meetings.length, total })}
             </Button>
           )}
         </>
       )}
 
       {sheet && (
-        <Sheet title="검색 조건" onClose={() => setSheet(false)}>
+        <Sheet title={t("archive.filters")} onClose={() => setSheet(false)}>
           <div className="vr-filter">
             <div className="vr-filter__group">
-              <span className="vr-filter__label">검색어</span>
+              <span className="vr-filter__label">{t("archive.query")}</span>
               <input
                 className="mobile-field__input"
                 value={draft}
@@ -235,21 +238,24 @@ export function ArchivePage() {
                   typing.current = true;
                   setDraft(e.target.value);
                 }}
-                placeholder="제목 · 설명 · 요약에서 찾기"
-                aria-label="검색어"
+                placeholder={t("archive.queryPlaceholder")}
+                aria-label={t("archive.query")}
               />
             </div>
 
             {topics.length === 0 && labels.length === 0 && (
               <p className="vr-note vr-note--small">
-                토픽과 라벨을 만들면 여기서 걸러 찾을 수 있습니다.{" "}
-                <Link to={routes.taxonomy}>분류 만들기</Link>
+                <Trans
+                  t={t}
+                  i18nKey="archive.taxonomyHint"
+                  components={{ link: <Link to={routes.taxonomy} /> }}
+                />
               </p>
             )}
 
             {topics.length > 0 && (
               <div className="vr-filter__group">
-                <span className="vr-filter__label">토픽</span>
+                <span className="vr-filter__label">{t("archive.topic")}</span>
                 <div className="vr-filter__chips">
                   {topics.map((topic) => (
                     <Tag
@@ -269,7 +275,7 @@ export function ArchivePage() {
             {labels.length > 0 && (
               <div className="vr-filter__group">
                 <span className="vr-filter__label">
-                  라벨
+                  {t("archive.label")}
                   {/* 여러 개를 골랐을 때만 의미가 있다. 현재 모드가 늘 보여야
                       0건일 때 "왜 안 나오는지"를 알 수 있다. */}
                   {multipleLabels && (
@@ -281,9 +287,9 @@ export function ArchivePage() {
                         onClick={() =>
                           update({ labelMode: filters.labelMode === "and" ? "or" : "and" })
                         }
-                        title="여러 라벨을 어떻게 묶을지"
+                        title={t("archive.labelModeTitle")}
                       >
-                        {filters.labelMode === "and" ? "모두 포함" : "하나라도"}
+                        {filters.labelMode === "and" ? t("archive.labelModeAll") : t("archive.labelModeAny")}
                       </button>
                     </>
                   )}
@@ -302,7 +308,7 @@ export function ArchivePage() {
             )}
 
             <div className="vr-filter__group">
-              <span className="vr-filter__label">기간</span>
+              <span className="vr-filter__label">{t("archive.period")}</span>
               <div className="vr-filter__range">
                 <input
                   type="date"
@@ -310,7 +316,7 @@ export function ArchivePage() {
                   value={filters.from ?? ""}
                   max={filters.to ?? undefined}
                   onChange={(e) => update({ from: e.target.value || null })}
-                  aria-label="시작일"
+                  aria-label={t("archive.startDate")}
                 />
                 <span aria-hidden="true">~</span>
                 <input
@@ -319,7 +325,7 @@ export function ArchivePage() {
                   value={filters.to ?? ""}
                   min={filters.from ?? undefined}
                   onChange={(e) => update({ to: e.target.value || null })}
-                  aria-label="종료일"
+                  aria-label={t("archive.endDate")}
                 />
               </div>
             </div>
@@ -331,17 +337,17 @@ export function ArchivePage() {
               icon={filters.onlyMine ? "check" : "group"}
               onClick={() => update({ onlyMine: !filters.onlyMine })}
             >
-              내가 낀 회의만
+              {t("archive.onlyMine")}
             </Button>
 
             <div className="vr-filter__actions">
               {active && (
                 <Button variant="ghost" onClick={reset}>
-                  전부 지우기
+                  {t("archive.clearAll")}
                 </Button>
               )}
               <Button full onClick={() => setSheet(false)}>
-                닫기
+                {t("common.close")}
               </Button>
             </div>
           </div>
@@ -386,6 +392,7 @@ function TopicGroup({
   open: boolean;
   onToggle: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <section className="vr-group">
       <button
@@ -398,7 +405,7 @@ function TopicGroup({
         {group.topic ? (
           <Tag item={group.topic} kind="topic" />
         ) : (
-          <span className="vr-group__none">분류 없음</span>
+          <span className="vr-group__none">{t("archive.noTopic")}</span>
         )}
         <span className="vr-group__count">{group.meetings.length}</span>
       </button>
@@ -411,7 +418,7 @@ function TopicGroup({
                 <CardBody>
                   <div className="vr-result">
                     <div className="vr-result__head">
-                      <div className="vr-result__title">{meeting.title || "제목 없음"}</div>
+                      <div className="vr-result__title">{meeting.title || t("common.untitled")}</div>
                       <StatusChip status={meeting.status} label={statusLabel(meeting.status)} />
                     </div>
 
@@ -439,11 +446,11 @@ function TopicGroup({
 function statusLabel(status: string): string {
   switch (status) {
     case "active":
-      return "진행 중";
+      return i18n.t("archive.statusActive");
     case "completed":
-      return "완료";
+      return i18n.t("archive.statusCompleted");
     case "archived":
-      return "보관";
+      return i18n.t("archive.statusArchived");
     default:
       return status;
   }

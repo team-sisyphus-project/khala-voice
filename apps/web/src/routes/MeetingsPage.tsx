@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "@/lib/api";
 import { AppShell } from "@/components/AppShell";
 import { MeetingDetailPage } from "@/routes/MeetingDetailPage";
@@ -18,6 +19,7 @@ import { Button, EmptyState, Notice } from "@/ui";
  * 목록은 [`ArchivePage`](./ArchivePage.tsx) 가 맡는다.
  */
 export function MeetingsPage() {
+  const { t } = useTranslation();
   const [meetingId, setMeetingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +34,7 @@ export function MeetingsPage() {
       try {
         setMeetingId(await openMeeting());
       } catch (e) {
-        setError(e instanceof Error ? e.message : "회의를 만들지 못했습니다");
+        setError(e instanceof Error ? e.message : t("meetings.createError"));
       }
     })();
   }, []);
@@ -47,7 +49,7 @@ export function MeetingsPage() {
       try {
         setMeetingId(await openMeeting());
       } catch (e) {
-        setError(e instanceof Error ? e.message : "회의를 만들지 못했습니다");
+        setError(e instanceof Error ? e.message : t("meetings.createError"));
       }
     })();
   }
@@ -55,18 +57,18 @@ export function MeetingsPage() {
   if (meetingId) return <MeetingDetailPage meetingId={meetingId} asTab />;
 
   return (
-    <AppShell active="meetings" title="새 회의" subtitle="녹음을 시작합니다" center>
+    <AppShell active="meetings" title={t("meetings.newTitle")} subtitle={t("meetings.newSubtitle")} center>
       {error ? (
         <>
-          <Notice tone="error" title="문제가 생겼습니다">
+          <Notice tone="error" title={t("meetings.problemTitle")}>
             {error}
           </Notice>
           <Button full icon="autorenew" onClick={retry}>
-            다시 시도
+            {t("common.retry")}
           </Button>
         </>
       ) : (
-        <EmptyState title="회의를 여는 중" description="잠시만 기다려 주세요." />
+        <EmptyState title={t("meetings.opening")} description={t("meetings.openingDesc")} />
       )}
     </AppShell>
   );

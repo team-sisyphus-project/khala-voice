@@ -21,14 +21,14 @@ defmodule VRWeb.AppLive.InviteLive do
 
         {:ok,
          socket
-         |> assign(page_title: "친구 초대")
+         |> assign(page_title: gettext("Friend invitation"))
          |> assign(token: token, invitation: invitation, inviter: inviter, state: :pending),
          layout: false}
 
       {:error, reason} ->
         {:ok,
          socket
-         |> assign(page_title: "친구 초대")
+         |> assign(page_title: gettext("Friend invitation"))
          |> assign(token: token, invitation: nil, inviter: nil, state: reason), layout: false}
     end
   end
@@ -41,10 +41,17 @@ defmodule VRWeb.AppLive.InviteLive do
 
       account ->
         case Friends.accept_invitation(socket.assigns.token, account) do
-          {:ok, _} -> {:noreply, assign(socket, state: :accepted)}
-          {:error, :cannot_accept_own} -> {:noreply, assign(socket, state: :own_invitation)}
-          {:error, reason} when is_atom(reason) -> {:noreply, assign(socket, state: reason)}
-          {:error, _} -> {:noreply, put_flash(socket, :error, "수락하지 못했습니다")}
+          {:ok, _} ->
+            {:noreply, assign(socket, state: :accepted)}
+
+          {:error, :cannot_accept_own} ->
+            {:noreply, assign(socket, state: :own_invitation)}
+
+          {:error, reason} when is_atom(reason) ->
+            {:noreply, assign(socket, state: reason)}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, gettext("Couldn't accept the invitation"))}
         end
     end
   end
@@ -63,10 +70,10 @@ defmodule VRWeb.AppLive.InviteLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <.auth_shell title="친구 초대">
+    <.auth_shell title={gettext("Friend invitation")}>
       <div :if={@state == :pending} class="text-center">
         <p style="color: var(--text-primary); font-size: 15px;">
-          <strong>{inviter_name(@inviter)}</strong>님이 친구로 초대했습니다.
+          <strong>{inviter_name(@inviter)}</strong> {gettext("invited you as a friend.")}
         </p>
         <p
           :if={@invitation.message}
@@ -77,14 +84,22 @@ defmodule VRWeb.AppLive.InviteLive do
         </p>
 
         <div :if={@current_account} class="flex gap-2 mt-6">
-          <button class="vr-btn vr-btn--outline flex-1" phx-click="decline">거절</button>
-          <button class="vr-btn vr-btn--primary flex-1" phx-click="accept">수락</button>
+          <button class="vr-btn vr-btn--outline flex-1" phx-click="decline">
+            {gettext("Decline")}
+          </button>
+          <button class="vr-btn vr-btn--primary flex-1" phx-click="accept">
+            {gettext("Accept")}
+          </button>
         </div>
 
         <div :if={is_nil(@current_account)} class="mt-6">
-          <p class="vr-hint mb-3">수락하려면 로그인이 필요합니다.</p>
-          <.link navigate={~p"/login"} class="vr-btn vr-btn--primary w-full">로그인</.link>
-          <.link navigate={~p"/register"} class="vr-btn vr-btn--outline w-full mt-2">가입하기</.link>
+          <p class="vr-hint mb-3">{gettext("Sign in to accept this invitation.")}</p>
+          <.link navigate={~p"/login"} class="vr-btn vr-btn--primary w-full">
+            {gettext("Sign in")}
+          </.link>
+          <.link navigate={~p"/register"} class="vr-btn vr-btn--outline w-full mt-2">
+            {gettext("Sign up")}
+          </.link>
         </div>
       </div>
 
@@ -92,55 +107,55 @@ defmodule VRWeb.AppLive.InviteLive do
         :if={@state == :accepted}
         icon="check_circle"
         color="var(--status-success)"
-        title="친구가 되었습니다"
+        title={gettext("You're now connected")}
       >
-        이제 서로의 회의록을 공유할 수 있습니다.
+        {gettext("You can now share meeting notes with each other.")}
       </.result>
 
       <.result
         :if={@state == :declined}
         icon="do_not_disturb_on"
         color="var(--text-tertiary)"
-        title="초대를 거절했습니다"
+        title={gettext("Invitation declined")}
       />
 
       <.result
         :if={@state == :expired}
         icon="schedule"
         color="var(--warning)"
-        title="만료된 초대입니다"
+        title={gettext("This invitation has expired")}
       >
-        초대한 분에게 새 링크를 요청해 주세요.
+        {gettext("Ask the person who invited you for a new link.")}
       </.result>
 
       <.result
         :if={@state == :not_pending}
         icon="info"
         color="var(--text-tertiary)"
-        title="이미 처리된 초대입니다"
+        title={gettext("This invitation was already handled")}
       />
 
       <.result
         :if={@state == :not_found}
         icon="link_off"
         color="var(--text-tertiary)"
-        title="찾을 수 없는 초대입니다"
+        title={gettext("Invitation not found")}
       >
-        링크가 올바른지 확인해 주세요.
+        {gettext("Check that the link is correct.")}
       </.result>
 
       <.result
         :if={@state == :own_invitation}
         icon="info"
         color="var(--text-tertiary)"
-        title="본인이 만든 초대입니다"
+        title={gettext("This is your own invitation")}
       >
-        다른 분에게 이 링크를 전달해 주세요.
+        {gettext("Share this link with someone else.")}
       </.result>
 
       <:footer>
         <.link navigate="/go/meetings" style="color: var(--accent); font-weight: 600;">
-          홈으로
+          {gettext("Home")}
         </.link>
       </:footer>
     </.auth_shell>
@@ -166,5 +181,5 @@ defmodule VRWeb.AppLive.InviteLive do
 
   defp inviter_name(%{name: name}) when is_binary(name) and name != "", do: name
   defp inviter_name(%{email: email}), do: email
-  defp inviter_name(_), do: "누군가"
+  defp inviter_name(_), do: gettext("Someone")
 end

@@ -16,7 +16,7 @@ defmodule VRWeb.AuthLive.ForgotPasswordLive do
   def mount(_params, _session, socket) do
     {:ok,
      socket
-     |> assign(page_title: "비밀번호 재설정")
+     |> assign(page_title: gettext("Reset password"))
      |> assign(sent: false)
      |> assign(form: to_form(%{"email" => ""}, as: :account)), layout: false}
   end
@@ -35,8 +35,8 @@ defmodule VRWeb.AuthLive.ForgotPasswordLive do
   def render(assigns) do
     ~H"""
     <.auth_shell
-      title="비밀번호 재설정"
-      subtitle={if @sent, do: nil, else: "가입한 이메일로 재설정 링크를 보내드립니다"}
+      title={gettext("Reset password")}
+      subtitle={if @sent, do: nil, else: gettext("We'll email you a reset link")}
     >
       <div :if={@sent} class="text-center py-2">
         <span
@@ -45,15 +45,16 @@ defmodule VRWeb.AuthLive.ForgotPasswordLive do
         >
           mark_email_read
         </span>
-        <p style="color: var(--text-primary); font-weight: 600;">메일을 보냈습니다</p>
+        <p style="color: var(--text-primary); font-weight: 600;">{gettext("Email sent")}</p>
         <p class="vr-hint mt-2">
-          해당 이메일로 가입된 계정이 있다면 재설정 링크가 도착합니다.<br /> 링크는 1시간 뒤 만료됩니다.
+          {gettext("If an account exists for that email, a reset link is on its way.")}<br />
+          {gettext("The link expires in 1 hour.")}
         </p>
       </div>
 
       <.form :if={not @sent} for={@form} phx-submit="submit" class="flex flex-col gap-4">
         <div>
-          <label class="vr-label mb-1.5" for="account_email">이메일</label>
+          <label class="vr-label mb-1.5" for="account_email">{gettext("Email")}</label>
           <input
             type="email"
             id="account_email"
@@ -67,15 +68,15 @@ defmodule VRWeb.AuthLive.ForgotPasswordLive do
         <button
           type="submit"
           class="vr-btn vr-btn--primary w-full"
-          phx-disable-with="보내는 중..."
+          phx-disable-with={gettext("Sending...")}
         >
-          재설정 링크 보내기
+          {gettext("Send reset link")}
         </button>
       </.form>
 
       <:footer>
         <.link navigate={~p"/login"} style="color: var(--accent); font-weight: 600;">
-          로그인으로 돌아가기
+          {gettext("Back to sign in")}
         </.link>
       </:footer>
     </.auth_shell>
