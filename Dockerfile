@@ -7,6 +7,7 @@ RUN npm ci
 
 COPY apps/web ./
 COPY packages/core /workspace/packages/core
+COPY packages/ui-styles /workspace/packages/ui-styles
 RUN npm run build
 
 FROM hexpm/elixir:1.19.5-erlang-28.1.1-debian-bookworm-20260824-slim AS app-builder
