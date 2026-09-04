@@ -9,7 +9,7 @@ COPY apps/web ./
 COPY packages/core /workspace/packages/core
 RUN npm run build
 
-FROM hexpm/elixir:1.19.5-erlang-28.1-debian-bookworm-20250630-slim AS app-builder
+FROM hexpm/elixir:1.19.5-erlang-28.1.1-debian-bookworm-20260824-slim AS app-builder
 
 RUN apt-get update -y \
   && apt-get install -y --no-install-recommends build-essential git \
@@ -38,7 +38,7 @@ RUN mix assets.deploy
 COPY backend/config/runtime.exs config/
 RUN mix release
 
-FROM debian:bookworm-20250630-slim
+FROM debian:bookworm-20260824-slim
 
 RUN apt-get update -y \
   && apt-get install -y --no-install-recommends \
