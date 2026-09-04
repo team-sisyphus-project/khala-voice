@@ -11,10 +11,13 @@ defmodule VRWeb.AppController do
 
   use VRWeb, :controller
 
-  @index_path Path.join(:code.priv_dir(:vr), "static/app/index.html")
+  # 모듈 애트리뷰트로 두면 :code.priv_dir이 **컴파일 타임** 경로(_build/...)로
+  # 박혀 릴리스 런타임(/app/lib/vr-*/priv)에서 항상 File.read 실패 → 503.
+  # 반드시 런타임에 평가한다.
+  defp index_path, do: Path.join(:code.priv_dir(:vr), "static/app/index.html")
 
   def index(conn, _params) do
-    case File.read(@index_path) do
+    case File.read(index_path()) do
       {:ok, html} ->
         conn
         |> put_resp_content_type("text/html")
