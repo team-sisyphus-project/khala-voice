@@ -32,8 +32,8 @@ COPY backend/priv priv
 COPY --from=web-builder /workspace/backend/priv/static/app priv/static/app
 COPY backend/lib lib
 COPY backend/assets assets
-# assets/css가 ../../../packages/ui-styles를 참조 — /app 기준이라 /packages에 복사.
-COPY packages/ui-styles /packages/ui-styles
+# assets(css/js)가 ../../../packages/* 를 참조 — /app 기준이라 /packages에 통째로 복사.
+COPY packages /packages
 
 RUN mix compile
 RUN mix assets.deploy
