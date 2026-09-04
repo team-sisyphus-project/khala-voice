@@ -1,10 +1,4 @@
-ARG ELIXIR_VERSION=1.19.5
-ARG OTP_VERSION=28.1
-ARG DEBIAN_VERSION=bookworm-20250630-slim
-
-ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
-ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
-
+# Hestia preflight(dockerfile.base-image-pinned): FROM은 변수 없이 핀 고정.
 FROM node:22.18.0-bookworm-slim AS web-builder
 
 WORKDIR /workspace/apps/web
@@ -15,7 +9,7 @@ COPY apps/web ./
 COPY packages/core /workspace/packages/core
 RUN npm run build
 
-FROM ${BUILDER_IMAGE} AS app-builder
+FROM hexpm/elixir:1.19.5-erlang-28.1-debian-bookworm-20250630-slim AS app-builder
 
 RUN apt-get update -y \
   && apt-get install -y --no-install-recommends build-essential git \
@@ -44,7 +38,7 @@ RUN mix assets.deploy
 COPY backend/config/runtime.exs config/
 RUN mix release
 
-FROM ${RUNNER_IMAGE}
+FROM debian:bookworm-20250630-slim
 
 RUN apt-get update -y \
   && apt-get install -y --no-install-recommends \
