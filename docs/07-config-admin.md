@@ -27,12 +27,17 @@ VR.Config.fetch(:storage, :access_key_id)
 
 > **Scope of R1 and R2 — boot parameters are the exception.**
 > These two rules govern the **credentials** handled by `VR.Config`.
-> Boot parameters like `PORT`, `HTTPS_PORT`, and `POOL_SIZE` are needed before the Repo
-> is up, so they cannot come from the DB; they are read directly via `System.get_env` in
-> `config/runtime.exs` and have literal defaults.
-> They are not secrets, and there is no feature to disable when they are absent.
-> To add a new item to this exception, first answer "is it needed before the Repo?"
-> If it is a credential, the answer is always `VR.Config.Registry`.
+> Boot parameters are needed before the Repo is up, so they cannot come from the DB;
+> they are read directly via `System.get_env` in `config/runtime.exs` and have literal
+> defaults. The complete list: `PHX_SERVER`, `PORT`, `HTTPS_PORT`, `DEV_BIND_ALL`,
+> `ECTO_IPV6`, `POOL_SIZE`, `DNS_CLUSTER_QUERY`.
+> (`DATABASE_URL`, `SECRET_KEY_BASE`, `PHX_HOST`, and `CLOAK_KEY` are also read in
+> `runtime.exs` because they are needed at boot, but they are **not** part of the
+> defaults exception — the first two raise when missing in prod, and a missing
+> `CLOAK_KEY` blocks boot per R5.)
+> Boot parameters are not secrets, and there is no feature to disable when they are
+> absent. To add a new item to this exception, first answer "is it needed before the
+> Repo?" If it is a credential, the answer is always `VR.Config.Registry`.
 
 ## Preventing secret incidents
 
@@ -139,16 +144,43 @@ credit_term :map, plan_term :map, locale_overrides :map
 
 ## Environment variables
 
-`.env.example` lists names only. Used purely as fallback when the DB is unset.
+`.env.example` lists names only (enforced by `backend/test/vr/env_example_test.exs`,
+which also checks that every variable `config/runtime.exs` reads appears in the
+template). For credentials, environment variables are purely a fallback when the DB
+is unset.
+
+**Before running migrations or the server locally**, fill in the **Required (app)**
+block — none of those values are platform-injected. Everything else can stay empty:
+features without configuration are simply off, and boot parameters have defaults.
+
+**Platform-injected values** (do not set locally):
+
+| Variable | Injected by |
+|---|---|
+| `PORT` | Deploy platform. A platform value wins; empty means 4000 |
+| `PHX_SERVER` | Dockerfile (`ENV PHX_SERVER="true"`). Tells a release to start the HTTP server; `mix phx.server` does not need it |
+
+**`REDIS_URL` is deliberately not used.** This app has no Redis dependency
+(background jobs run on Oban over Postgres), so the variable appears neither here
+nor in `.env.example` — the absence is intentional, not an oversight.
 
 ```bash
-# ── Required (app) ─────────────────────────
-DATABASE_URL=
-SECRET_KEY_BASE=
-CLOAK_KEY=                    # openssl rand -base64 32
-PHX_HOST=
-PORT=                          # optional — empty means 4000
+# ── Required (app) — set every one locally ─
+DATABASE_URL=                  # format: ecto://USER:PASS@localhost/DATABASE
+SECRET_KEY_BASE=               # generate: mix phx.gen.secret
+CLOAK_KEY=                     # openssl rand -base64 32 (boot fails without it)
+PHX_HOST=                      # public hostname (prod only; if empty, localhost)
+PORT=                          # optional — if empty, 4000. Malformed value halts boot
 APP_BASE_URL=
+
+# ── Boot / release (usually leave empty locally) ─
+PHX_SERVER=                    # platform-injected via Dockerfile ENV (releases only)
+ECTO_IPV6=                     # true | 1 = DB over IPv6 (prod releases only)
+POOL_SIZE=                     # DB pool size (prod releases only). If empty, 10
+DNS_CLUSTER_QUERY=             # node clustering DNS name. If empty, clustering off
+DEV_BIND_ALL=                  # dev only: true = additionally serve HTTPS
+HTTPS_PORT=                    # if empty, 4001. Malformed value halts boot
+# REDIS_URL is intentionally absent: this app does not use Redis.
 
 # ── Storage (S3) ───────────────────────────
 STORAGE_BUCKET=
@@ -156,6 +188,7 @@ STORAGE_REGION=
 STORAGE_ACCESS_KEY_ID=
 STORAGE_SECRET_ACCESS_KEY=
 STORAGE_CDN_BASE_URL=
+STORAGE_DOWNLOAD_URL_TTL_SECONDS=   # if empty, derived from recording length
 
 # ── Google Cloud STT ───────────────────────
 STT_CREDENTIALS_JSON=
@@ -163,12 +196,14 @@ STT_PROJECT_ID=
 STT_LOCATION=
 STT_RECOGNIZER=
 STT_GCS_BUCKET=
-STT_DEV_MODE=
+STT_DEV_MODE=                  # true = mock responses, no real calls
 
 # ── LLM (summary) ──────────────────────────
-LLM_PROVIDER=
+LLM_PROVIDER=                  # gemini | anthropic | openai
 LLM_API_KEY=
 LLM_MODEL=
+LLM_DEV_MODE=                  # true = mock summary without calling the LLM
+LLM_AUTO_SUMMARIZE=            # true = summarize when transcription finishes
 
 # ── Social login (optional) ────────────────
 GOOGLE_OAUTH_CLIENT_ID=
@@ -185,6 +220,18 @@ MAIL_API_KEY=
 VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
 VAPID_SUBJECT=
+
+# ── App behavior ───────────────────────────
+APP_TRUST_PROXY_HEADERS=       # true only behind a reverse proxy
+APP_TIMEZONE=                  # if empty, Asia/Seoul
+
+# ── Initial admin (first run only) ─────────
+BOOTSTRAP_ADMIN_EMAIL=
+BOOTSTRAP_ADMIN_PASSWORD=      # if empty, generated and printed once
+
+# ── Khala integration ──────────────────────
+KHALA_ENABLED=
+KHALA_MCP_URL=                 # e.g. https://mcp.khala.to/mcp — no secret (PKCE)
 ```
 
 > **Social login `enabled` cannot be turned on via environment variables.** Keys may come
