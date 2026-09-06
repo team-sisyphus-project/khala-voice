@@ -72,17 +72,15 @@ defmodule Mix.Tasks.Vr.Doctor do
   # ── DB ───────────────────────────────────────────────────
 
   defp check_database do
-    case Ecto.Adapters.SQL.query(VR.Repo, "SELECT 1", []) do
-      {:ok, _} ->
+    case VR.DBPreflight.check_connection() do
+      :ok ->
         line(:ok, "connection", "ok")
         check_migrations()
         check_extensions()
 
-      {:error, reason} ->
-        line(:error, "connection", "failed — #{inspect(reason)}")
+      {:error, message} ->
+        line(:error, "connection", message)
     end
-  rescue
-    e -> line(:error, "connection", "failed — #{Exception.message(e)}")
   end
 
   defp check_migrations do
@@ -96,14 +94,22 @@ defmodule Mix.Tasks.Vr.Doctor do
   end
 
   defp check_extensions do
-    for ext <- ~w(citext pg_trgm) do
-      case Ecto.Adapters.SQL.query(
-             VR.Repo,
-             "SELECT 1 FROM pg_extension WHERE extname = $1",
-             [ext]
-           ) do
-        {:ok, %{num_rows: 1}} -> line(:ok, ext, "installed")
-        _ -> line(:error, ext, "missing — re-run migrations")
+    for {ext, status} <- VR.DBPreflight.check_extensions() do
+      case status do
+        :installed ->
+          line(:ok, ext, "installed")
+
+        :creatable ->
+          line(:warn, ext, "not installed — migrations will create it (mix ecto.migrate)")
+
+        {:not_creatable, message} ->
+          line(:error, ext, message)
+
+        {:unavailable, message} ->
+          line(:error, ext, message)
+
+        {:error, message} ->
+          line(:error, ext, message)
       end
     end
   end
