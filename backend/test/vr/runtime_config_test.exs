@@ -186,6 +186,41 @@ defmodule VR.RuntimeConfigTest do
       assert length(Regex.scan(~r/port_from_env\s*=\s*fn/, source)) == 1
     end
 
+    # Boot variables runtime.exs reads via a literal env-var name. Pinned as an
+    # explicit list — unlike `VR.EnvExampleTest`, which derives the set from the
+    # runtime.exs source — so that dropping one of these from .env.example fails
+    # here even if the runtime.exs read disappears in the same change.
+    @boot_env_vars ~w(DATABASE_URL SECRET_KEY_BASE CLOAK_KEY PHX_HOST PORT HTTPS_PORT
+                      PHX_SERVER ECTO_IPV6 POOL_SIZE DNS_CLUSTER_QUERY DEV_BIND_ALL)
+
+    test "every boot env var runtime.exs reads is listed in .env.example (M13)" do
+      runtime = File.read!(Path.join(@backend_root, "config/runtime.exs"))
+
+      # Keep the pinned list honest: each entry must still be read by name.
+      not_read = Enum.reject(@boot_env_vars, &(runtime =~ ~s("#{&1}")))
+
+      assert not_read == [],
+             "pinned boot vars no longer read by runtime.exs " <>
+               "(update @boot_env_vars): #{Enum.join(not_read, ", ")}"
+
+      listed =
+        Path.join(@repo_root, ".env.example")
+        |> File.read!()
+        |> String.split("\n")
+        |> Enum.flat_map(fn line ->
+          case Regex.run(~r/^([A-Z][A-Z0-9_]*)=/, line, capture: :all_but_first) do
+            [name] -> [name]
+            nil -> []
+          end
+        end)
+
+      missing = Enum.reject(@boot_env_vars, &(&1 in listed))
+
+      assert missing == [],
+             "boot env vars read by runtime.exs but missing from .env.example: " <>
+               Enum.join(missing, ", ")
+    end
+
     test "the Dockerfile COPYs every config file runtime.exs needs (M9)" do
       # Rules moved into a separate config file would not ship in the release and would blow up at boot.
       # If runtime.exs starts reading other files, this test warns first.
