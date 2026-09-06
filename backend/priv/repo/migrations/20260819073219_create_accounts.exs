@@ -9,7 +9,7 @@ defmodule VR.Repo.Migrations.CreateAccounts do
   """
 
   def change do
-    execute "CREATE EXTENSION IF NOT EXISTS citext", "DROP EXTENSION IF EXISTS citext"
+    execute &ensure_citext!/0, "DROP EXTENSION IF EXISTS citext"
 
     create table(:accounts, primary_key: false) do
       add :id, :string, primary_key: true
@@ -85,5 +85,70 @@ defmodule VR.Repo.Migrations.CreateAccounts do
     # Indexes for the queries that count recent failures
     create index(:login_attempts, [:email, :attempted_at])
     create index(:login_attempts, [:ip_address, :attempted_at])
+  end
+
+  # Up step for the citext extension. `CREATE EXTENSION IF NOT EXISTS` keeps the
+  # happy path idempotent, but when the database account lacks the privilege the
+  # raw Postgrex `insufficient_privilege` error does not say what to do — so we
+  # pre-check and raise a message naming the extension and the exact SQL a
+  # database administrator must run before migrating.
+  defp ensure_citext! do
+    ext = "citext"
+
+    cond do
+      extension_installed?(ext) ->
+        :ok
+
+      not extension_available?(ext) ->
+        raise """
+        the PostgreSQL extension "#{ext}" is not available on this server.
+
+        A database administrator must install the PostgreSQL contrib package
+        that provides "#{ext}" (e.g. postgresql-contrib), then create the
+        extension before running migrations:
+
+            CREATE EXTENSION IF NOT EXISTS #{ext};
+        """
+
+      true ->
+        create_extension!(ext)
+    end
+  end
+
+  defp extension_installed?(ext) do
+    %{rows: rows} = repo().query!("SELECT 1 FROM pg_extension WHERE extname = $1", [ext])
+    rows != []
+  end
+
+  defp extension_available?(ext) do
+    %{rows: rows} =
+      repo().query!("SELECT 1 FROM pg_available_extensions WHERE name = $1", [ext])
+
+    rows != []
+  end
+
+  defp create_extension!(ext) do
+    case repo().query("CREATE EXTENSION IF NOT EXISTS #{ext}") do
+      {:ok, _} ->
+        :ok
+
+      {:error, %{postgres: %{code: :insufficient_privilege}}} ->
+        raise """
+        the database account cannot create the PostgreSQL extension "#{ext}" \
+        (insufficient privilege).
+
+        A database administrator must create it before running migrations, by
+        executing the following SQL on this database (as a superuser or a role
+        with CREATE EXTENSION privilege):
+
+            CREATE EXTENSION IF NOT EXISTS #{ext};
+
+        Then re-run `mix ecto.migrate`.
+        """
+
+      {:error, error} ->
+        raise "creating the PostgreSQL extension \"#{ext}\" failed: " <>
+                Exception.message(error)
+    end
   end
 end
