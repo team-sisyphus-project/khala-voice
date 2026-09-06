@@ -89,6 +89,17 @@ end
 if config_env() == :dev do
   config :vr, VRWeb.Endpoint, http: [port: port_from_env.("PORT", 4000)]
 
+  # DATABASE_URL is honored in dev too (.env.example documents it as the way to
+  # point at a non-default Postgres). When it is set and non-empty, its parsed
+  # values (user/pass/host/db) take precedence over the localhost defaults in
+  # config/dev.exs — Ecto merges `url` over keyword options. When absent or
+  # empty, dev.exs's vr_dev defaults stay in effect unchanged.
+  # Like PORT above, a blank value means "not decided" — fall back to defaults.
+  case String.trim(System.get_env("DATABASE_URL") || "") do
+    "" -> :ok
+    database_url -> config :vr, VR.Repo, url: database_url
+  end
+
   if System.get_env("DEV_BIND_ALL") == "true" do
     config :vr, VRWeb.Endpoint, https: [port: port_from_env.("HTTPS_PORT", 4001)]
   end
