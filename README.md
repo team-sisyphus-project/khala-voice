@@ -62,6 +62,38 @@ and CI already include it, and an image missing FFmpeg fails the build.
 
 To develop without GCP credentials, set `STT_DEV_MODE=true` to receive mock transcription results.
 
+## Database preparation
+
+On a green-field database, run these from `backend/`, in order:
+
+```bash
+mix ecto.create              # create the database
+mix ecto.migrate             # run migrations
+mix run priv/repo/seeds.exs  # seed data (see "Creating the initial account")
+```
+
+Or all three at once with `mix ecto.setup` (already included in `mix setup` above).
+
+**Every step is safe to repeat.** `ecto.create` skips a database that already
+exists, each migration runs only once, and the seed script does nothing when an
+admin account already exists. Re-running the whole sequence never breaks anything.
+
+**When unsure, run `mix vr.doctor` first.** It checks that the database is
+reachable and reports whether your database role can create the required
+PostgreSQL extensions — `citext` (case-insensitive text) and `pg_trgm`
+(text search) — before a migration fails halfway through.
+
+**If your role cannot create extensions** (common on managed databases), a
+database administrator must create them before you run migrations:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS "citext";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+```
+
+Both `mix vr.doctor` and the migrations themselves say exactly this when the
+privilege is missing, instead of failing with a bare `insufficient_privilege`.
+
 ## System admin
 
 ### Creating the initial account
