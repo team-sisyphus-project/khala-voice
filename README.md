@@ -44,21 +44,67 @@ Before contributing, copy `.env.example` to `.env` — and **never commit `.env`
 
 ## Development
 
+Prerequisites: **Elixir 1.15+ (with OTP), Node.js 20+, PostgreSQL, FFmpeg.**
+
 ```bash
 brew install ffmpeg gitleaks   # macOS. On Linux: apt-get install ffmpeg
 ./scripts/install-hooks.sh     # secret-blocking commit hook
 
 cp .env.example .env           # fill in the values; .env is never committed
 openssl rand -base64 32        # generate CLOAK_KEY
+```
 
+The minimal `.env` for a first boot is `CLOAK_KEY` (the app refuses to start
+without it) plus `DATABASE_URL` — the latter only if your PostgreSQL differs
+from the dev default `postgres:postgres@localhost/vr_dev`.
+
+### From clean checkout to running app
+
+The full verified sequence, in order. **Every step is safe to repeat.**
+
+```bash
+# 1. Backend: deps + database create/migrate/seed + LiveView assets
 cd backend
 mix setup
 mix vr.doctor                  # environment and config check
-mix phx.server
+
+# 2. React web app — mix setup does NOT build this
+cd ../apps/web
+npm install
+npm run build                  # outputs to backend/priv/static/app/
+
+# 3. Bootstrap admin account (see "Creating the initial account" below)
+cd ../../backend
+BOOTSTRAP_ADMIN_EMAIL=admin@example.com mix run priv/repo/seeds.exs
+
+# 4. Start the server
+PORT=4000 mix phx.server       # PORT optional; defaults to 4000
 ```
 
+Smoke check — an anonymous visit to `/` redirects to the login screen,
+which answers 200:
+
+```bash
+curl -L http://localhost:4000/   # → 302 → /go/meetings → 302 → /login → 200
+```
+
+**The React build step (2) is not optional.** `mix setup` builds only the
+LiveView assets; `backend/priv/static/app/` is gitignored, so on a clean
+checkout everything under `/app/` stays empty until `npm run build` runs.
+
+Step 1 wraps the database work — `ecto.create`, migrations, and seeds — in one
+command; the "Database preparation" section below breaks it down and covers
+managed-database caveats.
+
+**Networking.** The app opens exactly one HTTP listener, on `PORT`, speaking
+plain HTTP. **TLS termination belongs outside the app** — put a reverse proxy
+in front in production and set `APP_TRUST_PROXY_HEADERS=true` there.
+**Redis is not used**; there is no `REDIS_URL` to configure.
+
 **FFmpeg only needs manual installation locally.** The deploy image (`backend/Dockerfile`)
-and CI already include it, and an image missing FFmpeg fails the build.
+and CI already include it, and an image missing FFmpeg fails the build. It is a
+runtime dependency for recording processing — build, boot, and the first screen
+work without it.
 
 To develop without GCP credentials, set `STT_DEV_MODE=true` to receive mock transcription results.
 
