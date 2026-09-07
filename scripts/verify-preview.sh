@@ -1,12 +1,37 @@
 #!/usr/bin/env bash
 #
-# Clean-checkout preview verification — the Mix path.
+# Clean-checkout preview verification.
 #
-#     scripts/verify-preview.sh
+#     scripts/verify-preview.sh              # the Mix path, run from source
+#     scripts/verify-preview.sh --release    # the release image, via docker
 #
 # Runs the sequence README claims, end to end, and fails naming the step that
-# broke: build the web app, create a green-field database, migrate, seed,
-# start on PORT, and check that the first screen answers 200 over plain HTTP.
+# broke: build, create a green-field database, migrate, seed, start on PORT,
+# and check that the first screen answers 200 over plain HTTP.
+#
+# **Two modes, one set of assertions.** Everything from `start` onwards —
+# healthz, first-screen, plain-http — is the same code in both, asking the same
+# questions of whatever is listening on PORT. What differs is how the thing
+# answering was built and prepared:
+#
+#     Mix path       npm ci, mix deps.get, mix compile, mix ecto.create,
+#                    VR.Release.migrate/0 and VR.Release.seed/1 reached through
+#                    `mix run --no-start`, then `mix phx.server`.
+#
+#     Release image  `docker build` from the repository root, then every other
+#                    step through `bin/vr` inside a container: deploy.toml's
+#                    line `bin/vr eval 'VR.Release.migrate();
+#                    VR.Release.seed()'`, and the image's own CMD,
+#                    `bin/vr start`.
+#
+# The release mode is the one that answers "does a *clean checkout* work".
+# `.dockerignore` drops `_build`, `deps` and `node_modules` from the build
+# context, so the image is built from the tracked tree no matter what state the
+# worktree is in — where the Mix path compiles into whatever `_build` is
+# already sitting there. It is also handed exactly the six values README's
+# preview table marks required, by name: DATABASE_URL, PORT, SECRET_KEY_BASE,
+# CLOAK_KEY, PHX_HOST, PHX_SCHEME. An APP_BASE_URL or PHX_URL_PORT inherited
+# from the calling shell does not reach the container.
 #
 # **Plain HTTP is asserted, not assumed.** The run is handed PHX_SCHEME=http and
 # no REDIS_URL, and then reads back what the server actually did: no hop of the
@@ -35,9 +60,14 @@
 # already set, and are never written anywhere: they encrypt a database that
 # stops existing a minute later. Set them yourself to verify with your own.
 #
-# This is not the release path. `bin/vr eval 'VR.Release.migrate();
-# VR.Release.seed()'` runs these same two functions from inside the image —
-# see README, "Deploying a preview (release image)".
+# `--release` additionally needs docker, and **skips with exit 0** when it is
+# not there: a machine without docker has not failed a preview, it has not
+# looked at one. The `preflight` row says which of the two happened.
+#
+# The container runs on docker's host network, so DATABASE_URL is read from
+# inside it exactly as the host reads it, and PORT is bound where the same curl
+# commands reach it. That is the default on Linux; Docker Desktop needs host
+# networking turned on.
 
 set -euo pipefail
 
@@ -53,12 +83,30 @@ BOOT_TIMEOUT=90
 
 KEEP_DB=false
 
+# Which of the two things this run verifies. `mix` is the default: README
+# quotes the bare command, and it is the mode that needs no daemon.
+MODE=mix
+
+# A stable tag, not one per run. A second run then reuses the layer cache
+# instead of rebuilding Elixir from scratch, and no run leaves a dangling tag
+# behind. `docker rmi` it when you are done — this script never does, because
+# throwing away a cache the next run wants is not cleanup.
+IMAGE_TAG="khala-voice:preview-verify"
+
+# What the app is told it is reachable as. Plain http, no TLS terminator in
+# front of it — the topology a preview has to work in, and the one the
+# hardcoded https/443 default used to get wrong.
+PHX_HOST=localhost
+
 usage() {
   cat <<'USAGE'
 Verify the clean-checkout preview sequence against a throwaway database.
 
-    scripts/verify-preview.sh [--port N] [--keep-db]
+    scripts/verify-preview.sh [--release] [--port N] [--keep-db]
 
+    --release    verify the release image instead of the Mix path: docker
+                 build, then migrate, seed and start through bin/vr inside
+                 a container. Skips with exit 0 when docker is unavailable
     --port N     start on N instead of PORT, or 4123 when PORT is unset
     --keep-db    leave the throwaway database behind to inspect it
 
@@ -77,6 +125,7 @@ while [ $# -gt 0 ]; do
       ;;
     --port=*) PORT="${1#*=}"; shift ;;
     --keep-db) KEEP_DB=true; shift ;;
+    --release) MODE=release; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1"; echo; usage; exit 2 ;;
   esac
@@ -87,6 +136,16 @@ BACKEND="$REPO_ROOT/backend"
 WEB="$REPO_ROOT/apps/web"
 
 PORT="${PORT:-$DEFAULT_PORT}"
+
+# The command that re-runs *this* run. `--release` has to survive into the
+# failure block: an operator who was checking the image and is handed the Mix
+# path's command goes and checks the other thing (see the seed's :entry_point,
+# for the same reason).
+if [ "$MODE" = release ]; then
+  RERUN_COMMAND="scripts/verify-preview.sh --release"
+else
+  RERUN_COMMAND="scripts/verify-preview.sh"
+fi
 LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/verify-preview.XXXXXX")"
 DB_NAME="vr_preview_verify_$$"
 BASE_URL="http://localhost:$PORT"
@@ -97,6 +156,59 @@ THROWAWAY_URL=""
 STEP=""
 STEP_LOG=""
 STEP_STARTED=0
+
+# Release mode only. Named after this process for the same reason the database
+# is: cleanup removes *this run's* container by that name, never by pattern.
+CONTAINER_NAME="vr-preview-verify-$$"
+CONTAINER_STARTED=false
+LOGS_PID=""
+
+# What the app is expected to stamp onto the links it generates. The two modes
+# ask for different things, so they expect different strings — see the
+# `plain-http` step.
+EXPECTED_LINK=""
+
+# `bin/vr eval` expressions. Creating and dropping a database is what
+# `mix ecto.create` / `mix ecto.drop` do, and this is those two tasks' own
+# implementation — `repo.__adapter__().storage_up(repo.config())` — reached
+# from a release, where there is no Mix to run the task. Nothing else in the
+# release path can bring a green-field database into existence, and requiring
+# `mix` on the host to prepare one would be verifying the release path with the
+# Mix path's tools.
+#
+# `{:error, :already_up}` is a failure here, not a no-op: this run's whole
+# claim is that the sequence works on a database that has never been migrated.
+# Creating says so in a sentence because it is a step with a row of its own to
+# explain; dropping is a strict match, because it runs from `cleanup`, which
+# has its own row and its own log to point at.
+#
+# The long line stays one line: it is quoted verbatim as that step's `command`,
+# and something an operator is meant to paste is not broken across lines.
+DB_CREATE_EVAL='Application.load(:vr); case VR.Repo.__adapter__().storage_up(VR.Repo.config()) do :ok -> :ok; {:error, :already_up} -> raise "the database already exists, so this run would not be green-field"; {:error, reason} -> raise "the database could not be created: #{inspect(reason)}" end'
+DB_DROP_EVAL='Application.load(:vr); :ok = VR.Repo.__adapter__().storage_down(VR.Repo.config())'
+
+# The line deploy.toml carries, character for character. Splitting it into a
+# migrate step and a seed step would give two tidier rows and verify a command
+# no platform runs.
+PREPARE_EVAL='VR.Release.migrate(); VR.Release.seed()'
+
+# What the container is given, by name and not by value. `-e NAME` passes this
+# shell's value through; `-e NAME=value` would write CLOAK_KEY into the
+# container's argv, where `ps` shows it to every user on the host. Docker drops
+# a name that is unset here, which is also how BOOTSTRAP_ADMIN_* stay optional.
+#
+# The first six are README's preview table, and there is no seventh. That is
+# the claim this mode is making, so the list is the claim's only enforcement.
+DOCKER_ENV=(
+  -e DATABASE_URL
+  -e PORT
+  -e SECRET_KEY_BASE
+  -e CLOAK_KEY
+  -e PHX_HOST
+  -e PHX_SCHEME
+  -e BOOTSTRAP_ADMIN_EMAIL
+  -e BOOTSTRAP_ADMIN_PASSWORD
+)
 
 # ── Output ───────────────────────────────────────────────────────
 #
@@ -120,6 +232,14 @@ row() {
 # filed away in a log nobody opens.
 quote_log() {
   sed 's/^/       /' "$1"
+}
+
+# The same lines out of a log that also holds the migration's. The release path
+# runs migrate and seed as one command, so the two share a log; everything from
+# the first `[seeds]` line to the end is the seed's, because `VR.Release.seed/1`
+# runs after `migrate/0` and prints nothing before its first row.
+quote_seed_log() {
+  sed -n '/^\[seeds\]/,$p' "$1" | sed 's/^/       /'
 }
 
 step_start() {
@@ -159,7 +279,7 @@ step_failed() {
   state_note
   say "    Fix the cause, then re-run:"
   say ""
-  say "        scripts/verify-preview.sh"
+  say "        $RERUN_COMMAND"
 
   # The whole step is in the log; a `npm ci` that failed on its 300th line
   # would otherwise push the row that names the step off the screen.
@@ -171,6 +291,32 @@ step_failed() {
   fi
 
   exit 1
+}
+
+# Not a pass and not a failure: this machine cannot run the check at all.
+#
+# It exits 0, so it has to be unmistakable in the output — a caller who reads
+# only the status code will read this as a pass, and the row is the only thing
+# standing between them and that. So the mark is `·`, the one this file already
+# uses for "could not be judged", the detail begins with `not checked`, and the
+# block says in a sentence that nothing was asserted.
+skip_run() {
+  local reason="$1" detail="$2"
+
+  row "· " "$STEP" "not checked — $reason"
+  say ""
+  say "    step      $STEP"
+  say "    reason    $reason"
+  say ""
+  say "$detail"
+  say ""
+  say "    Nothing was built and no database was created, so this run asserts"
+  say "    nothing about the preview. It exits 0 because a check this machine"
+  say "    cannot run is not a broken preview — read the row, not the status"
+  say "    code."
+  say ""
+
+  exit 0
 }
 
 # What this run is leaving behind. A failed step stops the sequence where it
@@ -185,6 +331,11 @@ state_note() {
     say "    The throwaway database is dropped on the way out, so the next run"
     say "    starts green-field again."
   fi
+
+  if [ "$MODE" = release ] && [ "$CONTAINER_STARTED" = true ]; then
+    say "    The container goes with it. The image $IMAGE_TAG is kept,"
+    say "    so the next run rebuilds only the layers that changed."
+  fi
 }
 
 # `run_in` and not `env -C`: the -C flag is GNU coreutils only, and README
@@ -197,6 +348,48 @@ run_in() {
   local status=0
   (cd "$dir" && "$@") >>"$STEP_LOG" 2>&1 || status=$?
   [ "$status" -eq 0 ] || step_failed "It exited $status." "$*"
+}
+
+# `run_in` for a command that goes through docker.
+#
+# The `command` an operator is shown is passed in separately from the argv,
+# because on this path the two are not the same sentence. What ran is
+# `docker run --rm --network host -e … -e … image bin/vr eval …`; what they
+# would fix is `bin/vr eval '…'`, the line deploy.toml carries, with 150
+# characters of this script's plumbing taken off the front. The full argv is
+# the step log's first line, so nothing is hidden — it is just not the answer
+# to "what failed".
+run_docker() {
+  local shown="$1"
+  shift
+
+  printf '$ %s\n' "$*" >>"$STEP_LOG"
+
+  local status=0
+  "$@" >>"$STEP_LOG" 2>&1 || status=$?
+  [ "$status" -eq 0 ] || step_failed "It exited $status." "$shown"
+}
+
+# Is the thing this run started still up? The Mix path has a pid; the release
+# path has a container, and a container that exited is not a pid that died.
+server_running() {
+  if [ "$MODE" = release ]; then
+    [ "$(docker inspect -f '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null)" = "true" ]
+  else
+    [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null
+  fi
+}
+
+# Dropping this run's database, by the same route the run created it: Mix's
+# task on the Mix path, the release's own storage_down inside the image on the
+# release path. Neither is given a database name it did not choose.
+drop_database() {
+  if [ "$MODE" = release ]; then
+    docker run --rm --network host "${DOCKER_ENV[@]}" "$IMAGE_TAG" \
+      bin/vr eval "$DB_DROP_EVAL"
+  else
+    (cd "$BACKEND" && DATABASE_URL="$THROWAWAY_URL" MIX_ENV=prod mix ecto.drop --force --quiet)
+  fi
 }
 
 # ── Plain HTTP ───────────────────────────────────────────────────
@@ -256,19 +449,36 @@ cleanup() {
   local status=$?
   trap - EXIT INT TERM
 
+  if [ -n "$LOGS_PID" ] && kill -0 "$LOGS_PID" 2>/dev/null; then
+    kill "$LOGS_PID" 2>/dev/null || true
+    wait "$LOGS_PID" 2>/dev/null || true
+  fi
+
   if [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
     kill "$SERVER_PID" 2>/dev/null || true
     wait "$SERVER_PID" 2>/dev/null || true
+  fi
+
+  # Before the database, because the release path drops it from inside the
+  # image and a running container still holds connections to it.
+  if [ "$CONTAINER_STARTED" = true ]; then
+    CONTAINER_STARTED=false
+    docker rm -f "$CONTAINER_NAME" >>"$LOG_DIR/cleanup.log" 2>&1 || true
   fi
 
   if [ "$DB_CREATED" = true ]; then
     if [ "$KEEP_DB" = true ]; then
       say ""
       row "· " "kept" "$DB_NAME — drop it when you are done:"
-      say "       cd backend && DATABASE_URL=<the same URL, ending in /$DB_NAME> \\"
-      say "         MIX_ENV=prod mix ecto.drop --force"
-    elif (cd "$BACKEND" && DATABASE_URL="$THROWAWAY_URL" MIX_ENV=prod mix ecto.drop --force --quiet) \
-           >>"$LOG_DIR/cleanup.log" 2>&1; then
+      if [ "$MODE" = release ]; then
+        say "       DATABASE_URL=<the same URL, ending in /$DB_NAME> \\"
+        say "         docker run --rm --network host -e DATABASE_URL $IMAGE_TAG \\"
+        say "         bin/vr eval '$DB_DROP_EVAL'"
+      else
+        say "       cd backend && DATABASE_URL=<the same URL, ending in /$DB_NAME> \\"
+        say "         MIX_ENV=prod mix ecto.drop --force"
+      fi
+    elif drop_database >>"$LOG_DIR/cleanup.log" 2>&1; then
       DB_CREATED=false
       row "· " "dropped" "$DB_NAME"
     else
@@ -311,16 +521,53 @@ port_in_use() {
 # ── 1. preflight ─────────────────────────────────────────────────
 
 say ""
-say "━━━ Clean-checkout preview verification (Mix path) ━━━"
+if [ "$MODE" = release ]; then
+  say "━━━ Clean-checkout preview verification (release image) ━━━"
+else
+  say "━━━ Clean-checkout preview verification (Mix path) ━━━"
+fi
 say ""
 
 step_start preflight
 
-for tool in mix npm curl openssl; do
+# What each mode actually calls. Refusing a machine for want of `mix` when the
+# run never types it would turn this check into its own obstacle.
+if [ "$MODE" = release ]; then
+  REQUIRED_TOOLS="curl openssl"
+else
+  REQUIRED_TOOLS="mix npm curl openssl"
+fi
+
+for tool in $REQUIRED_TOOLS; do
   command -v "$tool" >/dev/null 2>&1 || step_failed \
     "The command \`$tool\` is not on PATH.
     README's \"Development\" section lists what a checkout needs."
 done
+
+# Docker first, and before anything is created: with no docker there is no
+# release mode to run, and everything checked below would be checked for a run
+# that is not going to happen.
+if [ "$MODE" = release ]; then
+  command -v docker >/dev/null 2>&1 || skip_run "docker is not on PATH" \
+    "    The release mode builds the image and runs every step inside it — the
+    build, the preparation eval, and the server. There is no part of it
+    docker is not needed for.
+
+    Install docker, or check the same sequence from source:
+
+        scripts/verify-preview.sh"
+
+  if ! docker_info="$(docker info 2>&1 >/dev/null)"; then
+    skip_run "the docker daemon is not reachable" \
+      "    docker is on PATH, but \`docker info\` did not answer:
+
+$(printf '%s\n' "$docker_info" | head -n 3 | sed 's/^/        /')
+
+    Start it, or check the same sequence from source:
+
+        scripts/verify-preview.sh"
+  fi
+fi
 
 if [ -z "${DATABASE_URL:-}" ]; then
   step_failed "environment variable DATABASE_URL is missing.
@@ -350,16 +597,36 @@ fi
 export SECRET_KEY_BASE="${SECRET_KEY_BASE:-$(openssl rand -base64 48)}"
 export CLOAK_KEY="${CLOAK_KEY:-$(openssl rand -base64 32)}"
 
-# What the app is told it is reachable as. Plain http, no TLS terminator in
-# front of it — the topology a preview has to work in, and the one the
-# hardcoded https/443 default used to get wrong.
-export MIX_ENV=prod
-export PHX_HOST=localhost
+# Plain http and nothing else, in both modes.
+export PHX_HOST
 export PHX_SCHEME=http
-export PHX_URL_PORT="$PORT"
-export APP_BASE_URL="$BASE_URL"
 export DATABASE_URL="$THROWAWAY_URL"
 export PORT
+
+# Where the two modes part, and it is deliberate.
+#
+# The release mode is handed the six values README's preview table marks
+# required and no others, because that is what it claims a preview needs. A
+# platform preview listens on PORT and is reached through something in front of
+# it at the scheme's own port, so the links it generates carry no port at all.
+# Setting PHX_URL_PORT here would make the assertion in `plain-http` easier to
+# write and the topology wrong.
+#
+# The Mix path has nothing in front of it: it is reached on the very port it
+# listens on, so that is the port its links have to carry.
+if [ "$MODE" = release ]; then
+  EXPECTED_LINK="http://$PHX_HOST/mcp"
+else
+  export MIX_ENV=prod
+  export PHX_URL_PORT="$PORT"
+  export APP_BASE_URL="$BASE_URL"
+
+  if [ "$PORT" = "80" ]; then
+    EXPECTED_LINK="http://$PHX_HOST/mcp"
+  else
+    EXPECTED_LINK="$BASE_URL/mcp"
+  fi
+fi
 
 # Nothing in this repository reads REDIS_URL — background work runs on
 # PostgreSQL — so a preview has to come up without one. It is *removed* rather
@@ -376,6 +643,59 @@ fi
 step_ok "$DB_NAME on $PORT"
 row "· " "REDIS_URL" "$redis_note"
 row "· " "logs" "$LOG_DIR"
+
+if [ "$MODE" = release ]; then
+
+# ── 2. image ─────────────────────────────────────────────────────
+#
+#  The whole build, in one command, from the repository root. `.dockerignore`
+#  keeps `_build`, `deps` and `node_modules` out of the context, so this is a
+#  clean checkout being built whatever the worktree looks like — which is the
+#  reason this mode exists. The Dockerfile does the rest: the React app, then
+#  the Elixir release with those assets copied in.
+
+step_start image
+run_docker "docker build -t $IMAGE_TAG ." \
+  docker build -t "$IMAGE_TAG" "$REPO_ROOT"
+step_ok "built $IMAGE_TAG"
+
+# ── 3. database ──────────────────────────────────────────────────
+#
+#  A platform hands over a database that already exists; this run has to make
+#  one, and has to make it the way the release can — there is no `mix` in the
+#  image. `DB_CREATE_EVAL` is what `mix ecto.create` itself runs.
+
+step_start database
+run_docker "bin/vr eval '$DB_CREATE_EVAL'" \
+  docker run --rm --network host "${DOCKER_ENV[@]}" "$IMAGE_TAG" \
+    bin/vr eval "$DB_CREATE_EVAL"
+DB_CREATED=true
+step_ok "created $DB_NAME"
+
+# ── 4. prepare ───────────────────────────────────────────────────
+#
+#  deploy.toml's line, run as deploy.toml runs it. One row for both halves
+#  because it is one command: splitting it would read better and verify a
+#  command no platform types.
+
+step_start prepare
+run_docker "bin/vr eval '$PREPARE_EVAL'" \
+  docker run --rm --network host "${DOCKER_ENV[@]}" "$IMAGE_TAG" \
+    bin/vr eval "$PREPARE_EVAL"
+
+# The count comes out of the migrator's own log lines, and `bin/vr eval` starts
+# no Logger of its own. When they are not there the row says what the step did
+# and no number: "0 migrations applied" after a successful migration would be a
+# figure this run never read.
+migrated="$(grep -c ' Migrated ' "$STEP_LOG" || true)"
+if [ "$migrated" -gt 0 ]; then
+  step_ok "$migrated migrations applied, then seeded"
+else
+  step_ok "migrated, then seeded"
+fi
+quote_seed_log "$STEP_LOG"
+
+else
 
 # ── 2. web build ─────────────────────────────────────────────────
 #
@@ -436,24 +756,61 @@ run_in "$BACKEND" mix run --no-start \
 step_ok
 quote_log "$STEP_LOG"
 
+fi
+
 # ── 7. start ─────────────────────────────────────────────────────
 
 step_start start
-(cd "$BACKEND" && exec mix phx.server) >>"$STEP_LOG" 2>&1 &
-SERVER_PID=$!
+
+if [ "$MODE" = release ]; then
+  # No command: `bin/vr start` is the image's own CMD, and starting the
+  # container normally is the thing a platform does. Naming the command here
+  # would verify one this deployment does not use.
+  #
+  # Detached, then `docker logs -f` into the step log, so this step reads the
+  # way the Mix path's does — something running in the background with its
+  # output accumulating in one file. `--network host` is what puts PORT on this
+  # host, where the requests below are made from.
+  SERVER_COMMAND="bin/vr start"
+  printf '$ docker run -d --name %s --network host %s\n' \
+    "$CONTAINER_NAME" "$IMAGE_TAG" >>"$STEP_LOG"
+
+  docker run -d --name "$CONTAINER_NAME" --network host "${DOCKER_ENV[@]}" \
+    "$IMAGE_TAG" >>"$STEP_LOG" 2>&1 \
+    || step_failed "The container could not be started." "docker run $IMAGE_TAG"
+
+  CONTAINER_STARTED=true
+  docker logs -f "$CONTAINER_NAME" >>"$STEP_LOG" 2>&1 &
+  LOGS_PID=$!
+else
+  SERVER_COMMAND="mix phx.server"
+  (cd "$BACKEND" && exec mix phx.server) >>"$STEP_LOG" 2>&1 &
+  SERVER_PID=$!
+fi
 
 deadline=$((SECONDS + BOOT_TIMEOUT))
 
 until curl -fsS -o /dev/null "$BASE_URL/healthz" 2>/dev/null; do
-  if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+  if ! server_running; then
     SERVER_PID=""
-    step_failed "The server stopped before it answered $BASE_URL/healthz." "mix phx.server"
+    step_failed "The server stopped before it answered $BASE_URL/healthz." \
+      "$SERVER_COMMAND"
   fi
 
   if [ "$SECONDS" -ge "$deadline" ]; then
-    step_failed "The server did not answer $BASE_URL/healthz within ${BOOT_TIMEOUT}s.
+    if [ "$MODE" = release ]; then
+      # The third possibility is this script's own doing, so it is this
+      # script's to name: it chose host networking, and Docker Desktop has to
+      # be told to allow it.
+      step_failed "The server did not answer $BASE_URL/healthz within ${BOOT_TIMEOUT}s.
+    The container is still running, so it is starting slowly, listening
+    somewhere other than $PORT, or not on this host's network —
+    \`docker run --network host\` is what puts its port here." "$SERVER_COMMAND"
+    else
+      step_failed "The server did not answer $BASE_URL/healthz within ${BOOT_TIMEOUT}s.
     It is still running, so it is starting slowly, or listening somewhere
-    other than $PORT." "mix phx.server"
+    other than $PORT." "$SERVER_COMMAND"
+    fi
   fi
 
   sleep 0.5
@@ -584,22 +941,18 @@ generated="$(printf '%s' "$probe_body" | sed -n 's/.*"resource":"\([^"]*\)".*/\1
 
         $probe_body" "curl $BASE_URL$PROBE_PATH"
 
-# Phoenix leaves the port out of a generated URL when it is the scheme's own
-# default, so on port 80 the expected string has no port either.
-if [ "$PORT" = "80" ]; then
-  expected="http://localhost/mcp"
-else
-  expected="$BASE_URL/mcp"
-fi
-
-[ "$generated" = "$expected" ] || step_failed \
+# What the string should be was decided in `preflight`, where the two modes'
+# configurations were. Phoenix leaves the port out of a generated URL when it is
+# the scheme's own default, which is why the release mode — given no
+# PHX_URL_PORT, as a platform preview is — expects no port here.
+[ "$generated" = "$EXPECTED_LINK" ] || step_failed \
   "The app generates its absolute links as
 
         $generated
 
-    but it is being served at $BASE_URL, so they should read
+    but it was configured to be reached at
 
-        $expected
+        $EXPECTED_LINK
 
     PHX_SCHEME and PHX_URL_PORT are what set this — see config/runtime.exs." \
   "curl $BASE_URL$PROBE_PATH"
@@ -609,7 +962,14 @@ step_ok "no https hop, no HSTS, links $generated"
 # ── Done ─────────────────────────────────────────────────────────
 
 say ""
-say "  ✅ The clean-checkout sequence works. Green-field database, built,"
-say "     migrated, seeded, started on $PORT with no REDIS_URL, first screen"
-say "     200 over plain http — no https hop, no HSTS, http:// links."
+if [ "$MODE" = release ]; then
+  say "  ✅ The release image works from a clean checkout. Built by docker,"
+  say "     green-field database, prepared by deploy.toml's own eval line,"
+  say "     started on $PORT from six variables and no REDIS_URL, first screen"
+  say "     200 over plain http — no https hop, no HSTS, http:// links."
+else
+  say "  ✅ The clean-checkout sequence works. Green-field database, built,"
+  say "     migrated, seeded, started on $PORT with no REDIS_URL, first screen"
+  say "     200 over plain http — no https hop, no HSTS, http:// links."
+fi
 say ""
