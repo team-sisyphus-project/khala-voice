@@ -24,6 +24,7 @@ combining an account / friends / sharing system with the plan and credit system 
 | 12 | [Design system](12-design-system.md) | Four themes, component specs *(ported from devkanban)* |
 | 13 | [Device testing](13-device-testing.md) | Verification procedure for mobile background recording |
 | 14 | [Provenance](14-provenance.md) | **What came from where in sisyphus/devkanban** |
+| 16 | [Extension privileges](16-postgres-extension-privileges.md) | Who creates `citext` / `pg_trgm`, and how migration fails when nobody can |
 
 ## Principles
 
