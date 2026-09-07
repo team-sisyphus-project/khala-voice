@@ -127,6 +127,7 @@ For local development use `MAIL_PROVIDER=local` — nothing is actually sent; ma
 | **`CLOAK_KEY`** | ✅ | `openssl rand -base64 32` — **boot fails without it** |
 | `PHX_HOST` / `APP_BASE_URL` | ✅ | |
 | `PORT` | — | **Optional.** Empty means `4000`. If the deployment platform injects one, that value wins |
+| `PHX_SCHEME` / `PHX_URL_PORT` | — | **Optional.** Empty means `https` on 443 — the right pair behind a TLS terminator. Set `PHX_SCHEME=http` for a preview served over plain HTTP, so generated links point where the app actually answers ([07](07-config-admin.md#serving-over-plain-http--the-public-url)) |
 
 > If you lose `CLOAK_KEY`, **every key stored in the DB becomes undecryptable.**
 > Keep a separate copy in your deployment environment's secret manager. Rotating the key

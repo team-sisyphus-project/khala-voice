@@ -75,7 +75,8 @@ port_from_env = fn name, default ->
 
             _ ->
               raise """
-              The value of environment variable #{name} is not a valid port number: #{inspect(raw)}
+              environment variable #{name} is not a valid port number: #{inspect(raw)}
+
               It must be an integer between 1 and 65535.
               Leave it empty to use the default, #{default}.
               """
@@ -212,10 +213,71 @@ if config_env() == :prod do
   # PORT is optional — a platform-injected value wins; otherwise 4000.
   port = port_from_env.("PORT", 4000)
 
+  # ── Public URL: how the outside world reaches this app ──────────
+  #
+  #  `http:` below is what the app *listens* on. `url:` is what it *claims to
+  #  be* — the scheme/host/port Phoenix stamps onto every absolute URL it
+  #  generates (`VRWeb.Endpoint.url/0`, `url(~p"/…")`, LiveView's socket URL,
+  #  the OAuth `redirect_uri`, invite links, OAuth/MCP discovery metadata).
+  #  The two are deliberately different: behind a TLS terminator the app
+  #  listens on plain HTTP port 4000 while the world reaches it at
+  #  https://host:443.
+  #
+  #  This used to be hardcoded to https/443 — correct for exactly one topology.
+  #  A preview reachable only over plain HTTP got absolute links pointing at an
+  #  https origin that does not answer, so the callback and every generated link
+  #  broke while the app itself looked healthy.
+  #
+  #  Both halves now come from the environment, and the default is the old
+  #  hardcoded pair, so an existing https deployment that sets neither variable
+  #  resolves to exactly what it resolved to before:
+  #
+  #    PHX_SCHEME    http | https        default https
+  #    PHX_URL_PORT  1..65535            default 443 for https, 80 for http
+  #
+  #  PHX_URL_PORT follows the same rule as PORT (see port_from_env): empty
+  #  means "not decided" and takes the default; malformed halts boot. It only
+  #  needs setting when the public port is neither the scheme's default nor
+  #  hidden behind a proxy — e.g. a preview served directly on http://host:4000.
+  url_scheme =
+    case System.get_env("PHX_SCHEME") do
+      nil ->
+        "https"
+
+      raw ->
+        case raw |> String.trim() |> String.downcase() do
+          "" ->
+            "https"
+
+          scheme when scheme in ["http", "https"] ->
+            scheme
+
+          _ ->
+            raise """
+            environment variable PHX_SCHEME is not a valid URL scheme: #{inspect(raw)}
+
+            It must be one of:
+
+                https   (default) the app is reached over TLS — directly or
+                        through a terminating proxy
+                http    the app is reached over plain HTTP, as in a preview
+                        environment with no TLS in front of it
+
+            It sets the scheme of the links this app generates, not the one it
+            listens on. Leave it empty to use the default, https.
+            """
+        end
+    end
+
+  # 443 and 80 are the ports each scheme omits from a URL. Deriving the default
+  # from the scheme means the common cases — https behind a terminator, http in
+  # a preview — both need no second variable.
+  url_port = port_from_env.("PHX_URL_PORT", if(url_scheme == "https", do: 443, else: 80))
+
   config :vr, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
   endpoint_config = [
-    url: [host: host, port: 443, scheme: "https"],
+    url: [host: host, port: url_port, scheme: url_scheme],
     http: [
       ip: {0, 0, 0, 0},
       port: port

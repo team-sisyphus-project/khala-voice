@@ -12,6 +12,7 @@ defmodule VR.RuntimeConfigTest do
   use ExUnit.Case, async: false
 
   @runtime_exs Path.expand("../../config/runtime.exs", __DIR__)
+  @backend_root_for_url Path.expand("../..", __DIR__)
 
   # Values the production branch requires. Always filled, regardless of port.
   @prod_required %{
@@ -23,17 +24,24 @@ defmodule VR.RuntimeConfigTest do
   # Variables affecting the port are explicitly cleared at the start of each case.
   @port_vars ~w(PORT HTTPS_PORT DEV_BIND_ALL PHX_SERVER)
 
+  # Variables describing the *public* URL (what the app claims to be), as
+  # opposed to @port_vars (what it listens on). Cleared the same way, so every
+  # case that does not name them reads as the default https deployment.
+  @url_vars ~w(PHX_SCHEME PHX_URL_PORT PHX_HOST)
+
   # RELEASE_COMMAND selects the entry point (see "migration-only entry point"
   # below). Cleared like the port vars so every other case reads as what it has
   # always been: the app-boot entry point.
   @entry_vars ~w(RELEASE_COMMAND)
 
   defp with_env(overrides, fun) do
-    vars = Map.keys(@prod_required) ++ @port_vars ++ @entry_vars ++ Map.keys(overrides)
+    vars =
+      Map.keys(@prod_required) ++ @port_vars ++ @url_vars ++ @entry_vars ++ Map.keys(overrides)
+
     original = Map.new(vars, &{&1, System.get_env(&1)})
 
     try do
-      Enum.each(@port_vars ++ @entry_vars, &System.delete_env/1)
+      Enum.each(@port_vars ++ @url_vars ++ @entry_vars, &System.delete_env/1)
       Enum.each(@prod_required, fn {k, v} -> System.put_env(k, v) end)
 
       Enum.each(overrides, fn
@@ -128,6 +136,128 @@ defmodule VR.RuntimeConfigTest do
     end
   end
 
+  # ── Public URL ──────────────────────────────────────────────────
+  #
+  # `http:` is what the app listens on; `url:` is what it claims to be. Phoenix
+  # stamps `url:` onto every absolute URL it generates — `VRWeb.Endpoint.url/0`
+  # (MCP metadata, the Khala app link), `url(~p"/khala/callback")` (the OAuth
+  # redirect_uri) and `url(~p"/invite/…")` (invite links). It was pinned to
+  # https/443, so a plain-HTTP preview handed out links to an origin that does
+  # not answer.
+
+  defp prod_url(overrides \\ %{}) do
+    with_env(overrides, fn -> endpoint(:prod) |> Keyword.fetch!(:url) end)
+  end
+
+  describe "prod / public URL scheme" do
+    test "defaults to https — an existing deployment that sets nothing is unchanged" do
+      assert prod_url()[:scheme] == "https"
+      assert prod_url()[:port] == 443
+    end
+
+    test "PHX_SCHEME=http switches the generated links to http" do
+      url = prod_url(%{"PHX_SCHEME" => "http"})
+
+      assert url[:scheme] == "http"
+    end
+
+    test "PHX_SCHEME='' is 'not decided' and takes the https default" do
+      assert prod_url(%{"PHX_SCHEME" => ""})[:scheme] == "https"
+    end
+
+    test "surrounding whitespace and casing are ignored" do
+      assert prod_url(%{"PHX_SCHEME" => " HTTP\n"})[:scheme] == "http"
+      assert prod_url(%{"PHX_SCHEME" => "  Https  "})[:scheme] == "https"
+    end
+
+    for bad <- ["ftp", "https://", "htp", "http:", "1", "wss"] do
+      test "PHX_SCHEME=#{inspect(bad)} halts, naming the variable and the value" do
+        error =
+          assert_raise RuntimeError, fn -> prod_url(%{"PHX_SCHEME" => unquote(bad)}) end
+
+        assert error.message =~ "PHX_SCHEME"
+        assert error.message =~ unquote(bad)
+        assert error.message =~ "http"
+        assert error.message =~ "https"
+      end
+    end
+  end
+
+  describe "prod / public URL port" do
+    test "https implies 443 and http implies 80 — neither needs a second variable" do
+      assert prod_url(%{"PHX_SCHEME" => "https"})[:port] == 443
+      assert prod_url(%{"PHX_SCHEME" => "http"})[:port] == 80
+    end
+
+    test "PHX_URL_PORT overrides the scheme's default" do
+      assert prod_url(%{"PHX_SCHEME" => "http", "PHX_URL_PORT" => "4000"})[:port] == 4000
+      assert prod_url(%{"PHX_URL_PORT" => "8443"})[:port] == 8443
+    end
+
+    test "PHX_URL_PORT='' takes the scheme's default" do
+      assert prod_url(%{"PHX_SCHEME" => "http", "PHX_URL_PORT" => ""})[:port] == 80
+    end
+
+    test "a malformed PHX_URL_PORT halts, naming the variable" do
+      error =
+        assert_raise RuntimeError, fn -> prod_url(%{"PHX_URL_PORT" => "8443a"}) end
+
+      assert error.message =~ "PHX_URL_PORT"
+      assert error.message =~ "8443a"
+    end
+
+    test "the listen port and the public port stay independent" do
+      config =
+        with_env(%{"PORT" => "4000", "PHX_SCHEME" => "http", "PHX_URL_PORT" => "80"}, fn ->
+          endpoint(:prod)
+        end)
+
+      # Behind a proxy: listening on 4000, reachable on 80.
+      assert Keyword.fetch!(config, :http) |> Keyword.fetch!(:port) == 4000
+      assert Keyword.fetch!(config, :url) |> Keyword.fetch!(:port) == 80
+    end
+
+    test "PORT alone never moves the public port" do
+      assert prod_url(%{"PORT" => "4000"})[:port] == 443
+    end
+  end
+
+  describe "prod / public URL host" do
+    test "defaults to localhost and follows PHX_HOST" do
+      assert prod_url()[:host] == "localhost"
+      assert prod_url(%{"PHX_HOST" => "preview.example.test"})[:host] == "preview.example.test"
+    end
+
+    # `check_origin` is left at its Phoenix default (`true`), which compares the
+    # request's Origin **host** against `url[:host]` — not the scheme, not the
+    # port (deps/phoenix/lib/phoenix/socket/transport.ex, `origin_allowed?/4`).
+    # So a plain-HTTP preview's LiveView socket is accepted on the same terms as
+    # an https one, provided PHX_HOST names the host it is actually served from.
+    test "no config file pins check_origin for prod — the url host stays the single source" do
+      pinning =
+        Path.wildcard(Path.join(@backend_root_for_url, "config/*.exs"))
+        |> Enum.filter(&(File.read!(&1) =~ ~r/check_origin:/))
+        |> Enum.map(&Path.basename/1)
+
+      assert pinning == ["dev.exs"]
+    end
+  end
+
+  describe "prod / regression guard — the public URL is not hardcoded" do
+    test "no config file pins the endpoint's url scheme or port to a literal" do
+      offenders =
+        Path.wildcard(Path.join(@backend_root_for_url, "config/*.exs"))
+        |> Enum.filter(fn file ->
+          source = File.read!(file)
+
+          source =~ ~r/scheme:\s*"https"/ or source =~ ~r/url:\s*\[[^\]]*port:\s*\d/
+        end)
+        |> Enum.map(&Path.basename/1)
+
+      assert offenders == []
+    end
+  end
+
   # ── Entry points ────────────────────────────────────────────────
   #
   # A release evaluates runtime.exs for every command, including the migration
@@ -186,6 +316,21 @@ defmodule VR.RuntimeConfigTest do
       config = eval_endpoint(%{"PORT" => "8080", "SECRET_KEY_BASE" => nil})
 
       assert Keyword.fetch!(config, :http) |> Keyword.fetch!(:port) == 8080
+    end
+
+    # The public URL is resolved at both entry points. A migration never reads
+    # it, but the same file resolves it, so a malformed value must fail the same
+    # way here as it does for the app — the alternative is a deploy whose
+    # migration step passes and whose next step fails on a value the migration
+    # already saw.
+    test "PHX_SCHEME is resolved here too, and a malformed value still halts" do
+      config = eval_endpoint(%{"PHX_SCHEME" => "http", "SECRET_KEY_BASE" => nil})
+
+      assert Keyword.fetch!(config, :url) |> Keyword.fetch!(:scheme) == "http"
+
+      assert_raise RuntimeError, ~r/PHX_SCHEME/, fn ->
+        eval_endpoint(%{"PHX_SCHEME" => "ftp", "SECRET_KEY_BASE" => nil})
+      end
     end
   end
 
@@ -289,9 +434,9 @@ defmodule VR.RuntimeConfigTest do
     # explicit list — unlike `VR.EnvExampleTest`, which derives the set from the
     # runtime.exs source — so that dropping one of these from .env.example fails
     # here even if the runtime.exs read disappears in the same change.
-    @boot_env_vars ~w(DATABASE_URL SECRET_KEY_BASE CLOAK_KEY PHX_HOST PORT HTTPS_PORT
-                      PHX_SERVER RELEASE_COMMAND ECTO_IPV6 POOL_SIZE DNS_CLUSTER_QUERY
-                      DEV_BIND_ALL)
+    @boot_env_vars ~w(DATABASE_URL SECRET_KEY_BASE CLOAK_KEY PHX_HOST PHX_SCHEME
+                      PHX_URL_PORT PORT HTTPS_PORT PHX_SERVER RELEASE_COMMAND ECTO_IPV6
+                      POOL_SIZE DNS_CLUSTER_QUERY DEV_BIND_ALL)
 
     test "every boot env var runtime.exs reads is listed in .env.example (M13)" do
       runtime = File.read!(Path.join(@backend_root, "config/runtime.exs"))

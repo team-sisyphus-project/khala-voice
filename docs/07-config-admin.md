@@ -29,8 +29,8 @@ VR.Config.fetch(:storage, :access_key_id)
 > These two rules govern the **credentials** handled by `VR.Config`.
 > Boot parameters are needed before the Repo is up, so they cannot come from the DB;
 > they are read directly via `System.get_env` in `config/runtime.exs` and have literal
-> defaults. The complete list: `PHX_SERVER`, `PORT`, `HTTPS_PORT`, `DEV_BIND_ALL`,
-> `ECTO_IPV6`, `POOL_SIZE`, `DNS_CLUSTER_QUERY`.
+> defaults. The complete list: `PHX_SERVER`, `PORT`, `HTTPS_PORT`, `PHX_SCHEME`,
+> `PHX_URL_PORT`, `DEV_BIND_ALL`, `ECTO_IPV6`, `POOL_SIZE`, `DNS_CLUSTER_QUERY`.
 > (`DATABASE_URL`, `SECRET_KEY_BASE`, `PHX_HOST`, and `CLOAK_KEY` are also read in
 > `runtime.exs` because they are needed at boot, but they are **not** part of the
 > defaults exception — the first two raise when missing in prod, and a missing
@@ -157,7 +157,7 @@ features without configuration are simply off, and boot parameters have defaults
 
 | Variable | Injected by |
 |---|---|
-| `PORT` | Deploy platform. A platform value wins; empty means 4000 |
+| `PORT` | Deploy platform. A platform value wins; empty means 4000. This is what the app **listens on** — see "Serving over plain HTTP" below for what it *claims to be* |
 | `PHX_SERVER` | Dockerfile (`ENV PHX_SERVER="true"`). Tells a release to start the HTTP server; `mix phx.server` does not need it |
 | `RELEASE_COMMAND` | The release launcher (`bin/vr`), as the command it was given: `start`, `daemon`, `eval`, `rpc`, `remote`. Unset under Mix. See "Entry points" below |
 
@@ -225,6 +225,67 @@ log.
 its own command name for the messages. A release has no Mix and cannot run that
 file, and two copies would have drifted.
 
+### Serving over plain HTTP — the public URL
+
+`PORT` is what the app listens on. `PHX_HOST` / `PHX_SCHEME` / `PHX_URL_PORT`
+are what it **claims to be**: the scheme, host and port Phoenix stamps onto
+every absolute URL it generates.
+
+| Variable | Empty means | Sets |
+|---|---|---|
+| `PHX_HOST` | `localhost` | the host in generated URLs, and the only thing `check_origin` compares |
+| `PHX_SCHEME` | `https` | `http` or `https`. Any other value halts boot |
+| `PHX_URL_PORT` | `443` for https, `80` for http | the port in generated URLs. Malformed value halts boot |
+
+The two are deliberately separate. Behind a TLS terminator the app listens on
+plain HTTP port 4000 while the world reaches it at `https://host` — the normal
+production shape, and the one you get by setting neither variable.
+
+A preview with no TLS in front of it is the other shape, and it used to be
+unreachable in practice. `url:` was pinned to `https`/443, so the app served
+fine over HTTP while handing out `https://` links to an origin that does not
+answer. Three things broke at once and none of them looked like a
+configuration problem:
+
+| What | Why it breaks |
+|---|---|
+| the Khala OAuth callback (`/khala/callback`) | the `redirect_uri` must match the one registered with Khala exactly |
+| MCP discovery metadata (`resource`, `resource_documentation`, the `WWW-Authenticate` header) | clients follow the URL they are given |
+| invite links | copied off the friends screen and pasted to someone else |
+
+So for a preview reachable at `http://preview.example.test`:
+
+```bash
+PHX_HOST=preview.example.test
+PHX_SCHEME=http
+```
+
+Add `PHX_URL_PORT` only when the *public* port is also non-standard — a preview
+served directly on `http://preview.example.test:4000`, with nothing in front of
+it. Behind a proxy it stays empty: `PORT=4000` and `PHX_URL_PORT` unset is the
+right pairing for `http://host` on 80.
+
+Two things this does **not** turn on:
+
+- **No forced HTTPS redirect.** `force_ssl` is not configured and no HSTS header
+  is sent. An HSTS header served once over a preview hostname would pin that
+  host to https in the browser for its whole `max-age`, outliving the preview.
+- **No change to `check_origin`.** It is left at the Phoenix default, which
+  compares the request's `Origin` **host** against `PHX_HOST` — not the scheme,
+  not the port. A plain-HTTP LiveView socket is accepted on the same terms as an
+  https one, provided `PHX_HOST` names the host the preview is actually served
+  from.
+
+The browser still treats a plain-HTTP origin as insecure, and that is not
+something configuration can change. The PWA degrades rather than erroring:
+`manifest.webmanifest` and `sw.js` use only root-relative URLs, so they resolve
+against whatever origin serves the page, and service-worker registration is
+guarded by feature detection and a silent `catch` — on an insecure origin the
+browser does not expose `navigator.serviceWorker`, the registration is skipped,
+and the app runs without it. Microphone capture is the real casualty:
+`getUserMedia` requires a secure context, so recording needs https (or
+`localhost`) regardless of these settings.
+
 **`REDIS_URL` is deliberately not used.** This app has no Redis dependency
 (background jobs run on Oban over Postgres), so the variable appears neither here
 nor in `.env.example` — the absence is intentional, not an oversight.
@@ -235,6 +296,8 @@ DATABASE_URL=                  # format: ecto://USER:PASS@localhost/DATABASE
 SECRET_KEY_BASE=               # generate: mix phx.gen.secret
 CLOAK_KEY=                     # openssl rand -base64 32 (boot fails without it)
 PHX_HOST=                      # public hostname (prod only; if empty, localhost)
+PHX_SCHEME=                    # http | https in generated links. If empty, https
+PHX_URL_PORT=                  # public port in generated links. If empty, 443 / 80
 PORT=                          # optional — if empty, 4000. Malformed value halts boot
 APP_BASE_URL=
 
