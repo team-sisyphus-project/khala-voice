@@ -66,7 +66,7 @@ The full verified sequence, in order. **Every step is safe to repeat.**
 # 1. Backend: deps + database create/migrate/seed + LiveView assets
 cd backend
 mix setup
-mix vr.doctor                  # environment and config check
+mix vr.doctor                  # what each command needs, and what the seed left
 
 # 2. React web app — mix setup does NOT build this
 cd ../apps/web
@@ -75,7 +75,7 @@ npm run build                  # outputs to backend/priv/static/app/
 
 # 3. Bootstrap admin account (see "Creating the initial account" below)
 cd ../../backend
-BOOTSTRAP_ADMIN_EMAIL=admin@example.com mix run priv/repo/seeds.exs
+mix vr.bootstrap_admin --email admin@example.com
 
 # 4. Start the server
 PORT=4000 mix phx.server       # PORT optional; defaults to 4000
@@ -95,6 +95,13 @@ checkout everything under `/app/` stays empty until `npm run build` runs.
 Step 1 wraps the database work — `ecto.create`, migrations, and seeds — in one
 command; the "Database preparation" section below breaks it down and covers
 managed-database caveats.
+
+**Step 3 is the same seed step, reached by the command that does only that part.**
+The seed inside step 1 creates the credit conversion policy and the free plan, and
+skips the admin unless `BOOTSTRAP_ADMIN_EMAIL` is already set — which is why step 1
+ends on `❌ admin sign-in`, with step 3's command on the `create:` line under it.
+Step 3 does not re-do step 1's work, and running step 1 again does not undo step
+3's. "Creating the initial account" below has all three ways in.
 
 **Networking.** The app opens exactly one HTTP listener, on `PORT`, speaking
 plain HTTP. **TLS termination belongs outside the app** — put a reverse proxy
@@ -122,8 +129,10 @@ mix run priv/repo/seeds.exs  # seed data (see "Creating the initial account")
 Or all three at once with `mix ecto.setup` (already included in `mix setup` above).
 
 **Every step is safe to repeat.** `ecto.create` skips a database that already
-exists, each migration runs only once, and the seed script does nothing when an
-admin account already exists. Re-running the whole sequence never breaks anything.
+exists, each migration runs only once, and the seed creates each of its rows only
+when that row is absent — the three are checked independently, so an admin that
+already exists does not stop the other two from being seeded. Re-running the whole
+sequence never breaks anything.
 
 **When unsure, run `mix vr.doctor` first.** It checks that the database is
 reachable and reports whether your database role can create the required
@@ -256,9 +265,12 @@ skips creating them. The full decision is in
 initial admin from `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD`.
 **Omit the password and one is generated and printed once, in the deploy log** —
 it cannot be recovered afterwards, because only the hash is stored. A password
-you set yourself is deliberately *not* printed. With no email configured the
-admin is skipped, not failed: everything else is seeded, and the log says what
-to set and how to run the step again.
+you set yourself is deliberately *not* printed: the same line comes out naming
+`BOOTSTRAP_ADMIN_PASSWORD` instead of repeating its value into a log. With no
+email configured the admin is skipped, not failed: everything else is seeded, and
+the log says what to set and how to run the step again. It is the same mechanism
+as `mix vr.bootstrap_admin`, reached from the release path — "Creating the initial
+account" below covers all three entry points at once.
 
 `bin/vr start` needs `SECRET_KEY_BASE` and `CLOAK_KEY` — the preparation step
 above does not. That split is why a missing app secret no longer stops a
@@ -317,36 +329,67 @@ succeeded. Sign in with the bootstrap admin, then read
 shared the same values, that alone would be an attack target. The first account is
 created once, with values you choose yourself.
 
+**One mechanism creates it, and three commands reach it.** They read the same
+`BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD`, and report the same four
+outcomes in the same words — created, an admin was already there, another run got
+there first, the address was refused. Pick the row that describes where you are:
+
+| Command | Reach for it when |
+|---|---|
+| `mix vr.bootstrap_admin` | you want the account and nothing else. This is the command `mix vr.doctor` prints when there is no admin |
+| `mix run priv/repo/seeds.exs` | you are preparing a checkout's database and want all three seed rows — see "Database preparation" above |
+| `bin/vr eval 'VR.Release.seed()'` | you are on the release path, where there is no `mix` — see "Deploying a preview" above |
+
+The rest of this section uses the first one; the other two behave identically for
+the admin account, and their own sections cover what else they do.
+
+**Supply the password and it is never repeated back to you.** You already have it,
+and a terminal scrollback or a deploy log is one more place it can leak from — so
+the `Password` line names where the value came from instead of printing it:
+
 ```bash
 cd backend
 
-# Choose the username (email) and password yourself
 BOOTSTRAP_ADMIN_EMAIL=admin@example.com \
 BOOTSTRAP_ADMIN_PASSWORD='a-strong-password-you-chose' \
-  mix run priv/repo/seeds.exs
+  mix vr.bootstrap_admin
 ```
 
-A password you supply this way is **not printed back.** You already have it, and a
-terminal scrollback or a deploy log is one more place it can leak from.
+```
+    Email     admin@example.com
+    Password  the value set in BOOTSTRAP_ADMIN_PASSWORD
+```
 
-If you omit the password, **a random one is generated and printed to the screen once.**
-Write it down at that moment — only the hash is stored in the DB, so it cannot be viewed again.
+**Omit the password and a random one is generated — printed once, here, and
+nowhere else.** Write it down at that moment: only the hash is stored, so it
+cannot be looked up again.
 
 ```bash
-BOOTSTRAP_ADMIN_EMAIL=admin@example.com mix run priv/repo/seeds.exs
-# → Created the initial admin account
-#
-#       Email     admin@example.com
-#       Password  xxxxxxxxxxxxxxxxxxxxxxxx
-#
-#     This password is only shown right now. Save it somewhere.
+mix vr.bootstrap_admin --email admin@example.com
 ```
 
-`mix vr.bootstrap_admin` creates the same account without the other seed rows, and
-reports the same outcomes — including when a deploy's seed step created the admin at
-the same moment.
+```
+┌──────────────────────────────────────────────────────────┐
+  Created the initial admin account
 
-If at least one admin already exists, this command does nothing.
+    Email     admin@example.com
+    Password  xxxxxxxxxxxxxxxxxxxxxxxx
+
+  This password is only shown right now. Save it somewhere.
+  Delete this account after promoting a real user to admin.
+└──────────────────────────────────────────────────────────┘
+```
+
+At a terminal the command prints the four next steps under that box, ending in
+deleting this account once a real user has been promoted. `--email` and
+`--password` are the same two values by another name — the environment variables
+are what the other two commands have to use, having no command line of their own.
+
+**If at least one admin already exists, all three do nothing** — including when a
+deploy's seed step created the account at the very same moment. The run that loses
+that race reports the account as already there, not as a failed command. That is
+what makes step 3 of the clean-checkout sequence, and the seed step of every
+deploy, safe to repeat.
 
 To promote or demote an existing account:
 

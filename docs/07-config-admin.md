@@ -204,11 +204,17 @@ admin UI. It still starts no Endpoint, so `SECRET_KEY_BASE` stays out of it.
 Any deployment that runs the app already has `CLOAK_KEY` — the app does not boot
 without one.
 
+`mix vr.bootstrap_admin` is not a fourth column: it is a Mix task, so it boots
+the app and needs exactly what the last column needs. It appears here only
+because it writes one of the rows the seed step writes — see "Preparing the
+database" below.
+
 `mix vr.doctor` prints this same split as three rows — one per command, each
 naming the value it adds — and follows it with the seed rows a prepared database
 should hold. A row's mark answers "can this command run right now", not "is this
 variable set": a checkout whose connection comes from `config/dev.exs` is not
-reported as a broken migration.
+reported as a broken migration. The seed rows carry the command that creates each
+missing one, which is where `mix vr.bootstrap_admin` is named.
 
 `VR.Release.migrate/0` then states its own requirement — a missing
 `DATABASE_URL`, an unreachable database, or an extension the role cannot create
@@ -240,12 +246,30 @@ The admin is **skipped, not failed**, when no email is configured: the rest is
 seeded and the message says what to set and how to run it again. There is no
 default address — one shared across every deployment would itself be the target.
 A generated password is printed once because nothing else can show it; a
-password the operator configured is *not* printed, since this output is a deploy
-log.
+password the operator configured is *not* printed — the same `Password` line
+comes out naming `BOOTSTRAP_ADMIN_PASSWORD`, since this output is a deploy log
+and the operator already has the value.
+
+**Three commands create that admin row, and one module decides what they say.**
+`VR.Release.BootstrapAdmin` holds the four outcomes — created, already there,
+another run got there first, the address was refused — so the three cannot drift
+into three answers:
+
+| Command | Creates | Fatal when no email is configured |
+|---|---|---|
+| `bin/vr eval 'VR.Release.seed()'` | all three rows | no — the step reports the skip and the other two are seeded |
+| `mix run priv/repo/seeds.exs` | all three rows | no — same, from a checkout |
+| `mix vr.bootstrap_admin` | the admin row only | **yes** — creating it is the whole command, so nothing happened |
+
+Fatality is the one thing the entry point still decides, and it decides it for
+the reason above: a skipped step inside a longer run is not a command that did
+nothing. Everything else — wording, the diagnostic block, whether the password is
+printed — is one string, chosen once.
 
 `priv/repo/seeds.exs` is the same code — it calls `VR.Release.seed/1` and passes
-its own command name for the messages. A release has no Mix and cannot run that
-file, and two copies would have drifted.
+its own command name for the messages, so a checkout is never told to run a
+release command. A release has no Mix and cannot run that file, and two copies
+would have drifted.
 
 ### Serving over plain HTTP — the public URL
 
@@ -401,7 +425,7 @@ APP_TRUST_PROXY_HEADERS=       # true only behind a reverse proxy
 APP_TIMEZONE=                  # if empty, Asia/Seoul
 
 # ── Initial admin (first run only) ─────────
-BOOTSTRAP_ADMIN_EMAIL=         # no default — the seed step skips the admin without it
+BOOTSTRAP_ADMIN_EMAIL=         # no default — without it no admin account is created
 BOOTSTRAP_ADMIN_PASSWORD=      # if empty, generated and printed once
 
 # ── Khala integration ──────────────────────
