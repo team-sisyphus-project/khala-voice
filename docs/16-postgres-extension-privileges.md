@@ -100,6 +100,19 @@ unresolvable, and PostgreSQL then reports only `type "citext" does not exist`
 — an opaque failure several statements later. Case 2 above turns that into a
 named action.
 
+### The preflight asks the same question
+
+`VR.DBPreflight.check_extensions/1` — what `mix vr.doctor` prints and what
+`VR.Release.preflight!/2` refuses to migrate past — runs the **same**
+`current_schemas(true)` test as case 2 above, and reports the same schema, role
+and two `ALTER` statements. A presence check alone would have passed here and
+handed the operator the opaque failure the guard exists to prevent, one step
+later than necessary.
+
+The two live in different places on purpose (the migration must be
+self-contained), so the rule they share is written down in both: **installed is
+not reachable, and only reachable is ready.**
+
 ## What an administrator has to run
 
 ```sql
@@ -135,6 +148,7 @@ database:
 | Extensions pre-provisioned by `postgres`, all 23 migrations run as the limited role | All 23 up, then all 23 down; `citext` and `pg_trgm` still installed afterwards |
 | Same role, extensions absent | Raises the `insufficient_privilege` message naming `citext`, before any table is created |
 | Extensions installed into an unsearched schema | Raises the reachability message naming the schema and both `ALTER` statements |
+| Same, seen from `mix vr.doctor` / `VR.Release.preflight!` | Reported as an error naming the same schema, role and `ALTER` statements — before the migration starts |
 
 `backend/test/vr/migration_extension_guard_test.exs` holds the regression tests,
 including the limited-role cases; it drives both migration copies of the guard so

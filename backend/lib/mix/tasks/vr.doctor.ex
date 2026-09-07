@@ -102,6 +102,9 @@ defmodule Mix.Tasks.Vr.Doctor do
         :creatable ->
           line(:warn, ext, "not installed — migrations will create it (mix ecto.migrate)")
 
+        {:unreachable, message} ->
+          line(:error, ext, message)
+
         {:not_creatable, message} ->
           line(:error, ext, message)
 

@@ -59,7 +59,28 @@ defmodule VR.ReleaseTest do
     def config, do: [hostname: "db.internal", database: "vr_prod", username: "vr_app"]
 
     def query("SELECT 1", []), do: {:ok, %{num_rows: 1}}
-    def query("SELECT 1 FROM pg_extension" <> _, [_ext]), do: {:ok, %{num_rows: 0}}
+
+    # The reachability probe and the presence probe answer separately: an
+    # extension can be present and still out of reach, which is the one case
+    # where those two answers differ.
+    def query("SELECT 1 FROM pg_extension e" <> _, [_ext]), do: {:ok, %{num_rows: 0, rows: []}}
+
+    def query("SELECT 1 FROM pg_extension WHERE" <> _, [_ext]) do
+      case Process.get(:extension_mode) do
+        :unreachable -> {:ok, %{num_rows: 1}}
+        _ -> {:ok, %{num_rows: 0}}
+      end
+    end
+
+    # Diagnostics for the unreachable case, in the shape a managed database
+    # produces: extension in its own schema, app role searching only public.
+    def query("SELECT n.nspname FROM pg_extension" <> _, [_ext]),
+      do: {:ok, %{rows: [["vr_extensions"]]}}
+
+    def query("SELECT current_user", []), do: {:ok, %{rows: [["vr_app"]]}}
+
+    def query("SELECT coalesce(nullif(array_to_string(current_schemas" <> _, []),
+      do: {:ok, %{rows: [[~s("$user", public)]]}}
 
     def query("SELECT 1 FROM pg_available_extensions" <> _, [_ext]) do
       case Process.get(:extension_mode) do
@@ -182,7 +203,7 @@ defmodule VR.ReleaseTest do
       # :catalog_error is absent on purpose — it warns and lets the migration
       # through, so it never reaches not_ready_message/1.
       messages =
-        for mode <- [:not_creatable, :unavailable] do
+        for mode <- [:not_creatable, :unavailable, :unreachable] do
           with_extension_mode(mode, fn ->
             {mode, assert_raise(RuntimeError, fn -> Release.preflight!(ExtensionRepo) end)}
           end)
@@ -211,6 +232,46 @@ defmodule VR.ReleaseTest do
         for ext <- ~w(citext pg_trgm) do
           sql = ~s(CREATE EXTENSION IF NOT EXISTS "#{ext}")
 
+          assert Enum.any?(lines, &String.contains?(&1, sql)),
+                 "#{sql} was split across lines:\n#{message.message}"
+        end
+      end)
+    end
+
+    # An extension an administrator installed into a dedicated schema is
+    # present in `pg_extension` and still unusable. Without this the preflight
+    # passed and the migration died several statements later on
+    # `type "citext" does not exist`.
+    test "an extension parked off the search_path stops the migration, with both ALTERs" do
+      with_extension_mode(:unreachable, fn ->
+        message = assert_raise(RuntimeError, fn -> Release.preflight!(ExtensionRepo) end)
+
+        for ext <- ~w(citext pg_trgm) do
+          assert message.message =~ ~s(the PostgreSQL extension "#{ext}")
+          assert message.message =~ ~s(ALTER EXTENSION "#{ext}" SET SCHEMA public)
+        end
+
+        assert message.message =~ ~s(schema "vr_extensions")
+        assert message.message =~ ~s(role "vr_app")
+        assert message.message =~ ~s(ALTER ROLE "vr_app" SET search_path =)
+        # "a database administrator" itself falls across the wrap here.
+        assert message.message =~ "administrator must run"
+        assert message.message =~ "Nothing has been migrated"
+        assert message.message =~ @entry_point
+      end)
+    end
+
+    # Same reason as the CREATE EXTENSION case: these are copied and pasted.
+    test "the ALTER statements survive wrapping, each on one line" do
+      with_extension_mode(:unreachable, fn ->
+        message = assert_raise(RuntimeError, fn -> Release.preflight!(ExtensionRepo) end)
+        lines = String.split(message.message, "\n")
+
+        for sql <- [
+              ~s(ALTER EXTENSION "citext" SET SCHEMA public),
+              ~s(ALTER EXTENSION "pg_trgm" SET SCHEMA public),
+              ~s(ALTER ROLE "vr_app" SET search_path = "$user", public, "vr_extensions")
+            ] do
           assert Enum.any?(lines, &String.contains?(&1, sql)),
                  "#{sql} was split across lines:\n#{message.message}"
         end
