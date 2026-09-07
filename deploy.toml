@@ -1,3 +1,20 @@
+# What a preview platform cannot read off the image, and nothing else.
+#
+# There is deliberately no `preview.toml` beside this file. An explicit preview
+# configuration exists to resolve ambiguous build/run detection, and detection
+# here is not ambiguous: the repository root carries exactly one build
+# descriptor — the `Dockerfile`, built from the root as its own context — and
+# that image declares its start command (`CMD ["/app/bin/vr", "start"]`), so
+# `docker run` with no command starts the server. Both halves are checked on
+# every run by `scripts/verify-preview.sh`, whose `detect` step goes red if a
+# second build descriptor ever lands at the root or the CMD disappears.
+#
+# The three keys below are the remainder: the parts of a preview an image
+# genuinely cannot state about itself.
+
 database = true
-migrate = "/app/bin/vr eval 'VR.Release.migrate()'"
+# Migrate, then seed. One `eval`, two steps: `;` sequences them in Elixir, so
+# the seed only runs when the migration returned without raising. Both are
+# idempotent, so the whole line is safe to run on every deploy.
+migrate = "/app/bin/vr eval 'VR.Release.migrate(); VR.Release.seed()'"
 healthcheck = "/healthz"

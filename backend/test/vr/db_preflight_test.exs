@@ -86,6 +86,33 @@ defmodule VR.DBPreflightTest do
     def rollback(value), do: throw({:vr_test_rollback, value})
   end
 
+  defmodule HiddenExtensionRepo do
+    # The real test database with exactly one answer changed: the reachability
+    # probe says "no". Everything else — `pg_extension`, the extension's schema,
+    # `current_user`, `search_path` — comes from the real server, so the
+    # diagnostic is assembled from real catalog reads, the way it would be on a
+    # managed database that parked the extension off the role's search_path.
+    def config, do: VR.Repo.config()
+
+    def query(sql, params) do
+      if String.contains?(sql, "current_schemas(true)") do
+        {:ok, %{num_rows: 0, rows: []}}
+      else
+        VR.Repo.query(sql, params)
+      end
+    end
+  end
+
+  defmodule MuteHiddenExtensionRepo do
+    # Same, but every diagnostic read comes back empty: a check must still
+    # classify, and say so with `?` where a value could not be read.
+    def config, do: [hostname: "db.internal", database: "vr_prod"]
+
+    def query("SELECT 1 FROM pg_extension e" <> _, [_ext]), do: {:ok, %{num_rows: 0, rows: []}}
+    def query("SELECT 1 FROM pg_extension WHERE" <> _, [_ext]), do: {:ok, %{num_rows: 1}}
+    def query(_sql, _params), do: {:error, %Postgrex.Error{postgres: %{message: "denied"}}}
+  end
+
   # ── Connection ─────────────────────────────────────────────
 
   describe "check_connection/1" do
@@ -220,6 +247,40 @@ defmodule VR.DBPreflightTest do
       assert_received :extension_created
       assert_received :probe_rolled_back
       refute_received :extension_created
+    end
+
+    test "installed but off the search_path is not ready — it names the schema and both ALTERs" do
+      results = DBPreflight.check_extensions(HiddenExtensionRepo)
+
+      role = VR.Repo.query!("SELECT current_user", []).rows |> hd() |> hd()
+
+      for ext <- ~w(citext pg_trgm) do
+        assert {:unreachable, message} = :proplists.get_value(ext, results)
+
+        # The schema it is in, the role that cannot see it, and its search_path.
+        assert message =~ ~s(installed in schema "public")
+        assert message =~ ~s(role "#{role}")
+        assert message =~ "search_path"
+
+        # Both remedies, each as one copyable statement.
+        assert message =~ ~s(`ALTER EXTENSION "#{ext}" SET SCHEMA public`)
+        assert message =~ ~s(`ALTER ROLE "#{role}" SET search_path = "$user", public, "public"`)
+
+        assert message =~ "database administrator"
+        assert message =~ "before migration"
+        # The opaque failure this check exists to pre-empt, quoted as such.
+        assert message =~ ~s(bare "does not exist" error)
+      end
+    end
+
+    test "the reachability answer does not depend on the diagnostic reads succeeding" do
+      results = DBPreflight.check_extensions(MuteHiddenExtensionRepo)
+
+      for ext <- ~w(citext pg_trgm) do
+        assert {:unreachable, message} = :proplists.get_value(ext, results)
+        assert message =~ ~s(installed in schema "?")
+        assert message =~ ~s(`ALTER EXTENSION "#{ext}" SET SCHEMA public`)
+      end
     end
 
     test "connection loss mid-check degrades to an error, not a crash" do

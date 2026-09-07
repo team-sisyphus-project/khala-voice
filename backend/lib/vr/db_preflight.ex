@@ -16,6 +16,17 @@ defmodule VR.DBPreflight do
   `insufficient_privilege`. The probe here runs the same statement inside a
   transaction that is always rolled back, so the answer — "a DBA must create
   this first" — arrives *before* migration, with no side effect either way.
+
+  ## Why presence is not readiness
+
+  An extension can be installed and still be unusable: parked in a schema the
+  migrating role does not search, its types cannot be resolved and PostgreSQL
+  reports only `type "citext" does not exist`, several statements in. The
+  migrations already refuse to start in that state (see
+  `docs/16-postgres-extension-privileges.md`); this module asks the same
+  question — is it in `current_schemas(true)`? — so `mix vr.doctor` and
+  `VR.Release.preflight!/2` stop at the same place, with the same two `ALTER`
+  statements, instead of letting the migration run into the opaque failure.
   """
 
   @extensions ~w(citext pg_trgm)
@@ -23,9 +34,13 @@ defmodule VR.DBPreflight do
   @typedoc """
   Status of one required extension.
 
-    * `:installed` — present in `pg_extension`, nothing to do.
+    * `:installed` — present in `pg_extension` *and* reachable from the
+      current role's `search_path`, which is what the migrations need.
     * `:creatable` — missing, but the current role can create it; migrations
       will do so.
+    * `{:unreachable, message}` — installed, but in a schema the role does not
+      search; an administrator must move the extension or widen the
+      `search_path` before migration.
     * `{:not_creatable, message}` — missing and the role lacks the privilege;
       a database administrator must create it before migration.
     * `{:unavailable, message}` — missing from `pg_available_extensions`;
@@ -35,6 +50,7 @@ defmodule VR.DBPreflight do
   @type extension_status ::
           :installed
           | :creatable
+          | {:unreachable, String.t()}
           | {:not_creatable, String.t()}
           | {:unavailable, String.t()}
           | {:error, String.t()}
@@ -85,9 +101,9 @@ defmodule VR.DBPreflight do
   end
 
   @doc """
-  Checks each required extension: installed → creatable by the current role →
-  otherwise who has to act. Returns `[{extension_name, status}]` in
-  `extensions()` order.
+  Checks each required extension: reachable → installed but out of reach →
+  creatable by the current role → otherwise who has to act. Returns
+  `[{extension_name, status}]` in `extensions()` order.
 
   The creatability probe runs `CREATE EXTENSION IF NOT EXISTS` inside a
   transaction that is always rolled back, so a successful probe leaves the
@@ -189,11 +205,13 @@ defmodule VR.DBPreflight do
   # ── Extension check internals ─────────────────────────────
 
   defp extension_check(repo, ext) do
-    with {:installed?, {:ok, false}} <- {:installed?, extension_installed?(repo, ext)},
+    with {:reachable?, {:ok, false}} <- {:reachable?, extension_reachable?(repo, ext)},
+         {:installed?, {:ok, false}} <- {:installed?, extension_installed?(repo, ext)},
          {:available?, {:ok, true}} <- {:available?, extension_available?(repo, ext)} do
       probe_create(repo, ext)
     else
-      {:installed?, {:ok, true}} -> :installed
+      {:reachable?, {:ok, true}} -> :installed
+      {:installed?, {:ok, true}} -> {:unreachable, unreachable_message(repo, ext)}
       {:available?, {:ok, false}} -> {:unavailable, unavailable_message(ext)}
       {_step, {:error, error}} -> {:error, check_failure_message(error, repo)}
     end
@@ -202,6 +220,33 @@ defmodule VR.DBPreflight do
   catch
     :exit, reason -> {:error, check_failure_message({:exit, reason}, repo)}
   end
+
+  # Installed *and* in a schema on this role's effective search_path — the same
+  # test the migration guards run, because the two must agree on what "ready"
+  # means. `current_schemas(true)` is what resolves the unqualified `:citext`
+  # column type; an extension outside it is present but unusable.
+  #
+  # One line (the `\` escapes join it): every message this module builds is a
+  # single line, and so is anything it might echo into one.
+  @reachable_sql "SELECT 1 FROM pg_extension e \
+JOIN pg_namespace n ON n.oid = e.extnamespace \
+WHERE e.extname = $1 AND n.nspname = ANY (current_schemas(true))"
+
+  defp extension_reachable?(repo, ext) do
+    case repo.query(@reachable_sql, [ext]) do
+      {:ok, %{num_rows: n}} -> {:ok, n > 0}
+      {:error, error} -> {:error, error}
+    end
+  end
+
+  # What the message quotes when it is not reachable. `current_schemas(false)`
+  # omits the implicit pg_temp/pg_catalog, so the search_path reads back the
+  # way an operator would have written it.
+  @search_path_sql "SELECT coalesce(nullif(array_to_string(current_schemas(false), \
+', '), ''), '(empty)')"
+
+  @extension_schema_sql "SELECT n.nspname FROM pg_extension e \
+JOIN pg_namespace n ON n.oid = e.extnamespace WHERE e.extname = $1"
 
   defp extension_installed?(repo, ext) do
     case repo.query("SELECT 1 FROM pg_extension WHERE extname = $1", [ext]) do
@@ -241,6 +286,38 @@ defmodule VR.DBPreflight do
     "not installed, and the current database role cannot create it " <>
       "(#{describe_error(error)}) — a database administrator must run " <>
       ~s(`CREATE EXTENSION IF NOT EXISTS "#{ext}"` before migration.)
+  end
+
+  # Both `ALTER` statements, because only an administrator knows which one is
+  # right: moving the extension changes it for every role, widening the
+  # search_path changes it for one. The role's current search_path is reported
+  # but never reused inside the SQL — an empty or exotic one would produce a
+  # statement that does not run. Mirrors the migration guard's wording.
+  defp unreachable_message(repo, ext) do
+    schema = scalar(repo, @extension_schema_sql, [ext]) || "?"
+    role = scalar(repo, "SELECT current_user", []) || "?"
+    search_path = scalar(repo, @search_path_sql, []) || "?"
+
+    ~s(installed in schema "#{schema}", which role "#{role}" does not search; ) <>
+      ~s(its search_path is #{search_path}, so the migration would fail with a ) <>
+      ~s(bare "does not exist" error — a database administrator must run either ) <>
+      ~s(`ALTER EXTENSION "#{ext}" SET SCHEMA public` or ) <>
+      ~s(`ALTER ROLE "#{role}" SET search_path = "$user", public, "#{schema}"` ) <>
+      "before migration."
+  end
+
+  # The diagnostic values decorate a classification that is already decided:
+  # failing to read one must not turn "unreachable" into "check failed". A
+  # missing value degrades to `?`, as it does in the migration guard.
+  defp scalar(repo, sql, params) do
+    case repo.query(sql, params) do
+      {:ok, %{rows: [[value] | _]}} when not is_nil(value) -> to_string(value)
+      _ -> nil
+    end
+  rescue
+    _ -> nil
+  catch
+    :exit, _ -> nil
   end
 
   defp unavailable_message(ext) do
