@@ -195,19 +195,30 @@ every command here is `bin/vr`, the release launcher.
 
 ### 1. What a preview actually needs
 
-The platform provides `DATABASE_URL` and `PORT`. Everything else is on you, and
-it is a short list:
+**Eight values: the platform hands you two, two are secrets the app cannot boot
+without, and the last four are non-secret and decide whether the running app is
+usable.** The `Needed for` column is that split — which command asks for a
+value, not the order you set them in:
 
-| Variable | Secret? | Why a preview needs it |
-|---|---|---|
-| `DATABASE_URL` | platform-provided | **Required** — migrate, seed, and the app all connect through it |
-| `PORT` | platform-provided | **Optional** — what the app listens on. Empty means `4000` |
-| `SECRET_KEY_BASE` | **secret** — `mix phx.gen.secret`, or any 64+ random bytes | **Required to start** — signs and encrypts cookies. Migrations never read it |
-| `CLOAK_KEY` | **secret** — `openssl rand -base64 32` | **Required to start and to seed** — encrypts settings stored in the DB |
-| `PHX_HOST` | no | **Required** — the hostname the preview answers on. Stamped onto the links the app itself generates |
-| `PHX_SCHEME` | no | **Required over plain HTTP** — set it to `http`; leave it empty behind a TLS terminator. See step 4 |
-| `APP_BASE_URL` | no | **Required for share links and account mail** — the whole public address, e.g. `http://preview.example.test`. Not derived from the two above |
-| `BOOTSTRAP_ADMIN_EMAIL` | no | **Optional** — the address of the first admin account. Without it, nobody can open `/_admin` |
+| Variable | Needed for | Secret? | Why a preview needs it |
+|---|---|---|---|
+| `DATABASE_URL` | app boot · migrate · seed | platform-provided | **Required** — migrate, seed, and the app all connect through it |
+| `PORT` | app boot | platform-provided | **Optional** — what the app listens on. Empty means `4000` |
+| `SECRET_KEY_BASE` | app boot | **secret** — `mix phx.gen.secret`, or any 64+ random bytes | **Required to start** — signs and encrypts cookies. Migrations never read it |
+| `CLOAK_KEY` | app boot · seed | **secret** — `openssl rand -base64 32` | **Required to start and to seed** — encrypts settings stored in the DB |
+| `PHX_HOST` | preview preparation | no | **Required** — the hostname the preview answers on. Stamped onto the links the app itself generates |
+| `PHX_SCHEME` | preview preparation | no | **Required over plain HTTP** — set it to `http`; leave it empty behind a TLS terminator. See step 4 |
+| `APP_BASE_URL` | preview preparation | no | **Required for share links and account mail** — the whole public address, e.g. `http://preview.example.test`. Not derived from the two above |
+| `BOOTSTRAP_ADMIN_EMAIL` | preview preparation | no | **Optional** — the address of the first admin account. Without it, nobody can open `/_admin` |
+
+**Only an `app boot` row can stop a command.** The four preview-preparation
+values halt nothing at all: leave every one of them empty and the preview still
+builds, still migrates, still starts, and still answers 200 — wrongly, because
+the links it hands out point at an origin that does not answer and no account
+exists to sign in with. They are on this list because no command will tell you
+they are missing. Which entry point reads which value, and why the two secrets
+are not among them at migration time, is in
+[docs/07-config-admin.md](docs/07-config-admin.md#entry-points--what-each-one-actually-requires).
 
 **Generate the two secrets, keep them in the platform's secret store, and never
 commit them.** There are no defaults in the code for either, and no default
@@ -224,17 +235,19 @@ preview still answers 200, wrongly: share links come back as bare paths
 never sent at all — the notifier stops rather than mail a link to nowhere. Give
 it the same scheme, host and public port you gave the endpoint.
 
-Nothing reads `APP_BASE_URL` at boot, so neither entry point stops for it: a
-wrong value shows up as a wrong link, never as a failed start or a
-`migration_failed`. It is also the one variable here you can correct later
-without a redeploy — a value saved in `/_admin` wins over the environment
+A wrong `APP_BASE_URL` shows up as a wrong link, never as a failed start or a
+`migration_failed`, and it is the one value here you can correct later without
+a redeploy — a value saved in `/_admin` wins over the environment
 ([docs/07-config-admin.md](docs/07-config-admin.md#serving-over-plain-http--the-public-url)).
 
 Nothing else is required. Storage, transcription, LLM, mail and push are all
 off until configured, and the app boots, serves, and signs you in without them
 ([docs/00-setup-checklist.md](docs/00-setup-checklist.md) covers turning them
-on). **Redis is not one of them** — there is no `REDIS_URL`, here or anywhere
-else in this repo.
+on). **Redis is not one of them** — background jobs run on Oban over Postgres,
+so there is no `REDIS_URL` to set, here or anywhere else in this repo. A
+platform template that lists it as required is describing a different app, and
+this repository cannot correct that template: delete the variable there rather
+than stand up a Redis for nothing to connect to.
 
 ### 2. Build
 
