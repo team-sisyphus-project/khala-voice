@@ -8,6 +8,14 @@
 # broke: build the web app, create a green-field database, migrate, seed,
 # start on PORT, and check that the first screen answers 200 over plain HTTP.
 #
+# **Plain HTTP is asserted, not assumed.** The run is handed PHX_SCHEME=http and
+# no REDIS_URL, and then reads back what the server actually did: no hop of the
+# first-screen chain redirects to https://, nothing sends
+# Strict-Transport-Security, and the absolute links the app builds from its own
+# config say http://. A preview sits behind a TLS terminator that speaks plain
+# HTTP to this process — each of those three is a way it breaks while the status
+# code still says 200.
+#
 # **The database is a throwaway.** Every run creates its own, named after this
 # process, and drops it on the way out — passed or failed. That is what makes
 # the run repeatable: a second run is as green-field as the first, so "it only
@@ -55,7 +63,8 @@ Verify the clean-checkout preview sequence against a throwaway database.
     --keep-db    leave the throwaway database behind to inspect it
 
     DATABASE_URL must be set — the throwaway database is created on the
-    server it names.
+    server it names. REDIS_URL is removed from the environment if you have
+    one: nothing here reads it, and the run proves as much by not having it.
 USAGE
 }
 
@@ -190,6 +199,51 @@ run_in() {
   [ "$status" -eq 0 ] || step_failed "It exited $status." "$*"
 }
 
+# ── Plain HTTP ───────────────────────────────────────────────────
+#
+#  A preview sits behind a TLS terminator: the browser speaks https to the
+#  terminator, the terminator speaks plain http to this process. Two response
+#  headers break that arrangement while the status code still reads fine:
+#
+#    Location: https://…    the hop leaves plain http, and nothing answers https
+#                          on this port. The chain dead-ends at the browser.
+#
+#    Strict-Transport-Security
+#                          the browser writes the rule down and refuses plain
+#                          http for this host from then on — not just for this
+#                          run, and not just for this preview.
+#
+#  `force_ssl` is what produces both, and it is off. This is what keeps it off:
+#  the headers are read out of what the run received, so turning it on turns
+#  this run red instead of turning a preview into a dead link.
+
+assert_plain_http() {
+  local headers="$1" what="$2" hit
+
+  hit="$(grep -i '^location:[[:space:]]*https://' "$headers" | head -n 1 || true)"
+  if [ -n "$hit" ]; then
+    step_failed "$what was redirected to https:
+
+        $hit
+
+    Behind a TLS terminator nothing answers https on this port, so a browser
+    following that hop leaves the preview and never comes back. Serving over
+    plain http means not upgrading the scheme — see force_ssl and PHX_SCHEME
+    in config/runtime.exs."
+  fi
+
+  hit="$(grep -i '^strict-transport-security:' "$headers" | head -n 1 || true)"
+  if [ -n "$hit" ]; then
+    step_failed "$what carried an HSTS header:
+
+        $hit
+
+    A browser that reads this refuses plain http for this host afterwards —
+    including on the next preview, and long after this run is over. A preview
+    reached over plain http must not send it."
+  fi
+}
+
 # ── Cleanup ──────────────────────────────────────────────────────
 #
 #  Runs on every exit, including a failed step and a Ctrl-C. It stops *this
@@ -307,7 +361,20 @@ export APP_BASE_URL="$BASE_URL"
 export DATABASE_URL="$THROWAWAY_URL"
 export PORT
 
+# Nothing in this repository reads REDIS_URL — background work runs on
+# PostgreSQL — so a preview has to come up without one. It is *removed* rather
+# than simply not set: inherited from the caller's shell it would be invisible
+# here, and a run that passed only because somebody's environment happened to
+# carry one would be evidence of the opposite of what this claims.
+if [ -n "${REDIS_URL:-}" ]; then
+  unset REDIS_URL
+  redis_note="was set in this shell — removed for this run"
+else
+  redis_note="not set"
+fi
+
 step_ok "$DB_NAME on $PORT"
+row "· " "REDIS_URL" "$redis_note"
 row "· " "logs" "$LOG_DIR"
 
 # ── 2. web build ─────────────────────────────────────────────────
@@ -410,10 +477,26 @@ step_ok "200 ok"
 #  The one assertion the whole run exists for. `-L` because / is a redirect:
 #  what has to be 200 is where it lands, over plain http, with nothing in
 #  front of it.
+#
+#  Every hop's headers are kept. The next step reads them; this one reads them
+#  only when the request could not be finished, because "a hop went to https"
+#  is a far more useful answer there than "curl exited 35".
 
 step_start first-screen
-result="$(curl -sS -L -o /dev/null -w '%{http_code} %{num_redirects} %{url_effective}' "$BASE_URL/")" \
-  || step_failed "GET / could not be completed." "curl -L $BASE_URL/"
+CHAIN_HEADERS="$LOG_DIR/first-screen.headers"
+: > "$CHAIN_HEADERS"
+
+if ! result="$(curl -sS -L -D "$CHAIN_HEADERS.raw" -o /dev/null \
+                 -w '%{http_code} %{num_redirects} %{url_effective}' \
+                 "$BASE_URL/" 2>>"$STEP_LOG")"; then
+  # Header lines arrive CRLF-terminated. The CR comes off once, here, so the
+  # patterns below can anchor on the end of a value.
+  tr -d '\r' < "$CHAIN_HEADERS.raw" > "$CHAIN_HEADERS"
+  assert_plain_http "$CHAIN_HEADERS" "GET /"
+  step_failed "GET / could not be completed." "curl -L $BASE_URL/"
+fi
+
+tr -d '\r' < "$CHAIN_HEADERS.raw" > "$CHAIN_HEADERS"
 
 status="${result%% *}"
 rest="${result#* }"
@@ -427,9 +510,106 @@ landed="${rest#* }"
 
 step_ok "200 at $landed after $redirects redirect(s)"
 
+# ── 10. plain http ───────────────────────────────────────────────
+#
+#  The 200 above says the screen exists. This says it is reachable the way a
+#  preview is actually reached — behind a terminator that speaks plain http to
+#  this process — which the status code alone cannot show.
+
+step_start plain-http
+
+assert_plain_http "$CHAIN_HEADERS" "The chain from GET /"
+
+# The same chain again, under a name that is not `localhost`.
+#
+# `Plug.SSL` — what `force_ssl` installs — exempts `localhost` and `127.0.0.1`
+# from its https redirect by default. So asking *this* host whether it upgrades
+# the scheme gets the answer this run wants for a reason that has nothing to do
+# with the answer: a preview served on a platform hostname would upgrade, and
+# the check above would still be green. Resolving a name of our own to the same
+# loopback address reaches the same server without that exemption.
+#
+# Only the headers are read. What a foreign Host name renders is the app's
+# business; whether it is told to leave plain http is this run's.
+FOREIGN_HOST="preview.verify.test"
+FOREIGN_HEADERS="$LOG_DIR/plain-http.foreign-host.headers"
+: > "$FOREIGN_HEADERS.raw"
+
+foreign_reached=true
+curl -sS -L --resolve "$FOREIGN_HOST:$PORT:127.0.0.1" \
+     -D "$FOREIGN_HEADERS.raw" -o /dev/null \
+     "http://$FOREIGN_HOST:$PORT/" 2>>"$STEP_LOG" || foreign_reached=false
+
+tr -d '\r' < "$FOREIGN_HEADERS.raw" > "$FOREIGN_HEADERS"
+assert_plain_http "$FOREIGN_HEADERS" "The chain from GET / as $FOREIGN_HOST"
+
+[ "$foreign_reached" = true ] || step_failed \
+  "GET http://$FOREIGN_HOST:$PORT/ could not be completed.
+    That is this same server, reached under a host name that is not exempt
+    from an https upgrade — which is how a preview is actually reached." \
+  "curl -L --resolve $FOREIGN_HOST:$PORT:127.0.0.1 http://$FOREIGN_HOST:$PORT/"
+
+case "$landed" in
+  http://*) ;;
+  *) step_failed "The first screen was reached at
+
+        $landed
+
+    which is not plain http. The 200 above was answered by something other
+    than this run's server." "curl -L $BASE_URL/" ;;
+esac
+
+# What the app *generates*, as against what it answered. Every absolute link
+# in the app — invite links, confirmation mails, the OAuth callback — is built
+# from one `url:` config, and the document below is built from that same
+# config and needs no account to read. So it is the one place this run can see
+# that config's effect from outside. Get it wrong and every screen still loads
+# 200 while every link leading off one goes nowhere.
+PROBE_PATH="/.well-known/oauth-protected-resource"
+PROBE_HEADERS="$LOG_DIR/plain-http.headers"
+
+probe_body="$(curl -fsS -D "$PROBE_HEADERS.raw" "$BASE_URL$PROBE_PATH" 2>>"$STEP_LOG")" \
+  || step_failed "GET $PROBE_PATH did not answer.
+    It is what tells this run which scheme the app stamps onto the links it
+    generates." "curl $BASE_URL$PROBE_PATH"
+
+tr -d '\r' < "$PROBE_HEADERS.raw" > "$PROBE_HEADERS"
+assert_plain_http "$PROBE_HEADERS" "GET $PROBE_PATH"
+
+generated="$(printf '%s' "$probe_body" | sed -n 's/.*"resource":"\([^"]*\)".*/\1/p')"
+
+[ -n "$generated" ] || step_failed \
+  "GET $PROBE_PATH answered without a \"resource\" URL in it, so this run
+    cannot read which scheme the app generates. What it answered:
+
+        $probe_body" "curl $BASE_URL$PROBE_PATH"
+
+# Phoenix leaves the port out of a generated URL when it is the scheme's own
+# default, so on port 80 the expected string has no port either.
+if [ "$PORT" = "80" ]; then
+  expected="http://localhost/mcp"
+else
+  expected="$BASE_URL/mcp"
+fi
+
+[ "$generated" = "$expected" ] || step_failed \
+  "The app generates its absolute links as
+
+        $generated
+
+    but it is being served at $BASE_URL, so they should read
+
+        $expected
+
+    PHX_SCHEME and PHX_URL_PORT are what set this — see config/runtime.exs." \
+  "curl $BASE_URL$PROBE_PATH"
+
+step_ok "no https hop, no HSTS, links $generated"
+
 # ── Done ─────────────────────────────────────────────────────────
 
 say ""
 say "  ✅ The clean-checkout sequence works. Green-field database, built,"
-say "     migrated, seeded, started on $PORT, first screen 200 over plain http."
+say "     migrated, seeded, started on $PORT with no REDIS_URL, first screen"
+say "     200 over plain http — no https hop, no HSTS, http:// links."
 say ""
