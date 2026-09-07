@@ -130,6 +130,25 @@ reachable and reports whether your database role can create the required
 PostgreSQL extensions — `citext` (case-insensitive text) and `pg_trgm`
 (text search) — before a migration fails halfway through.
 
+It also reports the other two things this sequence can go wrong on. **Required
+config** is listed per entry point — `migrate`, `seed`, `app boot`, each needing
+everything the one before it needs — so a value the migration never reads is
+never shown as stopping it. **Seed data** lists the rows the seed leaves behind,
+each with the command that creates it when it is missing:
+
+```
+━━━ Required config, by entry point ━━━
+  ✅ migrate            DATABASE_URL not set — using config/dev.exs
+  ✅ seed               CLOAK_KEY set
+  ❌ app boot           SECRET_KEY_BASE missing
+
+━━━ Seed data ━━━
+  ✅ credit conversion  1 credit = $0.0015
+  ✅ free plan          3000 credits/month
+  ❌ admin sign-in      no admin — /_admin cannot be opened by anyone
+       create: mix vr.bootstrap_admin --email you@example.com
+```
+
 **If your role cannot create extensions** (common on managed databases), a
 database administrator must create them before you run migrations:
 

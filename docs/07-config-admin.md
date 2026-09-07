@@ -204,6 +204,12 @@ admin UI. It still starts no Endpoint, so `SECRET_KEY_BASE` stays out of it.
 Any deployment that runs the app already has `CLOAK_KEY` — the app does not boot
 without one.
 
+`mix vr.doctor` prints this same split as three rows — one per command, each
+naming the value it adds — and follows it with the seed rows a prepared database
+should hold. A row's mark answers "can this command run right now", not "is this
+variable set": a checkout whose connection comes from `config/dev.exs` is not
+reported as a broken migration.
+
 `VR.Release.migrate/0` then states its own requirement — a missing
 `DATABASE_URL`, an unreachable database, or an extension the role cannot create
 each stops it **before** anything is migrated, with a message naming the value
