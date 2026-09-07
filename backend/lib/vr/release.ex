@@ -90,6 +90,11 @@ defmodule VR.Release do
   is no default address, because one shared address across every deployment
   would itself be the target. Everything else is still seeded.
 
+  "Only when it is absent" is decided by a read, so two deploys running this
+  at the same time can both read *absent* and both write. The one that loses
+  the unique index reports the row as already there and carries on: the deploy
+  step's job is to leave the row behind, not to be the one that wrote it.
+
   `:entry_point` overrides the command quoted in the messages. `priv/repo/seeds.exs`
   passes its own, so an operator running the Mix path is not told to run a
   release command that does not exist there.
@@ -176,22 +181,35 @@ defmodule VR.Release do
   # the plan and the conversion policy are already in place. Re-running after
   # fixing the address skips them.
   defp seed_all(entry_point) do
-    seed_credit_conversion()
-    seed_free_plan()
+    seed_credit_conversion(entry_point)
+    seed_free_plan(entry_point)
     seed_bootstrap_admin(entry_point)
     :ok
   end
+
+  # Every step below asks "is it there?" and then writes. Two deploys running
+  # this at the same time — or one re-run after the other died mid-step — both
+  # get a yes to that question and both write, and the second write loses on a
+  # unique index. That loss is not a failure: it is the same answer the check
+  # asked for, arriving a moment later. Said so, and only then.
+  @concurrently " — created by a concurrent run."
 
   # 1 credit = $N. Changed from the admin UI afterwards.
   # The default follows devkanban's reference value (≈ $0.0015, Cookie Crate basis).
   # Without this value usage cannot be converted into credits, so transcription
   # and summarization would go unmetered.
-  defp seed_credit_conversion do
+  defp seed_credit_conversion(entry_point) do
     if is_nil(VR.Billing.Credits.conversion_setting()) do
-      {:ok, setting} =
-        VR.Billing.Credits.put_conversion_setting(%{credit_value_usd: Decimal.new("0.0015")})
+      case VR.Billing.Credits.put_conversion_setting(%{credit_value_usd: Decimal.new("0.0015")}) do
+        {:ok, setting} ->
+          say(
+            "[seeds] created credit conversion policy — 1 credit = $#{setting.credit_value_usd}"
+          )
 
-      say("[seeds] created credit conversion policy — 1 credit = $#{setting.credit_value_usd}")
+        {:error, changeset} ->
+          duplicate!(changeset, "the credit conversion policy", entry_point)
+          say("[seeds] credit conversion policy already exists" <> @concurrently)
+      end
     else
       say("[seeds] credit conversion policy already exists.")
     end
@@ -200,31 +218,46 @@ defmodule VR.Release do
   # Every signup is subscribed to this automatically. Included credits are
   # changed from the admin UI (changing them publishes a new revision —
   # existing subscriptions are grandfathered).
-  defp seed_free_plan do
+  defp seed_free_plan(entry_point) do
     case VR.Billing.get_plan_by_key(VR.Billing.free_plan_key()) do
-      nil ->
-        {:ok, plan} =
-          VR.Billing.create_plan(%{
-            key: VR.Billing.free_plan_key(),
-            display_name: "Free",
-            description: "Record meetings, then transcribe and summarize them.",
-            status: "published",
-            publicly_listed: true,
-            sort_order: 0
-          })
+      nil -> create_free_plan(entry_point)
+      _plan -> say("[seeds] free plan already exists.")
+    end
+  end
 
-        {:ok, revision} =
-          VR.Billing.publish_revision(plan, %{
-            prices: %{"KRW" => %{"amount" => 0}, "USD" => %{"amount" => 0}},
-            interval: "month",
-            included_credits: 3_000,
-            limits: %{}
-          })
+  defp create_free_plan(entry_point) do
+    case VR.Billing.create_plan(%{
+           key: VR.Billing.free_plan_key(),
+           display_name: "Free",
+           description: "Record meetings, then transcribe and summarize them.",
+           status: "published",
+           publicly_listed: true,
+           sort_order: 0
+         }) do
+      {:ok, plan} ->
+        publish_free_plan(plan, entry_point)
 
+      {:error, changeset} ->
+        duplicate!(changeset, "the free plan", entry_point)
+        say("[seeds] free plan already exists" <> @concurrently)
+    end
+  end
+
+  # Only the run that inserted the plan gets here, and it is the only one that
+  # can insert revision 1 of it. So a failure here is never the race — it is
+  # reported as what it is.
+  defp publish_free_plan(plan, entry_point) do
+    case VR.Billing.publish_revision(plan, %{
+           prices: %{"KRW" => %{"amount" => 0}, "USD" => %{"amount" => 0}},
+           interval: "month",
+           included_credits: 3_000,
+           limits: %{}
+         }) do
+      {:ok, revision} ->
         say("[seeds] created free plan — #{revision.included_credits} credits/month")
 
-      _plan ->
-        say("[seeds] free plan already exists.")
+      {:error, changeset} ->
+        raise seed_failed_message("the free plan's first revision", changeset, entry_point)
     end
   end
 
@@ -244,20 +277,67 @@ defmodule VR.Release do
       {:error, :email_required} ->
         say(admin_skipped_message(entry_point))
 
+      # The address is taken *and* an admin now exists: the other run created
+      # it between the count above and this insert. Asking again is what tells
+      # the two apart — if no admin exists, the address belongs to somebody
+      # else's account, and that is a typo the operator has to see.
       {:error, %Ecto.Changeset{} = changeset} ->
-        raise """
-        the initial admin account could not be created.
-
-            email     #{inspect(VR.Config.fetch("app.bootstrap_admin_email"))}
-            rejected  #{changeset_errors(changeset)}
-
-        Everything else has been seeded. Fix BOOTSTRAP_ADMIN_EMAIL (and
-        BOOTSTRAP_ADMIN_PASSWORD, if it is the password that was rejected),
-        then re-run:
-
-            #{entry_point}
-        """
+        if already_there?(changeset) and VR.Accounts.Admin.count_admins() > 0 do
+          say("[seeds] an admin already exists" <> @concurrently <> " Skipping.")
+        else
+          raise admin_failed_message(changeset, entry_point)
+        end
     end
+  end
+
+  defp admin_failed_message(changeset, entry_point) do
+    """
+    the initial admin account could not be created.
+
+        email     #{inspect(VR.Config.fetch("app.bootstrap_admin_email"))}
+        rejected  #{changeset_errors(changeset)}
+
+    Everything else has been seeded. Fix BOOTSTRAP_ADMIN_EMAIL (and
+    BOOTSTRAP_ADMIN_PASSWORD, if it is the password that was rejected),
+    then re-run:
+
+        #{entry_point}
+    """
+  end
+
+  # "That row is already there" is the one rejection that is not a failure.
+  # Every other one is the seed being wrong, and stays loud.
+  defp duplicate!(changeset, subject, entry_point) do
+    if already_there?(changeset) do
+      :ok
+    else
+      raise seed_failed_message(subject, changeset, entry_point)
+    end
+  end
+
+  # It arrives in two shapes, and which one depends only on where the other
+  # deploy's row landed. After the changeset's own lookup for the same index
+  # (`unsafe_validate_unique/3`), the index rejects the write —
+  # `constraint: :unique`. Before it, that lookup finds the row and says so
+  # itself — `validation: :unsafe_unique`. One fact, two reporters.
+  defp already_there?(%Ecto.Changeset{errors: errors}) do
+    Enum.any?(errors, fn {_field, {_message, opts}} ->
+      opts[:constraint] == :unique or opts[:validation] == :unsafe_unique
+    end)
+  end
+
+  defp seed_failed_message(subject, changeset, entry_point) do
+    """
+    #{subject} could not be created.
+
+        rejected  #{changeset_errors(changeset)}
+
+    This is not a row that already exists, so re-running alone will not clear
+    it. The steps before this one are seeded and will be skipped next time.
+    Fix the cause, then re-run:
+
+        #{entry_point}
+    """
   end
 
   defp admin_created_message(account, password) do
