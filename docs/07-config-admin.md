@@ -163,9 +163,11 @@ features without configuration are simply off, and boot parameters have defaults
 
 ### Entry points — what each one actually requires
 
-A release evaluates `config/runtime.exs` for **every** command, the migration
-step included. So the boot requirements split by entry point, not by
-environment:
+**These values are one group in the configuration spec — boot infrastructure —
+but three conditions, and no single command needs all of them.** A release
+evaluates `config/runtime.exs` for **every** command it is given, the migration
+step included, so what a value is required *for* is decided by the entry point,
+not by the environment:
 
 | Requirement | `bin/vr start` · `mix phx.server` | `bin/vr eval 'VR.Release.migrate()'` | `bin/vr eval 'VR.Release.seed()'` | `mix ecto.migrate` · `mix setup` |
 |---|---|---|---|---|
@@ -173,16 +175,69 @@ environment:
 | `SECRET_KEY_BASE` | required | not read | not read | not read in dev/test |
 | `CLOAK_KEY` | required (`VR.Vault` refuses to boot) | not read | **required** | required — `mix` tasks boot the app |
 
-`eval` runs one expression on a **non-booted** system: no Endpoint, no Vault,
-no supervision tree. Requiring the app's secrets there is what turned a missing
-`SECRET_KEY_BASE` into a `migration_failed` with nothing about migrations in
-it. `runtime.exs` tells the two apart through `RELEASE_COMMAND`; Mix never sets
-it, so `mix ecto.migrate` and `mix setup` behave exactly as before.
+The columns group into three conditions. The first two are branches in
+`config/runtime.exs`. The third is not a branch at all — it is what an operator
+has to have in hand before anyone can sign in, and it is the one the table above
+cannot show, because no single command halts on it.
 
-The same split decides what a **malformed** value stops. `PORT`, `HTTPS_PORT`,
-`PHX_SCHEME` and `PHX_URL_PORT` describe how the world reaches a running app,
-so a wrong one halts the app and only warns at the database preparation entry
-point, which reads none of them:
+**1. App boot — `DATABASE_URL`, `SECRET_KEY_BASE`, `CLOAK_KEY`.** The entry
+points are `bin/vr start`, `mix phx.server`, and every Mix task
+(`mix ecto.migrate`, `mix setup`, `mix vr.bootstrap_admin`) — a Mix task boots
+the app, which is why it belongs here and not with the migration below. All
+three are required because something is actually started: the Endpoint signs and
+encrypts cookies with `SECRET_KEY_BASE`, and `VR.Vault` refuses to boot without
+`CLOAK_KEY`.
+
+**2. Migration only — `DATABASE_URL`, and nothing else.** The entry point is
+`bin/vr eval 'VR.Release.migrate()'`, the migration step in `deploy.toml`.
+`eval` runs one expression on a **non-booted** system: no Endpoint, no Vault, no
+supervision tree. It still evaluates the whole of `config/runtime.exs` on the
+way in, app-boot values included — that evaluation is incidental, not a
+requirement, and mistaking one for the other is the entire defect: requiring the
+app's secrets there is what turned a missing `SECRET_KEY_BASE` into a
+`migration_failed` with nothing about migrations in it. `runtime.exs` tells the
+two apart through `RELEASE_COMMAND`; Mix never sets it, so `mix ecto.migrate`
+and `mix setup` behave exactly as before.
+
+The seed step is the one exception to "an `eval` needs nothing": it writes
+application data, and reads configuration the way the app does — DB first, and
+`system_configs` values are encrypted. So `VR.Release.seed/1` starts `VR.Vault`
+and says up front that it needs `CLOAK_KEY`, rather than letting `VR.Config`
+quietly fall back to the environment and ignore a value an operator set in the
+admin UI. It still starts no Endpoint, so `SECRET_KEY_BASE` stays out of it.
+Any deployment that runs the app already has `CLOAK_KEY` — the app does not boot
+without one.
+
+**3. Preview preparation — `PHX_HOST`, `PHX_SCHEME`, `APP_BASE_URL`,
+`BOOTSTRAP_ADMIN_EMAIL`, on top of the two conditions above.** Its entry point
+is not one command but the four that take a green-field database to a preview
+somebody can sign in to: `docker build`, `bin/vr eval 'VR.Release.migrate()'`,
+`bin/vr eval 'VR.Release.seed()'`, `bin/vr start`. Conditions 1 and 2 get the
+app *running*; these four values are what make it *usable*, and every one of
+them is **non-secret** — the only secrets a preview needs are `SECRET_KEY_BASE`
+and `CLOAK_KEY`, generated per deployment and never committed, and
+`DATABASE_URL` / `PORT` come from the platform. Leave all four empty and the app
+still answers 200, wrongly: `PHX_HOST` and `PHX_SCHEME` decide whether the links
+the app generates point at an origin that answers, `APP_BASE_URL` decides
+whether share links and account mail carry a whole address, and without
+`BOOTSTRAP_ADMIN_EMAIL` the seed skips the admin row, so `/_admin` has nobody who
+can open it. Each is defined below; the sequence that uses them is
+[Deploying a preview](../README.md#1-what-a-preview-actually-needs).
+
+**Production is not this list plus more secrets — it is this list with two
+values decided differently.** `PHX_SCHEME` is *empty* in the usual production
+shape (the default, `https`, is what a TLS terminator in front of the app wants)
+and set to `http` only where nothing terminates TLS, which is the preview case;
+`BOOTSTRAP_ADMIN_EMAIL` is a first-run value an existing deployment has already
+consumed. What production adds beyond this is not boot configuration at all:
+storage, transcription, LLM, mail and push are settings-registry values, off
+until configured, and the app boots, serves and signs you in without them
+([00-setup-checklist.md](00-setup-checklist.md)).
+
+The first two conditions also decide what a **malformed** value stops. `PORT`,
+`HTTPS_PORT`, `PHX_SCHEME` and `PHX_URL_PORT` describe how the world reaches a
+running app, so a wrong one halts the app and only warns at the database
+preparation entry point, which reads none of them:
 
 | Value | `bin/vr start` · `mix phx.server` · Mix tasks | `bin/vr eval …` |
 |---|---|---|
@@ -195,26 +250,17 @@ which command will halt on it. Why it warns rather than halts, and what was
 decided before, is in
 [`17-runtime-entry-points.md`](17-runtime-entry-points.md).
 
-The seed step is the one exception to "an `eval` needs nothing": it writes
-application data, and reads configuration the way the app does — DB first, and
-`system_configs` values are encrypted. So `VR.Release.seed/1` starts `VR.Vault`
-and says up front that it needs `CLOAK_KEY`, rather than letting `VR.Config`
-quietly fall back to the environment and ignore a value an operator set in the
-admin UI. It still starts no Endpoint, so `SECRET_KEY_BASE` stays out of it.
-Any deployment that runs the app already has `CLOAK_KEY` — the app does not boot
-without one.
-
 `mix vr.bootstrap_admin` is not a fourth column: it is a Mix task, so it boots
 the app and needs exactly what the last column needs. It appears here only
 because it writes one of the rows the seed step writes — see "Preparing the
 database" below.
 
-`mix vr.doctor` prints this same split as three rows — one per command, each
-naming the value it adds — and follows it with the seed rows a prepared database
-should hold. A row's mark answers "can this command run right now", not "is this
-variable set": a checkout whose connection comes from `config/dev.exs` is not
-reported as a broken migration. The seed rows carry the command that creates each
-missing one, which is where `mix vr.bootstrap_admin` is named.
+`mix vr.doctor` prints the first two conditions as three rows — one per command,
+each naming the value it adds — and follows it with the seed rows a prepared
+database should hold. A row's mark answers "can this command run right now", not
+"is this variable set": a checkout whose connection comes from `config/dev.exs`
+is not reported as a broken migration. The seed rows carry the command that
+creates each missing one, which is where `mix vr.bootstrap_admin` is named.
 
 `VR.Release.migrate/0` then states its own requirement — a missing
 `DATABASE_URL`, an unreachable database, or an extension the role cannot create
