@@ -153,13 +153,15 @@ Web push           working
 
 | Tool | Local dev | Production deploy | CI |
 |---|---|---|---|
-| **FFmpeg** | Manual `brew install ffmpeg` | **Automatic** — included in `backend/Dockerfile` | **Automatic** — `apt-get install` in the workflow |
+| **FFmpeg** | Manual `brew install ffmpeg` | **Automatic** — included in `Dockerfile` | **Automatic** — `apt-get install` in the workflow |
 | **gitleaks** | Manual `brew install gitleaks` | Not needed | **Automatic** — `gitleaks-action` |
 | PostgreSQL | Manual (or Docker) | Managed DB | **Automatic** — service container |
 
 ### Why deployment is automatic
 
-The runtime stage of `backend/Dockerfile` installs FFmpeg and **verifies it at build time**.
+The runtime stage of `Dockerfile` (in the repository root — it builds both
+`apps/web` and `backend`, so the build context is the root) installs FFmpeg and
+**verifies it at build time**.
 
 ```dockerfile
 RUN apt-get install -y --no-install-recommends ... ffmpeg

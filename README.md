@@ -99,12 +99,13 @@ managed-database caveats.
 **Networking.** The app opens exactly one HTTP listener, on `PORT`, speaking
 plain HTTP. **TLS termination belongs outside the app** — put a reverse proxy
 in front in production and set `APP_TRUST_PROXY_HEADERS=true` there.
-**Redis is not used**; there is no `REDIS_URL` to configure.
+**Redis is not used** — background jobs run on Oban over Postgres, so there is
+no `REDIS_URL` to configure. Its absence is deliberate, not an oversight.
 
-**FFmpeg only needs manual installation locally.** The deploy image (`backend/Dockerfile`)
-and CI already include it, and an image missing FFmpeg fails the build. It is a
-runtime dependency for recording processing — build, boot, and the first screen
-work without it.
+**FFmpeg only needs manual installation locally.** The deploy image (`Dockerfile`,
+in the repository root) and CI already include it, and an image missing FFmpeg
+fails the build. It is a runtime dependency for recording processing — build,
+boot, and the first screen work without it.
 
 To develop without GCP credentials, set `STT_DEV_MODE=true` to receive mock transcription results.
 
@@ -139,6 +140,129 @@ CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
 Both `mix vr.doctor` and the migrations themselves say exactly this when the
 privilege is missing, instead of failing with a bare `insufficient_privilege`.
+
+## Deploying a preview (release image)
+
+**A clean checkout reaches a working preview in four actions: build the image,
+migrate, seed, start.** The section above is the Mix path, for running from
+source. This one is the release path — there is no `mix` inside the image, so
+every command here is `bin/vr`, the release launcher.
+
+### 1. What a preview actually needs
+
+The platform provides `DATABASE_URL` and `PORT`. Everything else is on you, and
+it is a short list:
+
+| Variable | Secret? | Why a preview needs it |
+|---|---|---|
+| `DATABASE_URL` | platform-provided | migrate, seed, and the app all connect through it |
+| `PORT` | platform-provided | what the app listens on. Empty means `4000` |
+| `SECRET_KEY_BASE` | **secret** — `mix phx.gen.secret`, or any 64+ random bytes | signs and encrypts cookies. App boot only; migrations never read it |
+| `CLOAK_KEY` | **secret** — `openssl rand -base64 32` | encrypts settings stored in the DB. App boot **and** seed |
+| `PHX_HOST` | no | the hostname the preview answers on. Stamped onto generated links |
+| `PHX_SCHEME` | no | set to `http` when the preview is served over plain HTTP. See step 4 |
+| `BOOTSTRAP_ADMIN_EMAIL` | no | the address of the first admin account. Without it, nobody can open `/_admin` |
+
+**Generate the two secrets, keep them in the platform's secret store, and never
+commit them.** There are no defaults in the code for either, and no default
+admin address — a value shared by every deployment is a target, not a
+convenience.
+
+Nothing else is required. Storage, transcription, LLM, mail and push are all
+off until configured, and the app boots, serves, and signs you in without them
+([docs/00-setup-checklist.md](docs/00-setup-checklist.md) covers turning them
+on). **Redis is not one of them** — there is no `REDIS_URL`, here or anywhere
+else in this repo.
+
+### 2. Build
+
+```bash
+docker build -t khala-voice .    # from the repository root
+```
+
+**The build context is the repository root, and the `Dockerfile` is there too.**
+One multi-stage build produces the whole image: the React app from `apps/web`,
+then the Elixir release from `backend`, with the built assets copied into it. A
+build run from inside `backend/` cannot see `apps/web` and will not produce a
+usable image.
+
+### 3. Prepare the database, then start
+
+```bash
+# inside the container — /app is the release root
+
+# migrate, then seed: one command, in this order
+/app/bin/vr eval 'VR.Release.migrate(); VR.Release.seed()'
+
+# start the HTTP server on PORT
+/app/bin/vr start
+```
+
+`deploy.toml` already carries the first line, so a platform that reads it runs
+the preparation step for you; run it by hand only when deploying without one.
+The second line is the image's own `CMD`, so starting the container normally is
+enough — `PHX_SERVER=true` is baked into the image, which is what tells a
+release to start the HTTP server at all.
+
+**Both halves are safe to repeat.** Each migration runs once and is then
+recorded; the seed creates each row only when it is absent. Re-running the line
+on every deploy is the intended usage, not a first-boot special case.
+
+`VR.Release.migrate()` stops **before migrating anything** if `DATABASE_URL` is
+missing, the database is unreachable, or a required PostgreSQL extension cannot
+be created — naming the value, or the administrator action and the exact SQL.
+If your database role cannot create extensions, pre-provision them exactly as in
+"Database preparation" above; the migration then finds them already there and
+skips creating them. The full decision is in
+[docs/16-postgres-extension-privileges.md](docs/16-postgres-extension-privileges.md).
+
+`VR.Release.seed()` creates the credit conversion policy, the free plan, and the
+initial admin from `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD`.
+**Omit the password and one is generated and printed once, in the deploy log** —
+it cannot be recovered afterwards, because only the hash is stored. A password
+you set yourself is deliberately *not* printed. With no email configured the
+admin is skipped, not failed: everything else is seeded, and the log says what
+to set and how to run the step again.
+
+`bin/vr start` needs `SECRET_KEY_BASE` and `CLOAK_KEY` — the preparation step
+above does not. That split is why a missing app secret no longer stops a
+migration; [docs/07-config-admin.md](docs/07-config-admin.md#entry-points--what-each-one-actually-requires)
+has the full entry-point table.
+
+### 4. Serving over plain HTTP
+
+A preview with no TLS in front of it needs one variable beyond `PHX_HOST`:
+
+```bash
+PHX_HOST=preview.example.test
+PHX_SCHEME=http
+```
+
+**Without `PHX_SCHEME=http` the app serves fine but hands out `https://` links
+to an origin that does not answer** — the OAuth callback, MCP discovery
+metadata, and invite links all break at once, and none of them look like a
+configuration problem. Add `PHX_URL_PORT` only when the *public* port is also
+non-standard (`http://host:4000` with nothing in front of it). Behind a TLS
+terminator, leave both empty.
+
+No forced HTTPS redirect is configured and no HSTS header is sent, so nothing
+pins the preview hostname to https in a browser. The PWA degrades rather than
+erroring: the manifest and service worker use root-relative URLs only, and
+registration is skipped on an insecure origin. Microphone capture is the one
+real casualty — `getUserMedia` requires a secure context, so recording needs
+https or `localhost` regardless of these settings.
+[docs/07-config-admin.md](docs/07-config-admin.md#serving-over-plain-http--the-public-url)
+covers each variable.
+
+### 5. Smoke check
+
+```bash
+curl -L http://preview.example.test/   # → 302 → /go/meetings → 302 → /login → 200
+```
+
+The login screen answering 200 means build, migration, seed, and start all
+succeeded. Sign in with the bootstrap admin, then read
+[docs/00-setup-checklist.md](docs/00-setup-checklist.md) to configure the rest.
 
 ## System admin
 
