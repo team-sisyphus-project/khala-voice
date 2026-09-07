@@ -408,11 +408,11 @@ and the app runs without it. Microphone capture is the real casualty:
 nor in `.env.example` — the absence is intentional, not an oversight.
 
 ```bash
-# ── Required (app) — set every one locally ─
+# ── Required — three conditions, see above ─
 DATABASE_URL=                  # format: ecto://USER:PASS@localhost/DATABASE
 SECRET_KEY_BASE=               # generate: mix phx.gen.secret
 CLOAK_KEY=                     # openssl rand -base64 32 (boot fails without it)
-PHX_HOST=                      # public hostname (prod only; if empty, localhost)
+PHX_HOST=                      # public host (preview/prod; if empty, localhost)
 PHX_SCHEME=                    # http | https in generated links. If empty, https
 PHX_URL_PORT=                  # public port in generated links. If empty, 443 / 80
 PORT=                          # optional — if empty, 4000. Malformed value halts boot

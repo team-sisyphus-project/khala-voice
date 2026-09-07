@@ -118,16 +118,31 @@ For local development use `MAIL_PROVIDER=local` — nothing is actually sent; ma
 - In development, missing credentials simply pass through
 - Once M1 replaces this with account-based access (`Account.is_admin`), this item goes away
 
-### 8. The app itself — required to boot
+### 8. The app itself — what boots it, what migrates it, what makes it usable
 
-| Item | `.env` | Notes |
-|---|---|---|
-| `DATABASE_URL` | ✅ | |
-| `SECRET_KEY_BASE` | ✅ | `mix phx.gen.secret` |
-| **`CLOAK_KEY`** | ✅ | `openssl rand -base64 32` — **boot fails without it** |
-| `PHX_HOST` / `APP_BASE_URL` | ✅ | |
-| `PORT` | — | **Optional.** Empty means `4000`. If the deployment platform injects one, that value wins |
-| `PHX_SCHEME` / `PHX_URL_PORT` | — | **Optional.** Empty means `https` on 443 — the right pair behind a TLS terminator. Set `PHX_SCHEME=http` for a preview served over plain HTTP, so generated links point where the app actually answers ([07](07-config-admin.md#serving-over-plain-http--the-public-url)) |
+**Three of these must be set for the app to start at all; nothing halts on the
+absence of the rest — they decide whether the started app is usable.**
+`Needed for` is the entry point that actually reads a value — the same split as
+[07](07-config-admin.md#entry-points--what-each-one-actually-requires), which
+carries the full matrix.
+
+| Item | Needed for | `.env` | Notes |
+|---|---|---|---|
+| `DATABASE_URL` | app boot · migrate · seed | ✅ | **Required.** The one value the release migration step reads |
+| `SECRET_KEY_BASE` | app boot | ✅ | **Required.** `mix phx.gen.secret`. Migrations never read it |
+| **`CLOAK_KEY`** | app boot · seed | ✅ | **Required.** `openssl rand -base64 32` — **boot fails without it**, and the seed needs it to write encrypted settings |
+| `PHX_HOST` | preview preparation | ✅ | **Required on a preview and in production** — the public hostname stamped onto the URLs the app generates for itself. Empty means `localhost`, which is right only for local dev |
+| `APP_BASE_URL` | preview preparation | ✅ | **Required on a preview and in production** — the whole public address that share links and account mail carry. `PHX_HOST` does not feed it; they are two separate sources ([07](07-config-admin.md#serving-over-plain-http--the-public-url)) |
+| `PORT` | app boot | — | **Optional.** Empty means `4000`. If the deployment platform injects one, that value wins |
+| `PHX_SCHEME` / `PHX_URL_PORT` | preview preparation | — | **Optional.** Empty means `https` on 443 — the right pair behind a TLS terminator. Set `PHX_SCHEME=http` for a preview served over plain HTTP, so generated links point where the app actually answers ([07](07-config-admin.md#serving-over-plain-http--the-public-url)) |
+
+**A preview needs this same list, with `PHX_SCHEME` decided the other way** —
+empty behind a TLS terminator, `http` where nothing terminates TLS for it.
+Nothing here is production-only, and the preview-preparation rows are
+**non-secret**: they belong in the platform's plain environment, not its secret
+store. `SECRET_KEY_BASE` and `CLOAK_KEY` are the two you generate per deployment
+and never commit. The sequence that uses them is
+[README](../README.md#1-what-a-preview-actually-needs).
 
 > If you lose `CLOAK_KEY`, **every key stored in the DB becomes undecryptable.**
 > Keep a separate copy in your deployment environment's secret manager. Rotating the key
