@@ -87,3 +87,77 @@ jobs:
       - name: Build web (includes typecheck)
         working-directory: apps/web
         run: npm run build
+
+  preview-e2e:
+    name: Preview E2E
+    runs-on: ubuntu-latest
+    # The script caps the one wait it owns — 90s for the server to answer
+    # /healthz — and nothing else. A hex fetch or an npm install that never
+    # returns would hold the runner for the workflow's own six-hour limit
+    # instead, which is a hung job rather than a failed check.
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+        ports: ["5432:5432"]
+    env:
+      # The two values a platform provides, and no others. SECRET_KEY_BASE,
+      # CLOAK_KEY, PHX_HOST and PHX_SCHEME are the script's to generate or set
+      # for the run. Adding one here would let a preview that works only
+      # because this job's environment carried it pass as one that works.
+      #
+      # The database name is a placeholder. Every run creates its own throwaway
+      # database on this server and drops it again, so each run is green-field
+      # even though the service container it runs against is reused.
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      # Not the script's own default. A platform tells a preview which port to
+      # listen on, and a run on the default would pass without ever showing
+      # that the app took the number it was handed.
+      PORT: "4310"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.19"
+          otp-version: "28"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # No deps/_build cache here, unlike `backend`. The claim this job makes
+      # is that a *clean checkout* builds, and a restored `_build` is the one
+      # thing that can make that claim pass without being true. It would also
+      # put a MIX_ENV=prod tree under a key `backend` restores.
+      #
+      # No FFmpeg either, unlike `backend`. The script's preflight asks for
+      # `mix npm curl openssl` and not ffmpeg, because README says build, boot
+      # and the first screen work without it — it is a runtime dependency of
+      # recording processing, and the deploy image carries it. Installing it
+      # here would turn that documented sentence from checked into assumed.
+      - name: Verify clean-checkout preview sequence
+        # TMPDIR only on this step: the script puts its per-step logs under it,
+        # and the step below needs to know where. Set at job level it would
+        # point setup-beam and setup-node at a directory that does not exist
+        # yet.
+        env:
+          TMPDIR: ${{ runner.temp }}/preview-logs
+        run: |
+          mkdir -p "$TMPDIR"
+          scripts/verify-preview.sh
+
+      # The failure block prints the failing step's last 40 lines and the path
+      # to its full log. On a runner that path dies with the job, and the log
+      # an operator wants is often another step's — a first screen answering
+      # 500 is explained in `start.log`, where the server wrote why.
+      - name: Upload step logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-e2e-logs
+          path: ${{ runner.temp }}/preview-logs/verify-preview.*
+          if-no-files-found: ignore
