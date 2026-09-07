@@ -408,7 +408,14 @@ curl -L http://preview.example.test/   # → 302 → /go/meetings → 302 → /l
 ```
 
 The login screen answering 200 means build, migration, seed, and start all
-succeeded. Sign in with the bootstrap admin, then read
+succeeded. **Have an authenticator app open before you sign in as the bootstrap
+admin** — the password is checked and sign-in then stops at
+`/login/mfa/enroll`, which hands you a key to add; no session exists until a
+code from it is accepted, so the app and `/_admin` both send you back to
+`/login` until then. A preview is a production build, so the development bypass
+is not compiled into it
+(["Two-factor authentication is mandatory"](#two-factor-authentication-is-mandatory)).
+Once you are in, read
 [docs/00-setup-checklist.md](docs/00-setup-checklist.md) to configure the rest.
 
 ## System admin
@@ -505,10 +512,16 @@ Unauthorized requests get a **404**, not a 403.
 
 ### Two-factor authentication is mandatory
 
-An admin account **must have two-factor authentication (TOTP) enabled to enter `/_admin`.**
-Accessing it without 2FA redirects to the settings screen.
+An admin account **must have two-factor authentication (TOTP) enabled before it can
+sign in at all** — the check is part of the login flow, not a gate in front of
+`/_admin`. A correct password on an admin account that has no TOTP yet lands on
+`/login/mfa/enroll`, and the session is created only once a code is accepted; an
+account stopped there is signed in nowhere. The `/_admin` guard is the second layer,
+for an account promoted while it already held a session: that one gets redirected to
+the settings screen instead of being let in.
 If a single admin account is compromised, the whole system's configuration and API keys
-go with it.
+go with it. The screens and the reasoning behind them are in
+[docs/05-auth-sharing.md](docs/05-auth-sharing.md#admin-two-factor-authentication-is-mandatory).
 
 Regular users are not required to use 2FA.
 
