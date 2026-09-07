@@ -167,11 +167,11 @@ A release evaluates `config/runtime.exs` for **every** command, the migration
 step included. So the boot requirements split by entry point, not by
 environment:
 
-| Requirement | `bin/vr start` · `mix phx.server` | `bin/vr eval 'VR.Release.migrate()'` | `mix ecto.migrate` · `mix setup` |
-|---|---|---|---|
-| `DATABASE_URL` | required | **required** | required (dev falls back to the local defaults in `config/dev.exs`) |
-| `SECRET_KEY_BASE` | required | not read | not read in dev/test |
-| `CLOAK_KEY` | required (`VR.Vault` refuses to boot) | not read | required — `mix` tasks boot the app |
+| Requirement | `bin/vr start` · `mix phx.server` | `bin/vr eval 'VR.Release.migrate()'` | `bin/vr eval 'VR.Release.seed()'` | `mix ecto.migrate` · `mix setup` |
+|---|---|---|---|---|
+| `DATABASE_URL` | required | **required** | **required** | required (dev falls back to the local defaults in `config/dev.exs`) |
+| `SECRET_KEY_BASE` | required | not read | not read | not read in dev/test |
+| `CLOAK_KEY` | required (`VR.Vault` refuses to boot) | not read | **required** | required — `mix` tasks boot the app |
 
 `eval` runs one expression on a **non-booted** system: no Endpoint, no Vault,
 no supervision tree. Requiring the app's secrets there is what turned a missing
@@ -179,11 +179,51 @@ no supervision tree. Requiring the app's secrets there is what turned a missing
 it. `runtime.exs` tells the two apart through `RELEASE_COMMAND`; Mix never sets
 it, so `mix ecto.migrate` and `mix setup` behave exactly as before.
 
+The seed step is the one exception to "an `eval` needs nothing": it writes
+application data, and reads configuration the way the app does — DB first, and
+`system_configs` values are encrypted. So `VR.Release.seed/1` starts `VR.Vault`
+and says up front that it needs `CLOAK_KEY`, rather than letting `VR.Config`
+quietly fall back to the environment and ignore a value an operator set in the
+admin UI. It still starts no Endpoint, so `SECRET_KEY_BASE` stays out of it.
+Any deployment that runs the app already has `CLOAK_KEY` — the app does not boot
+without one.
+
 `VR.Release.migrate/0` then states its own requirement — a missing
 `DATABASE_URL`, an unreachable database, or an extension the role cannot create
 each stops it **before** anything is migrated, with a message naming the value
 or the administrator action and the command to re-run. Extension privileges are
 covered in [`16-postgres-extension-privileges.md`](16-postgres-extension-privileges.md).
+
+### Preparing the database — migrate, then seed
+
+`deploy.toml` runs both in one command, in this order:
+
+```toml
+migrate = "/app/bin/vr eval 'VR.Release.migrate(); VR.Release.seed()'"
+```
+
+`;` sequences them inside a single `eval`, so the seed runs only when the
+migration returned without raising. Both are idempotent, which is what makes the
+line safe on every deploy rather than only the first.
+
+`VR.Release.seed/1` creates three things, each only when absent:
+
+| Row | Without it |
+|---|---|
+| credit conversion policy | usage cannot be priced — transcription and summarization run unmetered |
+| the free plan | signups have nothing to be subscribed to |
+| the initial admin, from `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` | `/_admin` cannot be opened by anyone |
+
+The admin is **skipped, not failed**, when no email is configured: the rest is
+seeded and the message says what to set and how to run it again. There is no
+default address — one shared across every deployment would itself be the target.
+A generated password is printed once because nothing else can show it; a
+password the operator configured is *not* printed, since this output is a deploy
+log.
+
+`priv/repo/seeds.exs` is the same code — it calls `VR.Release.seed/1` and passes
+its own command name for the messages. A release has no Mix and cannot run that
+file, and two copies would have drifted.
 
 **`REDIS_URL` is deliberately not used.** This app has no Redis dependency
 (background jobs run on Oban over Postgres), so the variable appears neither here
@@ -252,7 +292,7 @@ APP_TRUST_PROXY_HEADERS=       # true only behind a reverse proxy
 APP_TIMEZONE=                  # if empty, Asia/Seoul
 
 # ── Initial admin (first run only) ─────────
-BOOTSTRAP_ADMIN_EMAIL=
+BOOTSTRAP_ADMIN_EMAIL=         # no default — the seed step skips the admin without it
 BOOTSTRAP_ADMIN_PASSWORD=      # if empty, generated and printed once
 
 # ── Khala integration ──────────────────────

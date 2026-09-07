@@ -1,3 +1,6 @@
 database = true
-migrate = "/app/bin/vr eval 'VR.Release.migrate()'"
+# Migrate, then seed. One `eval`, two steps: `;` sequences them in Elixir, so
+# the seed only runs when the migration returned without raising. Both are
+# idempotent, so the whole line is safe to run on every deploy.
+migrate = "/app/bin/vr eval 'VR.Release.migrate(); VR.Release.seed()'"
 healthcheck = "/healthz"
