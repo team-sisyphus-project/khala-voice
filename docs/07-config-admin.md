@@ -260,14 +260,13 @@ production shape, and the one you get by setting neither variable.
 A preview with no TLS in front of it is the other shape, and it used to be
 unreachable in practice. `url:` was pinned to `https`/443, so the app served
 fine over HTTP while handing out `https://` links to an origin that does not
-answer. Three things broke at once and none of them looked like a
-configuration problem:
+answer. Two things broke at once and neither looked like a configuration
+problem:
 
 | What | Why it breaks |
 |---|---|
 | the Khala OAuth callback (`/khala/callback`) | the `redirect_uri` must match the one registered with Khala exactly |
 | MCP discovery metadata (`resource`, `resource_documentation`, the `WWW-Authenticate` header) | clients follow the URL they are given |
-| invite links | copied off the friends screen and pasted to someone else |
 
 So for a preview reachable at `http://preview.example.test`:
 
@@ -280,6 +279,31 @@ Add `PHX_URL_PORT` only when the *public* port is also non-standard — a previe
 served directly on `http://preview.example.test:4000`, with nothing in front of
 it. Behind a proxy it stays empty: `PORT=4000` and `PHX_URL_PORT` unset is the
 right pairing for `http://host` on 80.
+
+**`APP_BASE_URL` is the second URL source, and the endpoint does not feed it.**
+The three variables above only reach URLs Phoenix builds from the endpoint. The
+links a person receives are built elsewhere, from the registry value
+`app.base_url`:
+
+| Built from the endpoint (`PHX_*`) | Built from `app.base_url` (`APP_BASE_URL`) |
+|---|---|
+| the Khala OAuth callback (`VRWeb.Endpoint.url/0`) | share links — `VR.Sharing.link_url/1` |
+| MCP discovery metadata and the `WWW-Authenticate` header | email confirmation, password reset, friend invitation — `VR.Accounts.Notifier` |
+
+With the endpoint variables set and this one empty the app still serves, and the
+damage is quiet: a share link comes back as the bare path `/share/<token>`, and
+every account email is abandoned before delivery with
+`{:missing_config, "app.base_url"}` — the notifier will not mail a link it
+cannot make absolute. Nothing reconciles the
+two, so they are kept in step by hand: `APP_BASE_URL` carries the same scheme,
+host and public port that `PHX_SCHEME` / `PHX_HOST` / `PHX_URL_PORT` describe.
+
+They stay separate because they resolve differently. The endpoint's three values
+are read once at boot by `config/runtime.exs`, and a bad one halts the app
+([`17-runtime-entry-points.md`](17-runtime-entry-points.md)). `app.base_url` goes
+through the normal registry order — DB, then environment — so it is read at the
+moment a link is built, is editable in `/_admin` without a redeploy, and halts
+nothing, including the migration step.
 
 Two things this does **not** turn on:
 
@@ -315,7 +339,7 @@ PHX_HOST=                      # public hostname (prod only; if empty, localhost
 PHX_SCHEME=                    # http | https in generated links. If empty, https
 PHX_URL_PORT=                  # public port in generated links. If empty, 443 / 80
 PORT=                          # optional — if empty, 4000. Malformed value halts boot
-APP_BASE_URL=
+APP_BASE_URL=                  # base URL in share links and emails (not PHX_HOST)
 
 # ── Boot / release (usually leave empty locally) ─
 PHX_SERVER=                    # platform-injected via Dockerfile ENV (releases only)

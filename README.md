@@ -155,18 +155,35 @@ it is a short list:
 
 | Variable | Secret? | Why a preview needs it |
 |---|---|---|
-| `DATABASE_URL` | platform-provided | migrate, seed, and the app all connect through it |
-| `PORT` | platform-provided | what the app listens on. Empty means `4000` |
-| `SECRET_KEY_BASE` | **secret** — `mix phx.gen.secret`, or any 64+ random bytes | signs and encrypts cookies. App boot only; migrations never read it |
-| `CLOAK_KEY` | **secret** — `openssl rand -base64 32` | encrypts settings stored in the DB. App boot **and** seed |
-| `PHX_HOST` | no | the hostname the preview answers on. Stamped onto generated links |
-| `PHX_SCHEME` | no | set to `http` when the preview is served over plain HTTP. See step 4 |
-| `BOOTSTRAP_ADMIN_EMAIL` | no | the address of the first admin account. Without it, nobody can open `/_admin` |
+| `DATABASE_URL` | platform-provided | **Required** — migrate, seed, and the app all connect through it |
+| `PORT` | platform-provided | **Optional** — what the app listens on. Empty means `4000` |
+| `SECRET_KEY_BASE` | **secret** — `mix phx.gen.secret`, or any 64+ random bytes | **Required to start** — signs and encrypts cookies. Migrations never read it |
+| `CLOAK_KEY` | **secret** — `openssl rand -base64 32` | **Required to start and to seed** — encrypts settings stored in the DB |
+| `PHX_HOST` | no | **Required** — the hostname the preview answers on. Stamped onto the links the app itself generates |
+| `PHX_SCHEME` | no | **Required over plain HTTP** — set it to `http`; leave it empty behind a TLS terminator. See step 4 |
+| `APP_BASE_URL` | no | **Required for share links and account mail** — the whole public address, e.g. `http://preview.example.test`. Not derived from the two above |
+| `BOOTSTRAP_ADMIN_EMAIL` | no | **Optional** — the address of the first admin account. Without it, nobody can open `/_admin` |
 
 **Generate the two secrets, keep them in the platform's secret store, and never
 commit them.** There are no defaults in the code for either, and no default
 admin address — a value shared by every deployment is a target, not a
 convenience.
+
+**`APP_BASE_URL` is the second URL source, and nothing derives it from the
+first.** `PHX_HOST` / `PHX_SCHEME` configure the endpoint, which stamps the URLs
+the app generates for itself — the Khala OAuth callback, MCP discovery metadata.
+`APP_BASE_URL` is a settings-registry value, and it is the one that
+`VR.Sharing.link_url/1` and every account email read. Leave it empty and the
+preview still answers 200, wrongly: share links come back as bare paths
+(`/share/<token>`) that nobody can open from a chat message, and account mail is
+never sent at all — the notifier stops rather than mail a link to nowhere. Give
+it the same scheme, host and public port you gave the endpoint.
+
+Nothing reads `APP_BASE_URL` at boot, so neither entry point stops for it: a
+wrong value shows up as a wrong link, never as a failed start or a
+`migration_failed`. It is also the one variable here you can correct later
+without a redeploy — a value saved in `/_admin` wins over the environment
+([docs/07-config-admin.md](docs/07-config-admin.md#serving-over-plain-http--the-public-url)).
 
 Nothing else is required. Storage, transcription, LLM, mail and push are all
 off until configured, and the app boots, serves, and signs you in without them
@@ -231,19 +248,22 @@ has the full entry-point table.
 
 ### 4. Serving over plain HTTP
 
-A preview with no TLS in front of it needs one variable beyond `PHX_HOST`:
+A preview with no TLS in front of it says so in both URL sources:
 
 ```bash
 PHX_HOST=preview.example.test
 PHX_SCHEME=http
+APP_BASE_URL=http://preview.example.test
 ```
 
 **Without `PHX_SCHEME=http` the app serves fine but hands out `https://` links
-to an origin that does not answer** — the OAuth callback, MCP discovery
-metadata, and invite links all break at once, and none of them look like a
-configuration problem. Add `PHX_URL_PORT` only when the *public* port is also
-non-standard (`http://host:4000` with nothing in front of it). Behind a TLS
-terminator, leave both empty.
+to an origin that does not answer** — the Khala OAuth callback and MCP discovery
+metadata break together, and neither looks like a configuration problem. Add
+`PHX_URL_PORT` only when the *public* port is also non-standard
+(`http://host:4000` with nothing in front of it). Behind a TLS terminator, leave
+both empty. Share, invite and password-reset links are **not** fixed by this
+variable — they carry whatever `APP_BASE_URL` says, so it needs the same scheme
+(step 1).
 
 A value that is neither `http` nor `https` halts `bin/vr start`, naming the
 variable. It does **not** halt the database preparation step, which generates
