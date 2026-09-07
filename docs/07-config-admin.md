@@ -24,7 +24,7 @@ VR.Config.fetch(:storage, :access_key_id)
 | R3 | Secrets never appear in logs, error messages, or API responses (`redact`) |
 | R4 | The admin UI never echoes stored secrets back. Masked + "configured / not configured" only |
 | R5 | Missing `CLOAK_KEY` means **boot failure**. No default key is generated |
-| R6 | For a boot parameter, empty means "not decided" → use the default; present but malformed means "decided wrongly" → **halt boot with a message naming the variable**. Never fall back to the default on a malformed value |
+| R6 | For a **port** boot parameter (`PORT`, `HTTPS_PORT`), empty means "not decided" → use the default; present but malformed means "decided wrongly" → **halt boot with a message naming the variable**. Never fall back to the default on a malformed value. Other boot parameters do not yet apply R6 — see "Boot parameter defaults" |
 
 > **Scope of R1 and R2 — boot parameters are the exception.**
 > These two rules govern the **credentials** handled by `VR.Config`.
@@ -47,14 +47,15 @@ it must match. Anything else that mentions these values — `.env.example`,
 `docs/00-setup-checklist.md` — points here instead of restating the numbers, so a
 default is written down exactly once.
 
-| Variable | Empty / absent | Present but malformed |
-|---|---|---|
-| `PORT` | `4000` | halt, naming `PORT` (R6) |
-| `HTTPS_PORT` | `4001` — dev only, and only under `DEV_BIND_ALL=true` | halt, naming `HTTPS_PORT` (R6) |
-| `POOL_SIZE` | `10` | halt (raw `ArgumentError`, no variable name) |
-| `PHX_HOST` | `localhost` | — |
-| `PHX_SERVER` / `DEV_BIND_ALL` / `ECTO_IPV6` | off | — |
-| `DNS_CLUSTER_QUERY` | clustering off | — |
+| Variable | Absent | Empty (`NAME=`) | Present but malformed |
+|---|---|---|---|
+| `PORT` | `4000` | `4000` (R6) | halt, naming `PORT` (R6) |
+| `HTTPS_PORT` | `4001` — dev only, and only under `DEV_BIND_ALL=true` | `4001` (R6) | halt, naming `HTTPS_PORT` (R6) |
+| `POOL_SIZE` | `10` | **`ArgumentError` at boot** — R6 not applied | halt (raw `ArgumentError`, no variable name) |
+| `PHX_HOST` | `localhost` | **empty host string** — R6 not applied | — |
+| `PHX_SERVER` | off | **on** — any value, `""` included, is truthy; R6 not applied | — |
+| `DEV_BIND_ALL` / `ECTO_IPV6` | off | off (compared against `"true"` / `~w(true 1)`) | — |
+| `DNS_CLUSTER_QUERY` | clustering off | **`""` passed to `DNSCluster`** — R6 not applied | — |
 
 Only `PORT` and `HTTPS_PORT` go through the shared `port_from_env` helper, which is
 where R6 is enforced: blank or whitespace-only falls back to the default, while a
@@ -62,8 +63,10 @@ non-integer, `0`, or an out-of-range value stops boot and names the variable.
 `PORT` is therefore never required to run the app: unset takes the default, a value
 injected by the deploy platform is read like any other environment value and wins over
 it, and a malformed value halts boot rather than silently reverting to the default. The
-remaining rows have a default but no such validation — treat a malformed value there
-as undefined behaviour, not as a supported input.
+remaining rows have a default but no such validation: their default fires only when the
+variable is **absent**, so an empty `NAME=` is not equivalent to leaving it out — see the
+Empty column above. Leave them out of the environment entirely rather than setting them
+empty; a malformed value there is undefined behaviour, not a supported input.
 
 ## Preventing secret incidents
 

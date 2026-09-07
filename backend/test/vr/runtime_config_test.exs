@@ -310,5 +310,20 @@ defmodule VR.RuntimeConfigTest do
       assert row =~ ~r/default/i
       assert row =~ ~r/halt/i
     end
+
+    # R6 is a port-only rule. runtime.exs defaults these four only when the variable
+    # is *absent*: an empty `NAME=` reaches String.to_integer/1, becomes an empty host,
+    # reads as truthy, or is handed to DNSCluster as "". Since .env.example ships every
+    # key as `NAME=`, a table that promised "empty → default" would misdescribe exactly
+    # the case a reader hits. This pins the disclaimer so it cannot be dropped.
+    test "non-port rows are marked as not applying R6 (Story M9)" do
+      for var <- ~w(POOL_SIZE PHX_HOST PHX_SERVER DNS_CLUSTER_QUERY) do
+        [row] = Regex.run(~r/^\|\s*`?#{var}`?.*$/m, config_doc())
+
+        assert row =~ "R6 not applied",
+               "#{var}'s row must say R6 is not applied to it — runtime.exs " <>
+                 "defaults it only when the variable is absent, not when empty"
+      end
+    end
   end
 end
