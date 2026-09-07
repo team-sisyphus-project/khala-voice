@@ -354,7 +354,8 @@ defmodule VR.Release do
           openssl rand -base64 32
 
       It is the same key the app itself boots with — if the app runs, the value
-      already exists. Migrations do not read it: `#{@entry_point}` runs without.
+      already exists. Migrations do not read it:
+      `#{@entry_point}` runs without.
       """
     end
 
@@ -387,12 +388,48 @@ defmodule VR.Release do
     """
     the database is not ready for migration.
 
-    #{Enum.map_join(problems, "\n\n", &("    " <> &1))}
+    #{Enum.map_join(problems, "\n\n", &wrap_problem/1)}
 
     Nothing has been migrated. Fix the above, then re-run:
 
         #{@entry_point}
     """
+  end
+
+  # `VR.DBPreflight` returns one line per check on purpose — `mix vr.doctor`
+  # prints them in an aligned `label + value` column, and wrapping them there
+  # would break that alignment. Here they land inside a multi-line message
+  # instead, where a 363-character line is what an operator actually sees. So
+  # the wrapping belongs to the side that builds the paragraph, not the side
+  # that builds the sentence.
+  @problem_width 76
+
+  defp wrap_problem(problem) do
+    problem
+    |> break_outside_backticks()
+    |> Enum.reduce([[]], fn word, [line | rest] ->
+      # +1 for the space that would join this word to the current line.
+      if line != [] and text_width(line) + 1 + String.length(word) > @problem_width do
+        [[word], line | rest]
+      else
+        [[word | line] | rest]
+      end
+    end)
+    |> Enum.reverse()
+    |> Enum.map_join("\n", fn line -> "    " <> (line |> Enum.reverse() |> Enum.join(" ")) end)
+  end
+
+  defp text_width(reversed_words) do
+    Enum.reduce(reversed_words, length(reversed_words) - 1, &(String.length(&1) + &2))
+  end
+
+  # Splits on whitespace, except inside a backticked span. The SQL an
+  # administrator has to run is quoted that way, and it is there to be copied —
+  # a line break dropped into the middle of it costs more than a long line.
+  defp break_outside_backticks(text) do
+    ~r/`[^`]*`|\S+/
+    |> Regex.scan(text)
+    |> Enum.map(fn [match] -> match end)
   end
 
   defp indent(text) do

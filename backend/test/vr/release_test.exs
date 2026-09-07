@@ -174,6 +174,49 @@ defmodule VR.ReleaseTest do
       end)
     end
 
+    # Found by running the real thing: the preflight message an operator hits
+    # on a managed database came out as a single 363-character line. Every
+    # required part was in it — the extension, the privilege, the DBA's SQL —
+    # laid out so that none of them could be read in a terminal.
+    test "the problem block wraps to a readable width" do
+      # :catalog_error is absent on purpose — it warns and lets the migration
+      # through, so it never reaches not_ready_message/1.
+      messages =
+        for mode <- [:not_creatable, :unavailable] do
+          with_extension_mode(mode, fn ->
+            {mode, assert_raise(RuntimeError, fn -> Release.preflight!(ExtensionRepo) end)}
+          end)
+        end
+
+      unreachable =
+        {:unreachable,
+         assert_raise(RuntimeError, fn -> Release.preflight!(DownRepo, probe: false) end)}
+
+      # Every path into not_ready_message/1, not just the one that was found long.
+      for {mode, message} <- [unreachable | messages],
+          line <- String.split(message.message, "\n") do
+        assert String.length(line) <= 80,
+               "#{mode}: #{String.length(line)} chars, over the 80-column budget:\n#{line}"
+      end
+    end
+
+    # The SQL is there to be copied and pasted. A line break dropped into the
+    # middle of it turns one action into two, and the second one is a typo.
+    test "the administrator's SQL survives wrapping on one line" do
+      with_extension_mode(:not_creatable, fn ->
+        message = assert_raise(RuntimeError, fn -> Release.preflight!(ExtensionRepo) end)
+
+        lines = String.split(message.message, "\n")
+
+        for ext <- ~w(citext pg_trgm) do
+          sql = ~s(CREATE EXTENSION IF NOT EXISTS "#{ext}")
+
+          assert Enum.any?(lines, &String.contains?(&1, sql)),
+                 "#{sql} was split across lines:\n#{message.message}"
+        end
+      end)
+    end
+
     test "an extension the server does not ship names the package to install" do
       with_extension_mode(:unavailable, fn ->
         message = assert_raise(RuntimeError, fn -> Release.preflight!(ExtensionRepo) end)
