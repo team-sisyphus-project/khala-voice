@@ -307,15 +307,25 @@ BOOTSTRAP_ADMIN_PASSWORD='a-strong-password-you-chose' \
   mix run priv/repo/seeds.exs
 ```
 
+A password you supply this way is **not printed back.** You already have it, and a
+terminal scrollback or a deploy log is one more place it can leak from.
+
 If you omit the password, **a random one is generated and printed to the screen once.**
 Write it down at that moment — only the hash is stored in the DB, so it cannot be viewed again.
 
 ```bash
 BOOTSTRAP_ADMIN_EMAIL=admin@example.com mix run priv/repo/seeds.exs
-# → Initial admin account created
-#   Email: admin@example.com
-#   Password: xxxxxxxxxxxx      ← visible only on this screen
+# → Created the initial admin account
+#
+#       Email     admin@example.com
+#       Password  xxxxxxxxxxxxxxxxxxxxxxxx
+#
+#     This password is only shown right now. Save it somewhere.
 ```
+
+`mix vr.bootstrap_admin` creates the same account without the other seed rows, and
+reports the same outcomes — including when a deploy's seed step created the admin at
+the same moment.
 
 If at least one admin already exists, this command does nothing.
 

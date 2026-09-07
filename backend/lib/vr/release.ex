@@ -39,6 +39,9 @@ defmodule VR.Release do
       | SECRET_KEY_BASE  |         |      |    ✓     |
   """
 
+  alias VR.Release.BootstrapAdmin
+  alias VR.Release.Rejection
+
   @app :vr
 
   # Named in every failure message. An operator reading a deploy log needs to
@@ -187,12 +190,9 @@ defmodule VR.Release do
     :ok
   end
 
-  # Every step below asks "is it there?" and then writes. Two deploys running
-  # this at the same time — or one re-run after the other died mid-step — both
-  # get a yes to that question and both write, and the second write loses on a
-  # unique index. That loss is not a failure: it is the same answer the check
-  # asked for, arriving a moment later. Said so, and only then.
-  @concurrently " — created by a concurrent run."
+  # Every step below asks "is it there?" and then writes, so two runs at once
+  # both get a yes and both write. `VR.Release.Rejection` reads what comes
+  # back from the losing write; the steps only have to say so.
 
   # 1 credit = $N. Changed from the admin UI afterwards.
   # The default follows devkanban's reference value (≈ $0.0015, Cookie Crate basis).
@@ -208,7 +208,7 @@ defmodule VR.Release do
 
         {:error, changeset} ->
           duplicate!(changeset, "the credit conversion policy", entry_point)
-          say("[seeds] credit conversion policy already exists" <> @concurrently)
+          say("[seeds] credit conversion policy already exists" <> Rejection.concurrently())
       end
     else
       say("[seeds] credit conversion policy already exists.")
@@ -239,7 +239,7 @@ defmodule VR.Release do
 
       {:error, changeset} ->
         duplicate!(changeset, "the free plan", entry_point)
-        say("[seeds] free plan already exists" <> @concurrently)
+        say("[seeds] free plan already exists" <> Rejection.concurrently())
     end
   end
 
@@ -261,76 +261,33 @@ defmodule VR.Release do
     end
   end
 
+  # Which of the four answers this is, and what to say about each, is decided
+  # in `VR.Release.BootstrapAdmin` — `mix vr.bootstrap_admin` reads the same
+  # ones and has to read them the same way. What is left here is the part that
+  # belongs to this entry point: no configured address skips a step that has
+  # two others around it, and only a refused input stops the run.
   defp seed_bootstrap_admin(entry_point) do
-    # Asked *before* the account is created: afterwards the password is only a
-    # hash, and "did the operator choose this, or did we generate it?" is the
-    # difference between printing a secret into a deploy log and not.
-    generated? = not VR.Config.configured?("app.bootstrap_admin_password")
-
-    case VR.Accounts.Admin.ensure_bootstrap_admin() do
-      {:ok, account, password} ->
-        say(admin_created_message(account, if(generated?, do: password)))
-
-      {:error, :admin_exists} ->
-        say("[seeds] an admin already exists. Skipping.")
-
-      {:error, :email_required} ->
-        say(admin_skipped_message(entry_point))
-
-      # The address is taken *and* an admin now exists: the other run created
-      # it between the count above and this insert. Asking again is what tells
-      # the two apart — if no admin exists, the address belongs to somebody
-      # else's account, and that is a typo the operator has to see.
-      {:error, %Ecto.Changeset{} = changeset} ->
-        if already_there?(changeset) and VR.Accounts.Admin.count_admins() > 0 do
-          say("[seeds] an admin already exists" <> @concurrently <> " Skipping.")
-        else
-          raise admin_failed_message(changeset, entry_point)
-        end
+    case BootstrapAdmin.ensure(as: :seed, entry_point: entry_point) do
+      {:rejected, message} -> raise message
+      {_printed, message} -> say(message)
     end
-  end
-
-  defp admin_failed_message(changeset, entry_point) do
-    """
-    the initial admin account could not be created.
-
-        email     #{inspect(VR.Config.fetch("app.bootstrap_admin_email"))}
-        rejected  #{changeset_errors(changeset)}
-
-    Everything else has been seeded. Fix BOOTSTRAP_ADMIN_EMAIL (and
-    BOOTSTRAP_ADMIN_PASSWORD, if it is the password that was rejected),
-    then re-run:
-
-        #{entry_point}
-    """
   end
 
   # "That row is already there" is the one rejection that is not a failure.
   # Every other one is the seed being wrong, and stays loud.
   defp duplicate!(changeset, subject, entry_point) do
-    if already_there?(changeset) do
+    if Rejection.already_there?(changeset) do
       :ok
     else
       raise seed_failed_message(subject, changeset, entry_point)
     end
   end
 
-  # It arrives in two shapes, and which one depends only on where the other
-  # deploy's row landed. After the changeset's own lookup for the same index
-  # (`unsafe_validate_unique/3`), the index rejects the write —
-  # `constraint: :unique`. Before it, that lookup finds the row and says so
-  # itself — `validation: :unsafe_unique`. One fact, two reporters.
-  defp already_there?(%Ecto.Changeset{errors: errors}) do
-    Enum.any?(errors, fn {_field, {_message, opts}} ->
-      opts[:constraint] == :unique or opts[:validation] == :unsafe_unique
-    end)
-  end
-
   defp seed_failed_message(subject, changeset, entry_point) do
     """
     #{subject} could not be created.
 
-        rejected  #{changeset_errors(changeset)}
+        rejected  #{Rejection.errors(changeset)}
 
     This is not a row that already exists, so re-running alone will not clear
     it. The steps before this one are seeded and will be skipped next time.
@@ -338,52 +295,6 @@ defmodule VR.Release do
 
         #{entry_point}
     """
-  end
-
-  defp admin_created_message(account, password) do
-    """
-
-    ┌──────────────────────────────────────────────────────────┐
-      Created the initial admin account
-
-        Email     #{account.email}
-        Password  #{password || "the value set in BOOTSTRAP_ADMIN_PASSWORD"}
-
-    #{if password do
-      "  This password is only shown right now. Save it somewhere."
-    else
-      "  It was not printed — it is already yours, and this output is a deploy log."
-    end}
-      Delete this account after promoting a real user to admin.
-    └──────────────────────────────────────────────────────────┘
-    """
-  end
-
-  # Not a failure: the rest of the seed is done and the app runs. It is,
-  # however, the difference between a preview someone can sign in to and one
-  # nobody can — so it says what to set and how to run it again from *both*
-  # entry points, since either one may be the one that printed this.
-  defp admin_skipped_message(entry_point) do
-    """
-
-    [seeds] no initial admin was created — BOOTSTRAP_ADMIN_EMAIL is not set.
-
-        Nothing else was skipped. Until an admin exists, /_admin cannot be
-        opened by anyone. Set the address and run the seed again:
-
-            BOOTSTRAP_ADMIN_EMAIL=you@example.com #{entry_point}
-
-        The password is optional — BOOTSTRAP_ADMIN_PASSWORD is used when set,
-        and a random one is generated and printed once when it is not.
-    """
-  end
-
-  defp changeset_errors(changeset) do
-    changeset
-    |> Ecto.Changeset.traverse_errors(fn {message, _opts} -> message end)
-    |> Enum.map_join("; ", fn {field, messages} ->
-      "#{field}: #{Enum.join(messages, ", ")}"
-    end)
   end
 
   # ── Checks ───────────────────────────────────────────────
