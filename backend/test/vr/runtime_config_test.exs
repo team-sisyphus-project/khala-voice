@@ -23,12 +23,17 @@ defmodule VR.RuntimeConfigTest do
   # Variables affecting the port are explicitly cleared at the start of each case.
   @port_vars ~w(PORT HTTPS_PORT DEV_BIND_ALL PHX_SERVER)
 
+  # RELEASE_COMMAND selects the entry point (see "migration-only entry point"
+  # below). Cleared like the port vars so every other case reads as what it has
+  # always been: the app-boot entry point.
+  @entry_vars ~w(RELEASE_COMMAND)
+
   defp with_env(overrides, fun) do
-    vars = Map.keys(@prod_required) ++ @port_vars ++ Map.keys(overrides)
+    vars = Map.keys(@prod_required) ++ @port_vars ++ @entry_vars ++ Map.keys(overrides)
     original = Map.new(vars, &{&1, System.get_env(&1)})
 
     try do
-      Enum.each(@port_vars, &System.delete_env/1)
+      Enum.each(@port_vars ++ @entry_vars, &System.delete_env/1)
       Enum.each(@prod_required, fn {k, v} -> System.put_env(k, v) end)
 
       Enum.each(overrides, fn
@@ -123,6 +128,100 @@ defmodule VR.RuntimeConfigTest do
     end
   end
 
+  # ── Entry points ────────────────────────────────────────────────
+  #
+  # A release evaluates runtime.exs for every command, including the migration
+  # step `bin/vr eval 'VR.Release.migrate()'`. That entry point boots nothing,
+  # so it must not be stopped by secrets only a running app reads — while the
+  # app-boot entry point must keep stopping on exactly the same values as before.
+
+  describe "prod / migration-only entry point (RELEASE_COMMAND=eval)" do
+    defp eval_endpoint(overrides) do
+      overrides = Map.put(overrides, "RELEASE_COMMAND", "eval")
+      with_env(overrides, fn -> endpoint(:prod) end)
+    end
+
+    test "resolves without SECRET_KEY_BASE" do
+      config = eval_endpoint(%{"SECRET_KEY_BASE" => nil})
+
+      assert Keyword.fetch!(config, :http) |> Keyword.fetch!(:port) == 4000
+    end
+
+    test "sets no placeholder secret_key_base when the value is absent" do
+      # A stand-in value here would be a known signing key in a public repo.
+      config = eval_endpoint(%{"SECRET_KEY_BASE" => nil})
+
+      refute Keyword.has_key?(config, :secret_key_base)
+    end
+
+    test "resolves without CLOAK_KEY" do
+      config = eval_endpoint(%{"CLOAK_KEY" => nil})
+
+      assert Keyword.fetch!(config, :http) |> Keyword.fetch!(:port) == 4000
+    end
+
+    test "uses SECRET_KEY_BASE when it is set, exactly as the app does" do
+      config = eval_endpoint(%{})
+
+      assert Keyword.fetch!(config, :secret_key_base) == @prod_required["SECRET_KEY_BASE"]
+    end
+
+    test "the database URL is still required, and the message names this entry point" do
+      error =
+        assert_raise RuntimeError, fn ->
+          eval_endpoint(%{"DATABASE_URL" => nil, "SECRET_KEY_BASE" => nil})
+        end
+
+      assert error.message =~ "DATABASE_URL"
+      assert error.message =~ "bin/vr eval 'VR.Release.migrate()'"
+    end
+
+    test "a malformed PORT still halts — relaxing secrets relaxes nothing else" do
+      assert_raise RuntimeError, ~r/PORT/, fn ->
+        eval_endpoint(%{"PORT" => "8080a", "SECRET_KEY_BASE" => nil})
+      end
+    end
+
+    test "the platform-injected PORT is still honored" do
+      config = eval_endpoint(%{"PORT" => "8080", "SECRET_KEY_BASE" => nil})
+
+      assert Keyword.fetch!(config, :http) |> Keyword.fetch!(:port) == 8080
+    end
+  end
+
+  describe "prod / app-boot entry point" do
+    # `bin/vr start`, `bin/vr daemon` and every Mix task (RELEASE_COMMAND unset)
+    # must keep failing on the app secrets.
+    for command <- [nil, "start", "daemon", "rpc", "remote"] do
+      test "RELEASE_COMMAND=#{inspect(command)} still halts without SECRET_KEY_BASE" do
+        with_env(%{"RELEASE_COMMAND" => unquote(command), "SECRET_KEY_BASE" => nil}, fn ->
+          assert_raise RuntimeError, ~r/SECRET_KEY_BASE/, fn -> prod_http_port() end
+        end)
+      end
+    end
+
+    test "the SECRET_KEY_BASE message names the app, and says migrations do not need it" do
+      error =
+        with_env(%{"SECRET_KEY_BASE" => nil}, fn ->
+          assert_raise RuntimeError, fn -> prod_http_port() end
+        end)
+
+      assert error.message =~ "mix phx.gen.secret"
+      assert error.message =~ "bin/vr start"
+      assert error.message =~ "bin/vr eval 'VR.Release.migrate()'"
+    end
+
+    test "the DATABASE_URL message names the app entry point, not the migration one" do
+      error =
+        with_env(%{"DATABASE_URL" => nil}, fn ->
+          assert_raise RuntimeError, fn -> prod_http_port() end
+        end)
+
+      assert error.message =~ "DATABASE_URL"
+      assert error.message =~ "bin/vr start"
+    end
+  end
+
   describe "dev" do
     defp dev_port(kind) do
       endpoint(:dev) |> Keyword.fetch!(kind) |> Keyword.fetch!(:port)
@@ -191,7 +290,8 @@ defmodule VR.RuntimeConfigTest do
     # runtime.exs source — so that dropping one of these from .env.example fails
     # here even if the runtime.exs read disappears in the same change.
     @boot_env_vars ~w(DATABASE_URL SECRET_KEY_BASE CLOAK_KEY PHX_HOST PORT HTTPS_PORT
-                      PHX_SERVER ECTO_IPV6 POOL_SIZE DNS_CLUSTER_QUERY DEV_BIND_ALL)
+                      PHX_SERVER RELEASE_COMMAND ECTO_IPV6 POOL_SIZE DNS_CLUSTER_QUERY
+                      DEV_BIND_ALL)
 
     test "every boot env var runtime.exs reads is listed in .env.example (M13)" do
       runtime = File.read!(Path.join(@backend_root, "config/runtime.exs"))

@@ -159,6 +159,31 @@ features without configuration are simply off, and boot parameters have defaults
 |---|---|
 | `PORT` | Deploy platform. A platform value wins; empty means 4000 |
 | `PHX_SERVER` | Dockerfile (`ENV PHX_SERVER="true"`). Tells a release to start the HTTP server; `mix phx.server` does not need it |
+| `RELEASE_COMMAND` | The release launcher (`bin/vr`), as the command it was given: `start`, `daemon`, `eval`, `rpc`, `remote`. Unset under Mix. See "Entry points" below |
+
+### Entry points — what each one actually requires
+
+A release evaluates `config/runtime.exs` for **every** command, the migration
+step included. So the boot requirements split by entry point, not by
+environment:
+
+| Requirement | `bin/vr start` · `mix phx.server` | `bin/vr eval 'VR.Release.migrate()'` | `mix ecto.migrate` · `mix setup` |
+|---|---|---|---|
+| `DATABASE_URL` | required | **required** | required (dev falls back to the local defaults in `config/dev.exs`) |
+| `SECRET_KEY_BASE` | required | not read | not read in dev/test |
+| `CLOAK_KEY` | required (`VR.Vault` refuses to boot) | not read | required — `mix` tasks boot the app |
+
+`eval` runs one expression on a **non-booted** system: no Endpoint, no Vault,
+no supervision tree. Requiring the app's secrets there is what turned a missing
+`SECRET_KEY_BASE` into a `migration_failed` with nothing about migrations in
+it. `runtime.exs` tells the two apart through `RELEASE_COMMAND`; Mix never sets
+it, so `mix ecto.migrate` and `mix setup` behave exactly as before.
+
+`VR.Release.migrate/0` then states its own requirement — a missing
+`DATABASE_URL`, an unreachable database, or an extension the role cannot create
+each stops it **before** anything is migrated, with a message naming the value
+or the administrator action and the command to re-run. Extension privileges are
+covered in [`16-postgres-extension-privileges.md`](16-postgres-extension-privileges.md).
 
 **`REDIS_URL` is deliberately not used.** This app has no Redis dependency
 (background jobs run on Oban over Postgres), so the variable appears neither here
@@ -175,6 +200,7 @@ APP_BASE_URL=
 
 # ── Boot / release (usually leave empty locally) ─
 PHX_SERVER=                    # platform-injected via Dockerfile ENV (releases only)
+RELEASE_COMMAND=               # release-injected: which bin/vr command is running
 ECTO_IPV6=                     # true | 1 = DB over IPv6 (prod releases only)
 POOL_SIZE=                     # DB pool size (prod releases only). If empty, 10
 DNS_CLUSTER_QUERY=             # node clustering DNS name. If empty, clustering off

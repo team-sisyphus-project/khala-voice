@@ -105,6 +105,36 @@ if config_env() == :dev do
   end
 end
 
+# ── Entry point: booting the app vs preparing the database ────────
+#
+#  A release evaluates this file for **every** command it is given — including
+#  `bin/vr eval 'VR.Release.migrate()'`, the migration step in `deploy.toml`.
+#  `eval` runs a single expression on a *non-booted* system: no Endpoint, no
+#  Vault, no supervision tree. Yet the requirements below used to be one
+#  undifferentiated set, so a missing SECRET_KEY_BASE — a value no migration
+#  reads — stopped the migration with a message about cookies. Channel A of the
+#  configuration spec therefore splits in two:
+#
+#    * migration-only requirements — DATABASE_URL. Needed at both entry points.
+#    * app-boot requirements — SECRET_KEY_BASE, CLOAK_KEY. Needed only where
+#      something is actually started.
+#
+#  RELEASE_COMMAND is exported by the release's own launcher script (`start`,
+#  `daemon`, `eval`, `rpc`, `remote`). It is **unset** for Mix, so
+#  `mix ecto.migrate`, `mix setup` and `mix phx.server` keep exactly today's
+#  behavior; only the non-booted `eval` entry point relaxes. Any other `eval`
+#  expression is treated the same way, which is correct for the same reason:
+#  `eval` starts no application, so nothing can consume the app secrets.
+release_command = System.get_env("RELEASE_COMMAND")
+migration_entry? = release_command == "eval"
+
+entry_point_label =
+  if migration_entry? do
+    "the database migration entry point (`bin/vr eval 'VR.Release.migrate()'`)"
+  else
+    "the application (`bin/vr start`, `mix phx.server`)"
+  end
+
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration
@@ -126,10 +156,16 @@ if System.get_env("PHX_SERVER") do
 end
 
 if config_env() == :prod do
+  # Migration-only requirement: needed by the migration entry point *and* by
+  # the app. Missing here, both are dead, so both raise the same way — with the
+  # entry point named, because "DATABASE_URL is missing" during a deploy is
+  # otherwise attributed to whichever step the operator happens to be watching.
   database_url =
     System.get_env("DATABASE_URL") ||
       raise """
       environment variable DATABASE_URL is missing.
+
+      It is required by #{entry_point_label}.
       For example: ecto://USER:PASS@HOST/DATABASE
       """
 
@@ -143,17 +179,33 @@ if config_env() == :prod do
     # pool_count: 4,
     socket_options: maybe_ipv6
 
-  # The secret key base is used to sign/encrypt cookies and other secrets.
-  # A default value is used in config/dev.exs and config/test.exs but you
-  # want to use a different value for prod and you most likely don't want
-  # to check this value into version control, so we use an environment
-  # variable instead.
+  # App-boot requirement: signs and encrypts cookies. A default value is used in
+  # config/dev.exs and config/test.exs but you want a different value for prod,
+  # and you most likely don't want to check it into version control, so we use
+  # an environment variable instead.
+  #
+  # Absent at the migration entry point it is simply left unset: no Endpoint is
+  # started there, and inventing a placeholder would bake a known signing key
+  # into an open-source repo.
   secret_key_base =
-    System.get_env("SECRET_KEY_BASE") ||
-      raise """
-      environment variable SECRET_KEY_BASE is missing.
-      You can generate one by calling: mix phx.gen.secret
-      """
+    case System.get_env("SECRET_KEY_BASE") do
+      nil when migration_entry? ->
+        nil
+
+      nil ->
+        raise """
+        environment variable SECRET_KEY_BASE is missing.
+
+        It is required by #{entry_point_label}, which uses it to sign and
+        encrypt cookies. You can generate one by calling: mix phx.gen.secret
+
+        Database migrations do not read it — `bin/vr eval 'VR.Release.migrate()'`
+        runs without it.
+        """
+
+      value ->
+        value
+    end
 
   host = System.get_env("PHX_HOST", "localhost")
 
@@ -162,13 +214,25 @@ if config_env() == :prod do
 
   config :vr, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
-  config :vr, VRWeb.Endpoint,
+  endpoint_config = [
     url: [host: host, port: 443, scheme: "https"],
     http: [
       ip: {0, 0, 0, 0},
       port: port
-    ],
-    secret_key_base: secret_key_base
+    ]
+  ]
+
+  # Set only when we have one (see above). Phoenix raises on its own if an
+  # Endpoint is ever started without it, which is the correct failure for a
+  # path that has no business starting one.
+  endpoint_config =
+    if secret_key_base do
+      Keyword.put(endpoint_config, :secret_key_base, secret_key_base)
+    else
+      endpoint_config
+    end
+
+  config :vr, VRWeb.Endpoint, endpoint_config
 
   # ## SSL Support
   #
@@ -222,8 +286,11 @@ if config_env() == :prod do
 end
 
 # ── Cloak key presence check ──────────────────────────────────────
-# VR.Vault verifies this again at boot, but warning here first makes the cause easier to spot.
-if config_env() != :test and System.get_env("CLOAK_KEY") in [nil, ""] do
+# App-boot requirement. VR.Vault verifies this again at boot, but warning here
+# first makes the cause easier to spot. Skipped at the migration entry point:
+# no Vault is started there, and "the app will not boot" is a false alarm in
+# the middle of a migration log.
+if config_env() != :test and not migration_entry? and System.get_env("CLOAK_KEY") in [nil, ""] do
   IO.warn("""
   CLOAK_KEY is not set. The app will not boot.
 
