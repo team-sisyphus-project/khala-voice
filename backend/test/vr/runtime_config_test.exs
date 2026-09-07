@@ -230,4 +230,52 @@ defmodule VR.RuntimeConfigTest do
       assert File.read!(Path.join(@repo_root, "Dockerfile")) =~ "config/runtime.exs config/"
     end
   end
+
+  describe "documentation — the boot-parameter spec" do
+    # The Story's M8/M9. Numbered independently of the M-markers above, which
+    # belong to the earlier runtime Story.
+    @config_doc Path.expand("../../../docs/07-config-admin.md", __DIR__)
+
+    defp config_doc, do: File.read!(@config_doc)
+
+    defp documented_default(var) do
+      row = ~r/^\|\s*`#{var}`\s*\|\s*`(\d+)`/m
+
+      case Regex.run(row, config_doc(), capture: :all_but_first) do
+        [n] -> String.to_integer(n)
+        nil -> nil
+      end
+    end
+
+    test "a normative boot-parameter default table exists, exactly once (Story M8)" do
+      headings = Regex.scan(~r/^#+ Boot parameter defaults\s*$/m, config_doc())
+
+      assert length(headings) == 1,
+             "docs/07-config-admin.md must carry exactly one normative " <>
+               "'Boot parameter defaults' section, found #{length(headings)}"
+    end
+
+    # The reason for pinning the table to the code: prose defaults drift silently.
+    # If someone changes the default in runtime.exs, this fails until the Spec follows.
+    test "the documented PORT default equals the one runtime.exs resolves (Story M8)" do
+      with_env(%{"PORT" => nil}, fn ->
+        assert documented_default("PORT") == prod_http_port()
+      end)
+    end
+
+    test "the documented HTTPS_PORT default equals the one runtime.exs resolves (Story M8)" do
+      with_env(%{"DEV_BIND_ALL" => "true", "HTTPS_PORT" => nil}, fn ->
+        assert documented_default("HTTPS_PORT") ==
+                 endpoint(:dev) |> Keyword.fetch!(:https) |> Keyword.fetch!(:port)
+      end)
+    end
+
+    test "rule R6 states the empty-vs-malformed rule (Story M9)" do
+      [row] = Regex.run(~r/^\| R6 \|.*$/m, config_doc())
+
+      assert row =~ ~r/malformed/i
+      assert row =~ ~r/default/i
+      assert row =~ ~r/halt/i
+    end
+  end
 end

@@ -24,6 +24,7 @@ VR.Config.fetch(:storage, :access_key_id)
 | R3 | Secrets never appear in logs, error messages, or API responses (`redact`) |
 | R4 | The admin UI never echoes stored secrets back. Masked + "configured / not configured" only |
 | R5 | Missing `CLOAK_KEY` means **boot failure**. No default key is generated |
+| R6 | For a boot parameter, empty means "not decided" → use the default; present but malformed means "decided wrongly" → **halt boot with a message naming the variable**. Never fall back to the default on a malformed value |
 
 > **Scope of R1 and R2 — boot parameters are the exception.**
 > These two rules govern the **credentials** handled by `VR.Config`.
@@ -38,6 +39,28 @@ VR.Config.fetch(:storage, :access_key_id)
 > Boot parameters are not secrets, and there is no feature to disable when they are
 > absent. To add a new item to this exception, first answer "is it needed before the
 > Repo?" If it is a credential, the answer is always `VR.Config.Registry`.
+
+### Boot parameter defaults
+
+Normative. `config/runtime.exs` is the implementation; this table is the specification
+it must match. Anything else that mentions these values — `.env.example`,
+`docs/00-setup-checklist.md` — points here instead of restating the numbers, so a
+default is written down exactly once.
+
+| Variable | Empty / absent | Present but malformed |
+|---|---|---|
+| `PORT` | `4000` | halt, naming `PORT` (R6) |
+| `HTTPS_PORT` | `4001` — dev only, and only under `DEV_BIND_ALL=true` | halt, naming `HTTPS_PORT` (R6) |
+| `POOL_SIZE` | `10` | halt (raw `ArgumentError`, no variable name) |
+| `PHX_HOST` | `localhost` | — |
+| `PHX_SERVER` / `DEV_BIND_ALL` / `ECTO_IPV6` | off | — |
+| `DNS_CLUSTER_QUERY` | clustering off | — |
+
+Only `PORT` and `HTTPS_PORT` go through the shared `port_from_env` helper, which is
+where R6 is enforced: blank or whitespace-only falls back to the default, while a
+non-integer, `0`, or an out-of-range value stops boot and names the variable. The
+remaining rows have a default but no such validation — treat a malformed value there
+as undefined behaviour, not as a supported input.
 
 ## Preventing secret incidents
 
@@ -157,7 +180,7 @@ features without configuration are simply off, and boot parameters have defaults
 
 | Variable | Injected by |
 |---|---|
-| `PORT` | Deploy platform. A platform value wins; empty means 4000 |
+| `PORT` | Deploy platform. A platform value wins; empty falls back to the default in [Boot parameter defaults](#boot-parameter-defaults) |
 | `PHX_SERVER` | Dockerfile (`ENV PHX_SERVER="true"`). Tells a release to start the HTTP server; `mix phx.server` does not need it |
 
 **`REDIS_URL` is deliberately not used.** This app has no Redis dependency
@@ -169,17 +192,17 @@ nor in `.env.example` — the absence is intentional, not an oversight.
 DATABASE_URL=                  # format: ecto://USER:PASS@localhost/DATABASE
 SECRET_KEY_BASE=               # generate: mix phx.gen.secret
 CLOAK_KEY=                     # openssl rand -base64 32 (boot fails without it)
-PHX_HOST=                      # public hostname (prod only; if empty, localhost)
-PORT=                          # optional — if empty, 4000. Malformed value halts boot
+PHX_HOST=                      # public hostname (prod only)
+PORT=                          # optional — see "Boot parameter defaults" above
 APP_BASE_URL=
 
 # ── Boot / release (usually leave empty locally) ─
 PHX_SERVER=                    # platform-injected via Dockerfile ENV (releases only)
 ECTO_IPV6=                     # true | 1 = DB over IPv6 (prod releases only)
-POOL_SIZE=                     # DB pool size (prod releases only). If empty, 10
-DNS_CLUSTER_QUERY=             # node clustering DNS name. If empty, clustering off
+POOL_SIZE=                     # DB pool size (prod releases only)
+DNS_CLUSTER_QUERY=             # node clustering DNS name
 DEV_BIND_ALL=                  # dev only: true = additionally serve HTTPS
-HTTPS_PORT=                    # if empty, 4001. Malformed value halts boot
+HTTPS_PORT=                    # dev HTTPS listener port
 # REDIS_URL is intentionally absent: this app does not use Redis.
 
 # ── Storage (S3) ───────────────────────────
