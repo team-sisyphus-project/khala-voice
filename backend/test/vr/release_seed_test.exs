@@ -301,6 +301,56 @@ defmodule VR.ReleaseSeedTest do
       end
     end
 
+    # A unique violation names *an* index, not the one the step read. Losing on
+    # a second index leaves the row the step asked about still absent, and the
+    # next run fails in the same place — so this is not the race, and calling
+    # it "already exists" would leave the deploy unmetered and quiet about it.
+    #
+    # Staged by moving the index the changeset maps onto a column the seed's
+    # read does not look at: the rejection arrives worded exactly as the race's
+    # does, which is the whole point — the wording is not what tells them apart.
+    test "a duplicate on an index the step did not check still stops the seed" do
+      Repo.query!("DROP INDEX credit_conversion_settings_singleton_key_index")
+
+      Repo.query!(
+        "CREATE UNIQUE INDEX credit_conversion_settings_singleton_key_index ON " <>
+          "credit_conversion_settings (currency)"
+      )
+
+      Repo.query!(
+        "INSERT INTO credit_conversion_settings (id, singleton_key, currency, " <>
+          "credit_value_usd, rounding_policy, inserted_at, updated_at) VALUES " <>
+          "('ccs-archived', 'archived', 'USD', 0.002, 'ceil', now(), now())"
+      )
+
+      message = assert_raise(RuntimeError, fn -> capture_io(fn -> Release.seed() end) end)
+
+      assert message.message =~ "the credit conversion policy could not be created"
+      assert message.message =~ "not a row that already exists"
+      assert message.message =~ @entry_point
+
+      # The row the step read for is still not there — which is what makes the
+      # rejection a failure rather than the race.
+      assert is_nil(VR.Billing.Credits.conversion_setting())
+    end
+
+    test "the same holds for the free plan" do
+      Repo.query!("DROP INDEX plans_key_index")
+      Repo.query!("CREATE UNIQUE INDEX plans_key_index ON plans (display_name)")
+
+      Repo.query!(
+        "INSERT INTO plans (id, key, display_name, status, publicly_listed, " <>
+          "sort_order, inserted_at, updated_at) VALUES ('plan-legacy', 'legacy', " <>
+          "'Free', 'retired', false, 9, now(), now())"
+      )
+
+      message = assert_raise(RuntimeError, fn -> capture_io(fn -> Release.seed() end) end)
+
+      assert message.message =~ "the free plan could not be created"
+      assert message.message =~ "not a row that already exists"
+      assert is_nil(Billing.get_plan_by_key(Billing.free_plan_key()))
+    end
+
     # The address is taken, but by an account that is not an admin: nobody can
     # open /_admin, and re-running changes nothing. Reading it as "already
     # exists" would leave the operator with a preview and no way in.

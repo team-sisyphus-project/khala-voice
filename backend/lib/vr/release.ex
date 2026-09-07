@@ -95,8 +95,10 @@ defmodule VR.Release do
 
   "Only when it is absent" is decided by a read, so two deploys running this
   at the same time can both read *absent* and both write. The one that loses
-  the unique index reports the row as already there and carries on: the deploy
-  step's job is to leave the row behind, not to be the one that wrote it.
+  the unique index reads back for the row it asked about, and — finding it —
+  reports it as already there and carries on: the deploy step's job is to
+  leave the row behind, not to be the one that wrote it. A unique violation
+  with no such row behind it is a different index, and stays fatal.
 
   `:entry_point` overrides the command quoted in the messages. `priv/repo/seeds.exs`
   passes its own, so an operator running the Mix path is not told to run a
@@ -191,8 +193,9 @@ defmodule VR.Release do
   end
 
   # Every step below asks "is it there?" and then writes, so two runs at once
-  # both get a yes and both write. `VR.Release.Rejection` reads what comes
-  # back from the losing write; the steps only have to say so.
+  # both get a no and both write. `VR.Release.Rejection` reads what comes back
+  # from the losing write; each step supplies the read that confirms it, and
+  # then only has to say so.
 
   # 1 credit = $N. Changed from the admin UI afterwards.
   # The default follows devkanban's reference value (≈ $0.0015, Cookie Crate basis).
@@ -207,7 +210,10 @@ defmodule VR.Release do
           )
 
         {:error, changeset} ->
-          duplicate!(changeset, "the credit conversion policy", entry_point)
+          duplicate!(changeset, "the credit conversion policy", entry_point, fn ->
+            not is_nil(VR.Billing.Credits.conversion_setting())
+          end)
+
           say("[seeds] credit conversion policy already exists" <> Rejection.concurrently())
       end
     else
@@ -238,7 +244,10 @@ defmodule VR.Release do
         publish_free_plan(plan, entry_point)
 
       {:error, changeset} ->
-        duplicate!(changeset, "the free plan", entry_point)
+        duplicate!(changeset, "the free plan", entry_point, fn ->
+          not is_nil(VR.Billing.get_plan_by_key(VR.Billing.free_plan_key()))
+        end)
+
         say("[seeds] free plan already exists" <> Rejection.concurrently())
     end
   end
@@ -273,10 +282,19 @@ defmodule VR.Release do
     end
   end
 
-  # "That row is already there" is the one rejection that is not a failure.
-  # Every other one is the seed being wrong, and stays loud.
-  defp duplicate!(changeset, subject, entry_point) do
-    if Rejection.already_there?(changeset) do
+  # "That row is already there" is the one rejection that is not a failure, and
+  # the only proof of it is the row. A unique violation names *an* index, not
+  # the one the step read — a write can lose on a second index while the row
+  # the step asked about is still absent, and then the next run fails in
+  # exactly the same place. Forgiving that leaves a deploy reporting a row it
+  # does not have: a conversion policy silently missing is transcription
+  # running unmetered.
+  #
+  # So the step reads back for its own row, the way the admin step asks
+  # `count_admins/0`, and `there?` is that read. Everything it does not answer
+  # for is the seed being wrong, and stays loud.
+  defp duplicate!(changeset, subject, entry_point, there?) do
+    if Rejection.already_there?(changeset) and there?.() do
       :ok
     else
       raise seed_failed_message(subject, changeset, entry_point)
