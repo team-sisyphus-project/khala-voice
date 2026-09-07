@@ -251,9 +251,10 @@ comes out naming `BOOTSTRAP_ADMIN_PASSWORD`, since this output is a deploy log
 and the operator already has the value.
 
 **Three commands create that admin row, and one module decides what they say.**
-`VR.Release.BootstrapAdmin` holds the four outcomes — created, already there,
-another run got there first, the address was refused — so the three cannot drift
-into three answers:
+`VR.Release.BootstrapAdmin` holds the four outcomes — created, already there
+(a run that got there first reports the same one), no address configured, the
+address was refused — so the three cannot drift into three answers. What each
+command *does* with the third one is the column on the right:
 
 | Command | Creates | Fatal when no email is configured |
 |---|---|---|

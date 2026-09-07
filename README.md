@@ -330,9 +330,11 @@ shared the same values, that alone would be an attack target. The first account 
 created once, with values you choose yourself.
 
 **One mechanism creates it, and three commands reach it.** They read the same
-`BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD`, and report the same four
-outcomes in the same words — created, an admin was already there, another run got
-there first, the address was refused. Pick the row that describes where you are:
+`BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD`, and answer the same four
+outcomes in the same sentence — created, an admin was already there (including
+when another run got there first), no address was configured, the address was
+refused. Only the closing clause differs, and it says how far that run got.
+Pick the row that describes where you are:
 
 | Command | Reach for it when |
 |---|---|
@@ -340,8 +342,12 @@ there first, the address was refused. Pick the row that describes where you are:
 | `mix run priv/repo/seeds.exs` | you are preparing a checkout's database and want all three seed rows — see "Database preparation" above |
 | `bin/vr eval 'VR.Release.seed()'` | you are on the release path, where there is no `mix` — see "Deploying a preview" above |
 
-The rest of this section uses the first one; the other two behave identically for
-the admin account, and their own sections cover what else they do.
+The rest of this section uses the first one; the other two do the same thing to
+the admin row, and their own sections cover what else they do. **They part on one
+outcome: no address configured.** The two seed commands skip the admin, seed the
+other two rows and exit 0; `mix vr.bootstrap_admin` stops with a non-zero exit,
+because creating that account is the whole command. The per-command table is in
+[docs/07-config-admin.md](docs/07-config-admin.md#preparing-the-database--migrate-then-seed).
 
 **Supply the password and it is never repeated back to you.** You already have it,
 and a terminal scrollback or a deploy log is one more place it can leak from — so
