@@ -24,6 +24,14 @@
 #                    VR.Release.seed()'`, and the image's own CMD,
 #                    `bin/vr start`.
 #
+# **Both modes check detection first.** One `detect` step reads the repository
+# root and fails when it names more than one way to build, when the Dockerfile
+# stops declaring a CMD, or when deploy.toml stops declaring the database,
+# preparation and health path. Those three are the whole reason this repository
+# carries no `preview.toml`: an explicit preview configuration exists to answer
+# what a checkout leaves ambiguous, and this one leaves nothing. The step is
+# there so that stops being a sentence and starts being a run that can go red.
+#
 # The release mode is the one that answers "does a *clean checkout* work".
 # `.dockerignore` drops `_build`, `deps` and `node_modules` from the build
 # context, so the image is built from the tracked tree no matter what state the
@@ -644,9 +652,107 @@ step_ok "$DB_NAME on $PORT"
 row "· " "REDIS_URL" "$redis_note"
 row "· " "logs" "$LOG_DIR"
 
+# ── 2. detect ────────────────────────────────────────────────────
+#
+#  Why this repository needs no `preview.toml`, checked rather than asserted.
+#
+#  A platform reads a checkout and has to answer two questions on its own: how
+#  do I build this, and how do I start what I built. An explicit preview
+#  configuration exists for when the checkout does not answer them — when the
+#  root offers two plausible builds, or the built artifact does not say how it
+#  runs. This repository answers both, and the rest of this run is the evidence:
+#  `image` builds with `docker build .` and no `-f`, and `start` runs the
+#  container with **no command argument**, so the server that answers `healthz`
+#  was started by the image's own CMD and nothing else.
+#
+#  What that leaves is the part a passing run cannot notice: the answer stops
+#  being singular the day a second build descriptor lands at the root. A stray
+#  `package-lock.json` sat there for exactly that reason once — six lines, no
+#  `package.json` beside it, describing no build, and readable by any detector
+#  that keys on lockfiles. This step is what turns "there is only one" from a
+#  sentence somebody wrote into something a run can contradict.
+#
+#  It runs in both modes. The release mode is the one that proves the image,
+#  and it is also the one that skips on a machine without docker — a guard that
+#  only ran there would be off on every CI push.
+
+# The names build detection keys on, at the repository root. Not a list of
+# every file a language uses: a marker is a file whose *presence at the root*
+# is taken as "this is a project of that kind". Anything under a subdirectory
+# is addressed by the Dockerfile, which is why `apps/web/package.json` and
+# `backend/mix.exs` are not detection surface and are not listed.
+DETECTOR_MARKERS="
+  Dockerfile Containerfile
+  docker-compose.yml docker-compose.yaml compose.yml compose.yaml
+  Procfile app.json nixpacks.toml .buildpacks
+  fly.toml render.yaml railway.toml railway.json vercel.json netlify.toml
+  package.json package-lock.json yarn.lock pnpm-lock.yaml bun.lockb
+  mix.exs elixir_buildpack.config phoenix_static_buildpack.config
+  requirements.txt pyproject.toml Pipfile runtime.txt
+  go.mod Gemfile Cargo.toml composer.json pom.xml
+  build.gradle build.gradle.kts
+"
+
+step_start detect
+
+found=""
+for marker in $DETECTOR_MARKERS; do
+  if [ -e "$REPO_ROOT/$marker" ]; then
+    found="$found $marker"
+  fi
+done
+found="${found# }"
+
+if [ -z "$found" ]; then
+  step_failed "The repository root carries no build descriptor at all.
+    Something removed the Dockerfile. Nothing here can tell a platform how to
+    build this checkout, and an explicit preview configuration would only name
+    a file that is gone."
+fi
+
+if [ "$found" != "Dockerfile" ]; then
+  step_failed "The repository root names more than one way to build:
+
+$(printf '%s\n' $found | sed 's/^/        /')
+
+    Detection was unambiguous when it was decided that this repository needs
+    no preview.toml, and that is no longer true. Either the extra file
+    describes nothing and should go, or it describes a real second build — in
+    which case something has to say which one a preview takes, and the
+    decision it overturns has to be re-settled rather than quietly broken." \
+    "ls \$REPO_ROOT"
+fi
+
+# The run half. `start` runs the container with no command, so a Dockerfile
+# that stopped declaring one would fail there — but it would fail as a server
+# that never came up, 90 seconds later, with the reason two steps away from the
+# cause.
+grep -q '^CMD ' "$REPO_ROOT/Dockerfile" || step_failed \
+  "The Dockerfile declares no CMD.
+    Then the image does not say how to start it, and a platform has to be told
+    — which is the case an explicit preview configuration exists for. This run
+    starts the container without a command precisely because the image carries
+    one." \
+    "grep '^CMD ' Dockerfile"
+
+# The three things the image genuinely cannot state about itself: that it wants
+# a database, what to run before first boot, and where to ask whether it is up.
+# deploy.toml already states all three. A preview.toml would restate them.
+for key in database migrate healthcheck; do
+  grep -q "^$key[[:space:]]*=" "$REPO_ROOT/deploy.toml" || step_failed \
+    "deploy.toml has no \`$key\` key.
+    It is where this repository states the parts of a preview the image cannot
+    carry — that it needs a database, the preparation command, and the health
+    path. Dropping one moves that part back to being undeclared." \
+    "grep '^$key' deploy.toml"
+done
+
+step_ok "Dockerfile + deploy.toml, one build descriptor at the root"
+
+
 if [ "$MODE" = release ]; then
 
-# ── 2. image ─────────────────────────────────────────────────────
+# ── 3. image ─────────────────────────────────────────────────────
 #
 #  The whole build, in one command, from the repository root. `.dockerignore`
 #  keeps `_build`, `deps` and `node_modules` out of the context, so this is a
@@ -659,7 +765,7 @@ run_docker "docker build -t $IMAGE_TAG ." \
   docker build -t "$IMAGE_TAG" "$REPO_ROOT"
 step_ok "built $IMAGE_TAG"
 
-# ── 3. database ──────────────────────────────────────────────────
+# ── 4. database ──────────────────────────────────────────────────
 #
 #  A platform hands over a database that already exists; this run has to make
 #  one, and has to make it the way the release can — there is no `mix` in the
@@ -672,7 +778,7 @@ run_docker "bin/vr eval '$DB_CREATE_EVAL'" \
 DB_CREATED=true
 step_ok "created $DB_NAME"
 
-# ── 4. prepare ───────────────────────────────────────────────────
+# ── 5. prepare ───────────────────────────────────────────────────
 #
 #  deploy.toml's line, run as deploy.toml runs it. One row for both halves
 #  because it is one command: splitting it would read better and verify a
@@ -697,7 +803,7 @@ quote_seed_log "$STEP_LOG"
 
 else
 
-# ── 2. web build ─────────────────────────────────────────────────
+# ── 3. web build ─────────────────────────────────────────────────
 #
 #  `mix setup` does not build this, and priv/static/app is gitignored, so a
 #  clean checkout serves an empty /app/ until it runs. It goes first because it
@@ -708,7 +814,7 @@ run_in "$WEB" npm ci
 run_in "$WEB" npm run build
 step_ok "apps/web → backend/priv/static/app"
 
-# ── 3. deps + compile ────────────────────────────────────────────
+# ── 4. deps + compile ────────────────────────────────────────────
 
 step_start deps
 run_in "$BACKEND" mix deps.get --only prod
@@ -719,14 +825,14 @@ run_in "$BACKEND" mix compile
 run_in "$BACKEND" mix assets.deploy
 step_ok "MIX_ENV=prod, assets digested"
 
-# ── 4. database ──────────────────────────────────────────────────
+# ── 5. database ──────────────────────────────────────────────────
 
 step_start database
 run_in "$BACKEND" mix ecto.create
 DB_CREATED=true
 step_ok "created $DB_NAME"
 
-# ── 5. migrate ───────────────────────────────────────────────────
+# ── 6. migrate ───────────────────────────────────────────────────
 #
 #  The same function the release path runs, reached the way Mix reaches it.
 #  `--no-start` because migrating starts a repo, not an app: it is the closest
@@ -744,7 +850,7 @@ step_start migrate
 run_in "$BACKEND" mix run --no-start -e "$APPLY_LOG_LEVEL VR.Release.migrate()"
 step_ok "$(grep -c ' Migrated ' "$STEP_LOG" || true) migrations applied"
 
-# ── 6. seed ──────────────────────────────────────────────────────
+# ── 7. seed ──────────────────────────────────────────────────────
 
 # The entry point is passed in, so the seed's own messages name the command
 # that reaches it. From here that command is this script — telling an operator
@@ -758,7 +864,7 @@ quote_log "$STEP_LOG"
 
 fi
 
-# ── 7. start ─────────────────────────────────────────────────────
+# ── 8. start ─────────────────────────────────────────────────────
 
 step_start start
 
@@ -818,7 +924,7 @@ done
 
 step_ok "listening on $BASE_URL"
 
-# ── 8. healthz ───────────────────────────────────────────────────
+# ── 9. healthz ───────────────────────────────────────────────────
 
 step_start healthz
 body="$(curl -fsS "$BASE_URL/healthz")" || step_failed \
@@ -829,7 +935,7 @@ body="$(curl -fsS "$BASE_URL/healthz")" || step_failed \
 
 step_ok "200 ok"
 
-# ── 9. first screen ──────────────────────────────────────────────
+# ── 10. first screen ─────────────────────────────────────────────
 #
 #  The one assertion the whole run exists for. `-L` because / is a redirect:
 #  what has to be 200 is where it lands, over plain http, with nothing in
@@ -867,7 +973,7 @@ landed="${rest#* }"
 
 step_ok "200 at $landed after $redirects redirect(s)"
 
-# ── 10. plain http ───────────────────────────────────────────────
+# ── 11. plain http ───────────────────────────────────────────────
 #
 #  The 200 above says the screen exists. This says it is reachable the way a
 #  preview is actually reached — behind a terminator that speaks plain http to
