@@ -78,7 +78,7 @@ cd ../../backend
 BOOTSTRAP_ADMIN_EMAIL=admin@example.com mix run priv/repo/seeds.exs
 
 # 4. Start the server
-PORT=4000 mix phx.server       # PORT optional; defaults to 4000
+mix phx.server                 # PORT optional — unset means the default port
 ```
 
 Smoke check — an anonymous visit to `/` redirects to the login screen,
@@ -97,7 +97,12 @@ command; the "Database preparation" section below breaks it down and covers
 managed-database caveats.
 
 **Networking.** The app opens exactly one HTTP listener, on `PORT`, speaking
-plain HTTP. **TLS termination belongs outside the app** — put a reverse proxy
+plain HTTP. `PORT` is optional and platform-injected: leave it unset and the listener
+takes the default the `curl` above assumes, a value injected by the deploy platform
+wins over that default, and a malformed value halts boot instead of quietly falling
+back. The numbers live in one place —
+[Boot parameter defaults](docs/07-config-admin.md#boot-parameter-defaults).
+**TLS termination belongs outside the app** — put a reverse proxy
 in front in production and set `APP_TRUST_PROXY_HEADERS=true` there.
 **Redis is not used**; there is no `REDIS_URL` to configure.
 

@@ -126,7 +126,7 @@ For local development use `MAIL_PROVIDER=local` — nothing is actually sent; ma
 | `SECRET_KEY_BASE` | ✅ | `mix phx.gen.secret` |
 | **`CLOAK_KEY`** | ✅ | `openssl rand -base64 32` — **boot fails without it** |
 | `PHX_HOST` / `APP_BASE_URL` | ✅ | |
-| `PORT` | — | **Optional.** If the deployment platform injects one, that value wins. Default and malformed-value behaviour: [`07-config-admin.md`](07-config-admin.md#boot-parameter-defaults) |
+| `PORT` | — | **Optional.** A value injected by the deployment platform wins; empty takes the default, and a malformed value halts boot — [Boot parameter defaults](07-config-admin.md#boot-parameter-defaults) |
 
 > If you lose `CLOAK_KEY`, **every key stored in the DB becomes undecryptable.**
 > Keep a separate copy in your deployment environment's secret manager. Rotating the key

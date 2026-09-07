@@ -58,7 +58,10 @@ default is written down exactly once.
 
 Only `PORT` and `HTTPS_PORT` go through the shared `port_from_env` helper, which is
 where R6 is enforced: blank or whitespace-only falls back to the default, while a
-non-integer, `0`, or an out-of-range value stops boot and names the variable. The
+non-integer, `0`, or an out-of-range value stops boot and names the variable.
+`PORT` is therefore never required to run the app: unset takes the default, a value
+injected by the deploy platform is read like any other environment value and wins over
+it, and a malformed value halts boot rather than silently reverting to the default. The
 remaining rows have a default but no such validation — treat a malformed value there
 as undefined behaviour, not as a supported input.
 
@@ -193,10 +196,10 @@ DATABASE_URL=                  # format: ecto://USER:PASS@localhost/DATABASE
 SECRET_KEY_BASE=               # generate: mix phx.gen.secret
 CLOAK_KEY=                     # openssl rand -base64 32 (boot fails without it)
 PHX_HOST=                      # public hostname (prod only)
-PORT=                          # optional — see "Boot parameter defaults" above
 APP_BASE_URL=
 
 # ── Boot / release (usually leave empty locally) ─
+PORT=                          # platform-injected; optional — see "Boot parameter defaults"
 PHX_SERVER=                    # platform-injected via Dockerfile ENV (releases only)
 ECTO_IPV6=                     # true | 1 = DB over IPv6 (prod releases only)
 POOL_SIZE=                     # DB pool size (prod releases only)

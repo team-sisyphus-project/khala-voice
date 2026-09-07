@@ -270,6 +270,39 @@ defmodule VR.RuntimeConfigTest do
       end)
     end
 
+    # grain-3: the satellite docs must not carry a second copy of the numbers.
+    # They may mention PORT all they like, as long as they send the reader to the
+    # one normative table instead of restating what it says.
+    @satellite_docs [
+      Path.expand("../../../README.md", __DIR__),
+      Path.expand("../../../.env.example", __DIR__),
+      Path.expand("../../../docs/00-setup-checklist.md", __DIR__)
+    ]
+
+    test "every doc that mentions PORT points at the normative table (Story M8)" do
+      for path <- @satellite_docs, body = File.read!(path), body =~ "PORT" do
+        assert body =~ "Boot parameter defaults",
+               "#{Path.basename(path)} mentions PORT but never points at " <>
+                 "docs/07-config-admin.md > Boot parameter defaults"
+      end
+    end
+
+    test "no satellite doc restates the PORT default as a number (Story M8)" do
+      restated = ~r/\bPORT\b\s*(?:=|defaults to|default:|→)\s*`?\d{2,5}/i
+
+      for path <- @satellite_docs do
+        offenders =
+          path
+          |> File.read!()
+          |> String.split("\n")
+          |> Enum.filter(&Regex.match?(restated, &1))
+
+        assert offenders == [],
+               "#{Path.basename(path)} restates a port default; the number belongs " <>
+                 "only in docs/07-config-admin.md: #{inspect(offenders)}"
+      end
+    end
+
     test "rule R6 states the empty-vs-malformed rule (Story M9)" do
       [row] = Regex.run(~r/^\| R6 \|.*$/m, config_doc())
 
