@@ -179,6 +179,22 @@ no supervision tree. Requiring the app's secrets there is what turned a missing
 it. `runtime.exs` tells the two apart through `RELEASE_COMMAND`; Mix never sets
 it, so `mix ecto.migrate` and `mix setup` behave exactly as before.
 
+The same split decides what a **malformed** value stops. `PORT`, `HTTPS_PORT`,
+`PHX_SCHEME` and `PHX_URL_PORT` describe how the world reaches a running app,
+so a wrong one halts the app and only warns at the database preparation entry
+point, which reads none of them:
+
+| Value | `bin/vr start` · `mix phx.server` · Mix tasks | `bin/vr eval …` |
+|---|---|---|
+| `DATABASE_URL` missing | halts | **halts** — preparation genuinely reads it |
+| `PORT` · `HTTPS_PORT` · `PHX_SCHEME` · `PHX_URL_PORT` malformed | halts | warns on stderr, continues on the default |
+| `PORT` · `PHX_URL_PORT` empty | default | default — empty means "not decided" |
+
+The warning quotes, word for word, the message the app halts with, and adds
+which command will halt on it. Why it warns rather than halts, and what was
+decided before, is in
+[`17-runtime-entry-points.md`](17-runtime-entry-points.md).
+
 The seed step is the one exception to "an `eval` needs nothing": it writes
 application data, and reads configuration the way the app does — DB first, and
 `system_configs` values are encrypted. So `VR.Release.seed/1` starts `VR.Vault`
@@ -234,8 +250,8 @@ every absolute URL it generates.
 | Variable | Empty means | Sets |
 |---|---|---|
 | `PHX_HOST` | `localhost` | the host in generated URLs, and the only thing `check_origin` compares |
-| `PHX_SCHEME` | `https` | `http` or `https`. Any other value halts boot |
-| `PHX_URL_PORT` | `443` for https, `80` for http | the port in generated URLs. Malformed value halts boot |
+| `PHX_SCHEME` | `https` | `http` or `https`. Any other value halts the app |
+| `PHX_URL_PORT` | `443` for https, `80` for http | the port in generated URLs. A malformed value halts the app |
 
 The two are deliberately separate. Behind a TLS terminator the app listens on
 plain HTTP port 4000 while the world reaches it at `https://host` — the normal

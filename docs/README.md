@@ -25,6 +25,7 @@ combining an account / friends / sharing system with the plan and credit system 
 | 13 | [Device testing](13-device-testing.md) | Verification procedure for mobile background recording |
 | 14 | [Provenance](14-provenance.md) | **What came from where in sisyphus/devkanban** |
 | 16 | [Extension privileges](16-postgres-extension-privileges.md) | Who creates `citext` / `pg_trgm`, and how migration fails when nobody can |
+| 17 | [Runtime entry points](17-runtime-entry-points.md) | Which variable stops which command — and why a malformed public URL no longer stops a migration |
 
 ## Principles
 

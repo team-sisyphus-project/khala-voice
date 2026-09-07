@@ -11,6 +11,8 @@ defmodule VR.RuntimeConfigTest do
   """
   use ExUnit.Case, async: false
 
+  import ExUnit.CaptureIO
+
   @runtime_exs Path.expand("../../config/runtime.exs", __DIR__)
   @backend_root_for_url Path.expand("../..", __DIR__)
 
@@ -306,10 +308,92 @@ defmodule VR.RuntimeConfigTest do
       assert error.message =~ "bin/vr eval 'VR.Release.migrate()'"
     end
 
-    test "a malformed PORT still halts — relaxing secrets relaxes nothing else" do
-      assert_raise RuntimeError, ~r/PORT/, fn ->
-        eval_endpoint(%{"PORT" => "8080a", "SECRET_KEY_BASE" => nil})
-      end
+    # ── Malformed values ──────────────────────────────────────────
+    #
+    # These three used to halt here as well, on the rationale that "the same
+    # file resolves them, so a malformed value must fail the same way at both
+    # entry points". That reasoning described the implementation (one file),
+    # not the entry point (what it reads). A migration starts no Endpoint and
+    # generates no link, so it reads none of PORT / PHX_SCHEME / PHX_URL_PORT
+    # — and halting on one reproduced, under a different variable name, the
+    # very defect this split was made to remove: a database preparation step
+    # dying on a value it never reads, reaching the operator as
+    # `migration_failed`. See docs/17-runtime-entry-points.md.
+    #
+    # The value is still wrong. It is reported as a warning naming the
+    # variable, the default this run continues with, and the command that does
+    # halt on it.
+
+    defp eval_with_stderr(overrides) do
+      parent = self()
+
+      output =
+        capture_io(:stderr, fn -> send(parent, {:endpoint, eval_endpoint(overrides)}) end)
+
+      assert_receive {:endpoint, config}
+      {config, output}
+    end
+
+    test "a malformed PORT warns and continues on the default" do
+      {config, warning} = eval_with_stderr(%{"PORT" => "8080a", "SECRET_KEY_BASE" => nil})
+
+      assert Keyword.fetch!(config, :http) |> Keyword.fetch!(:port) == 4000
+
+      assert warning =~ "[VR.Runtime]"
+      assert warning =~ "PORT"
+      assert warning =~ "8080a"
+      # What it continues with, and what will not tolerate it.
+      assert warning =~ "continuing with the default, 4000"
+      assert warning =~ "bin/vr start"
+    end
+
+    test "a malformed PHX_URL_PORT warns and the public port stays the default" do
+      {config, warning} =
+        eval_with_stderr(%{"PHX_URL_PORT" => "8443a", "SECRET_KEY_BASE" => nil})
+
+      assert Keyword.fetch!(config, :url) |> Keyword.fetch!(:port) == 443
+
+      assert warning =~ "PHX_URL_PORT"
+      assert warning =~ "8443a"
+    end
+
+    test "the warning keeps the message the app halts with, word for word" do
+      {_config, warning} = eval_with_stderr(%{"PORT" => "8080a"})
+
+      halt =
+        with_env(%{"PORT" => "8080a"}, fn ->
+          assert_raise RuntimeError, fn -> prod_http_port() end
+        end)
+
+      # Two operators comparing a deploy log against a boot log must be able to
+      # match them. The warning quotes the raise message; it does not paraphrase.
+      assert String.contains?(warning, String.trim_trailing(halt.message))
+    end
+
+    test "every line the warning writes fits in 80 columns" do
+      {_config, warning} = eval_with_stderr(%{"PHX_SCHEME" => "ftp"})
+
+      too_wide = warning |> String.split("\n") |> Enum.filter(&(String.length(&1) > 80))
+
+      assert too_wide == []
+    end
+
+    test "a well-formed value is not warned about" do
+      {config, warning} = eval_with_stderr(%{"PORT" => "8080", "PHX_SCHEME" => "http"})
+
+      assert Keyword.fetch!(config, :http) |> Keyword.fetch!(:port) == 8080
+      assert warning == ""
+    end
+
+    test "DATABASE_URL is still fatal here, malformed neighbours or not" do
+      capture_io(:stderr, fn ->
+        error =
+          assert_raise RuntimeError, fn ->
+            eval_endpoint(%{"DATABASE_URL" => nil, "PORT" => "8080a"})
+          end
+
+        assert error.message =~ "DATABASE_URL"
+      end)
     end
 
     test "the platform-injected PORT is still honored" do
@@ -318,19 +402,26 @@ defmodule VR.RuntimeConfigTest do
       assert Keyword.fetch!(config, :http) |> Keyword.fetch!(:port) == 8080
     end
 
-    # The public URL is resolved at both entry points. A migration never reads
-    # it, but the same file resolves it, so a malformed value must fail the same
-    # way here as it does for the app — the alternative is a deploy whose
-    # migration step passes and whose next step fails on a value the migration
-    # already saw.
-    test "PHX_SCHEME is resolved here too, and a malformed value still halts" do
+    # A well-formed public URL is still resolved here — the deploy step that
+    # migrates and the one that starts the app read the same file, and a value
+    # that works at one must work at the other.
+    test "PHX_SCHEME is resolved here too" do
       config = eval_endpoint(%{"PHX_SCHEME" => "http", "SECRET_KEY_BASE" => nil})
 
       assert Keyword.fetch!(config, :url) |> Keyword.fetch!(:scheme) == "http"
+    end
 
-      assert_raise RuntimeError, ~r/PHX_SCHEME/, fn ->
-        eval_endpoint(%{"PHX_SCHEME" => "ftp", "SECRET_KEY_BASE" => nil})
-      end
+    test "a malformed PHX_SCHEME warns and continues on https" do
+      {config, warning} = eval_with_stderr(%{"PHX_SCHEME" => "ftp", "SECRET_KEY_BASE" => nil})
+
+      assert Keyword.fetch!(config, :url) |> Keyword.fetch!(:scheme) == "https"
+      # The scheme decides the public port's default, and the fallback decides
+      # it here too — a warned scheme must not leave a half-applied URL.
+      assert Keyword.fetch!(config, :url) |> Keyword.fetch!(:port) == 443
+
+      assert warning =~ "PHX_SCHEME"
+      assert warning =~ "ftp"
+      assert warning =~ "continuing with the default, https"
     end
   end
 
@@ -354,6 +445,21 @@ defmodule VR.RuntimeConfigTest do
       assert error.message =~ "mix phx.gen.secret"
       assert error.message =~ "bin/vr start"
       assert error.message =~ "bin/vr eval 'VR.Release.migrate()'"
+    end
+
+    for {var, bad} <- [{"PORT", "8080a"}, {"PHX_SCHEME", "ftp"}, {"PHX_URL_PORT", "8443a"}] do
+      test "#{var}=#{inspect(bad)} still halts the app — only the migration relaxes" do
+        error =
+          with_env(%{unquote(var) => unquote(bad)}, fn ->
+            assert_raise RuntimeError, fn -> endpoint(:prod) end
+          end)
+
+        assert error.message =~ unquote(var)
+        assert error.message =~ unquote(bad)
+        # A halt is not a warning wearing a different hat: it says nothing
+        # about carrying on, because it does not carry on.
+        refute error.message =~ "continuing with the default"
+      end
     end
 
     test "the DATABASE_URL message names the app entry point, not the migration one" do

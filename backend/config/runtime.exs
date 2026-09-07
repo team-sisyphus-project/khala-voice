@@ -39,6 +39,78 @@ if config_env() in [:dev, :test] do
   end
 end
 
+# ── Entry point: booting the app vs preparing the database ────────
+#
+#  A release evaluates this file for **every** command it is given — including
+#  `bin/vr eval 'VR.Release.migrate()'`, the migration step in `deploy.toml`.
+#  `eval` runs a single expression on a *non-booted* system: no Endpoint, no
+#  Vault, no supervision tree. Yet the requirements below used to be one
+#  undifferentiated set, so a missing SECRET_KEY_BASE — a value no migration
+#  reads — stopped the migration with a message about cookies. Channel A of the
+#  configuration spec therefore splits in two:
+#
+#    * migration-only requirements — DATABASE_URL. Needed at both entry points.
+#    * app-boot requirements — SECRET_KEY_BASE, CLOAK_KEY. Needed only where
+#      something is actually started.
+#
+#  The same line decides what a *malformed* value stops, not only a missing one
+#  — see `halt_or_warn` immediately below.
+#
+#  RELEASE_COMMAND is exported by the release's own launcher script (`start`,
+#  `daemon`, `eval`, `rpc`, `remote`). It is **unset** for Mix, so
+#  `mix ecto.migrate`, `mix setup` and `mix phx.server` keep exactly today's
+#  behavior; only the non-booted `eval` entry point relaxes. Any other `eval`
+#  expression is treated the same way, which is correct for the same reason:
+#  `eval` starts no application, so nothing can consume the app secrets.
+release_command = System.get_env("RELEASE_COMMAND")
+migration_entry? = release_command == "eval"
+
+entry_point_label =
+  if migration_entry? do
+    "the database migration entry point (`bin/vr eval 'VR.Release.migrate()'`)"
+  else
+    "the application (`bin/vr start`, `mix phx.server`)"
+  end
+
+# ── A malformed value: halt, or warn and carry on ─────────────────
+#
+#  PORT / HTTPS_PORT / PHX_SCHEME / PHX_URL_PORT all describe how the outside
+#  world reaches a **running** app. The migration entry point runs none of that
+#  — no Endpoint is started, no link is generated — so halting a migration on
+#  one of these values reproduces, one variable further along, the exact defect
+#  the split above exists to remove: a database preparation step that dies on a
+#  value it never reads, and reaches the operator as `migration_failed`.
+#
+#  So the same wrong value now has two outcomes:
+#
+#    * app boot (`bin/vr start`, `mix phx.server`, every Mix task) — raises,
+#      unchanged. "Up, but every generated link points at an origin that does
+#      not answer" is the expensive failure, and a default quietly standing in
+#      for a value somebody deliberately set is how you arrive at it.
+#    * migration entry point — one stderr warning naming the variable and the
+#      value this run continues with. The migration then proceeds.
+#
+#  The value is still wrong either way; the warning names the command that will
+#  stop tolerating it. DATABASE_URL is untouched by this — the migration
+#  genuinely reads it, so it stays a hard failure at both entry points.
+halt_or_warn = fn name, message, fallback ->
+  if migration_entry? do
+    IO.puts(:stderr, """
+    [VR.Runtime] ignoring #{name} and continuing with the default, #{fallback}.
+
+    #{String.trim_trailing(message)}
+
+    The database preparation entry point serves no requests and generates no
+    links, so this run does not read it. `bin/vr start` does, and halts on
+    this value until it is fixed.
+    """)
+
+    fallback
+  else
+    raise message
+  end
+end
+
 # ── Port resolution ───────────────────────────────────────────────
 #
 #  PORT / HTTPS_PORT are **optional** environment variables. When missing or
@@ -47,10 +119,12 @@ end
 #  default is perfectly fine.
 #
 #  However, a value that is **present but malformed** (PORT=8080a, PORT=0, …)
-#  halts boot as-is. Silently swallowing it into the default produces
+#  halts the app as-is. Silently swallowing it into the default produces
 #  "the app is up but only the healthcheck fails", which is expensive to trace.
 #  Empty means "not decided"; malformed means "decided wrongly" — they are
-#  treated differently.
+#  treated differently. At the migration entry point the same malformed value
+#  is a warning instead (see halt_or_warn above): nothing there listens on a
+#  port, so nothing there can be reached on the wrong one.
 #
 #  This rule lives here and nowhere else. config/dev.exs does not read the
 #  port itself; the :dev branch below overwrites only the port on top of the
@@ -74,12 +148,14 @@ port_from_env = fn name, default ->
               n
 
             _ ->
-              raise """
+              message = """
               environment variable #{name} is not a valid port number: #{inspect(raw)}
 
               It must be an integer between 1 and 65535.
               Leave it empty to use the default, #{default}.
               """
+
+              halt_or_warn.(name, message, default)
           end
       end
   end
@@ -105,36 +181,6 @@ if config_env() == :dev do
     config :vr, VRWeb.Endpoint, https: [port: port_from_env.("HTTPS_PORT", 4001)]
   end
 end
-
-# ── Entry point: booting the app vs preparing the database ────────
-#
-#  A release evaluates this file for **every** command it is given — including
-#  `bin/vr eval 'VR.Release.migrate()'`, the migration step in `deploy.toml`.
-#  `eval` runs a single expression on a *non-booted* system: no Endpoint, no
-#  Vault, no supervision tree. Yet the requirements below used to be one
-#  undifferentiated set, so a missing SECRET_KEY_BASE — a value no migration
-#  reads — stopped the migration with a message about cookies. Channel A of the
-#  configuration spec therefore splits in two:
-#
-#    * migration-only requirements — DATABASE_URL. Needed at both entry points.
-#    * app-boot requirements — SECRET_KEY_BASE, CLOAK_KEY. Needed only where
-#      something is actually started.
-#
-#  RELEASE_COMMAND is exported by the release's own launcher script (`start`,
-#  `daemon`, `eval`, `rpc`, `remote`). It is **unset** for Mix, so
-#  `mix ecto.migrate`, `mix setup` and `mix phx.server` keep exactly today's
-#  behavior; only the non-booted `eval` entry point relaxes. Any other `eval`
-#  expression is treated the same way, which is correct for the same reason:
-#  `eval` starts no application, so nothing can consume the app secrets.
-release_command = System.get_env("RELEASE_COMMAND")
-migration_entry? = release_command == "eval"
-
-entry_point_label =
-  if migration_entry? do
-    "the database migration entry point (`bin/vr eval 'VR.Release.migrate()'`)"
-  else
-    "the application (`bin/vr start`, `mix phx.server`)"
-  end
 
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
@@ -253,7 +299,7 @@ if config_env() == :prod do
             scheme
 
           _ ->
-            raise """
+            message = """
             environment variable PHX_SCHEME is not a valid URL scheme: #{inspect(raw)}
 
             It must be one of:
@@ -266,6 +312,8 @@ if config_env() == :prod do
             It sets the scheme of the links this app generates, not the one it
             listens on. Leave it empty to use the default, https.
             """
+
+            halt_or_warn.("PHX_SCHEME", message, "https")
         end
     end
 
@@ -354,7 +402,7 @@ end
 # the middle of a migration log.
 if config_env() != :test and not migration_entry? and System.get_env("CLOAK_KEY") in [nil, ""] do
   IO.warn("""
-  CLOAK_KEY is not set. The app will not boot.
+  [VR.Runtime] CLOAK_KEY is not set. The app will not boot.
 
       openssl rand -base64 32
 

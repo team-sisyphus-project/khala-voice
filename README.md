@@ -245,6 +245,12 @@ configuration problem. Add `PHX_URL_PORT` only when the *public* port is also
 non-standard (`http://host:4000` with nothing in front of it). Behind a TLS
 terminator, leave both empty.
 
+A value that is neither `http` nor `https` halts `bin/vr start`, naming the
+variable. It does **not** halt the database preparation step, which generates
+no links: that step warns and carries on, so a typo here never reaches you as
+`migration_failed`
+([docs/17](docs/17-runtime-entry-points.md)).
+
 No forced HTTPS redirect is configured and no HSTS header is sent, so nothing
 pins the preview hostname to https in a browser. The PWA degrades rather than
 erroring: the manifest and service worker use root-relative URLs only, and
