@@ -81,8 +81,25 @@ mix vr.bootstrap_admin --email admin@example.com
 PORT=4000 mix phx.server       # PORT optional; defaults to 4000
 ```
 
-Smoke check — an anonymous visit to `/` redirects to the login screen,
-which answers 200:
+**One command runs steps 1, 2 and 4 against a throwaway database and says which
+one broke:**
+
+```bash
+DATABASE_URL=ecto://USER:PASS@HOST/postgres scripts/verify-preview.sh
+```
+
+It builds, creates its own green-field database, migrates, seeds, starts on
+`PORT` — 4123 when you have not set one — and then asserts that the first
+screen answers **200**, over **plain HTTP** — no `https://` hop, no HSTS — with
+**no `REDIS_URL`** in the environment. Its database is dropped on the way out,
+passed or failed, so the next run is as green-field as this one, and the
+database your `.env` names is never touched. Step 3 runs only when you hand it
+`BOOTSTRAP_ADMIN_EMAIL` — without one the `seed` row says the admin was skipped
+and the run still passes, which is the same answer step 1 gives. Flags and
+rows: ["5. Verify the whole sequence"](#5-verify-the-whole-sequence).
+
+By hand, against the server step 4 started — an anonymous visit to `/`
+redirects to the login screen, which answers 200:
 
 ```bash
 curl -L http://localhost:4000/   # → 302 → /go/meetings → 302 → /login → 200
@@ -311,7 +328,67 @@ https or `localhost` regardless of these settings.
 [docs/07-config-admin.md](docs/07-config-admin.md#serving-over-plain-http--the-public-url)
 covers each variable.
 
-### 5. Smoke check
+### 5. Verify the whole sequence
+
+**One command does everything above against a throwaway database and fails
+naming the step that broke:**
+
+```bash
+export DATABASE_URL=ecto://USER:PASS@HOST/postgres   # any reachable server
+scripts/verify-preview.sh --release
+```
+
+It builds the image, creates its own green-field database, prepares it with
+`deploy.toml`'s own eval line, starts the container by its `CMD` alone, and
+only then asks whether the preview works. Every row it prints is one thing that
+had to be true; a failing row names the step, quotes the command, points at
+that step's log, and exits 1.
+
+| It asserts | How |
+|---|---|
+| The first screen answers **200** | follows `/` through its redirects and requires 200 at the end of the chain |
+| Nothing forces **https** | no hop redirects to `https://`, no `Strict-Transport-Security` header, and the absolute links the app builds from its own config say `http://` |
+| **Redis is not needed** | `REDIS_URL` is removed from the environment before anything starts, so no run can pass on one it inherited |
+| The database is **green-field** | it creates its own, named after the run, and drops it on the way out — passed or failed |
+| The checkout needs no `preview.toml` | the repository root offers exactly one way to build, and the image and `deploy.toml` declare the rest |
+
+There are two modes, and they check the same things about whatever ends up
+listening:
+
+| Command | Reach for it when |
+|---|---|
+| `scripts/verify-preview.sh --release` | the image is what you deploy — docker build, then migrate, seed and start through `bin/vr` inside the container |
+| `scripts/verify-preview.sh` | you are running from source — the Mix path (→ ["From clean checkout to running app"](#from-clean-checkout-to-running-app)) |
+
+**The two part on one thing: `--release` skips with exit 0 when docker is
+missing or not running.** The `preflight` row then carries a `·` and the words
+`not checked`, never a `✅`, and the block under it says in a sentence that
+nothing was asserted — read the row, not the status code. The Mix path has no
+such exit: it needs `mix` and `npm`, and fails naming whichever is absent.
+
+| Flag | Effect |
+|---|---|
+| `--release` | verify the release image instead of the Mix path |
+| `--port N` | start on N instead of `PORT`, or 4123 when `PORT` is unset |
+| `--keep-db` | leave the throwaway database behind to inspect it |
+| `-h`, `--help` | print the flags and the values the script reads |
+
+**`DATABASE_URL` is the only value you have to supply** — the throwaway
+database is created on the server it names, and the database name in it is left
+alone. `PORT` and `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` are
+passed through when you set them. The rest of step 1's table is the script's
+own: it generates `SECRET_KEY_BASE` and `CLOAK_KEY` for a database that stops
+existing a minute later, and sets `PHX_HOST` and `PHX_SCHEME=http` itself,
+because plain HTTP is the topology it is there to check. `--release` is handed
+those six by name and nothing more — an `APP_BASE_URL` left in your shell never
+reaches the container, where it would be verifying your configuration instead
+of the image's. Step logs land under `TMPDIR`; the `logs` row says where.
+
+CI runs the Mix mode on every pull request and every push to `main`, as the
+`Preview E2E` job, so this sequence goes red when it stops working.
+
+What the script cannot reach is the preview the platform actually deployed. For
+that, the same first screen, by hand:
 
 ```bash
 curl -L http://preview.example.test/   # → 302 → /go/meetings → 302 → /login → 200

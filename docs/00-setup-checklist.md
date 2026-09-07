@@ -202,3 +202,32 @@ In production, the admin dashboard (`/_admin`) shows the same information.
 
 Without FFmpeg, splitting and MP3 conversion fail for recordings over 20 minutes.
 Warnings also appear on the admin dashboard and in the app's boot log.
+
+### End-to-end check
+
+**`mix vr.doctor` says what is still missing; `scripts/verify-preview.sh` proves
+the sequence around it still runs** — build, green-field database, migrate,
+seed, start, first screen.
+
+```bash
+DATABASE_URL=ecto://USER:PASS@HOST/postgres scripts/verify-preview.sh
+```
+
+Four of the rows it prints on a pass:
+
+```
+  ✅ preflight          1s — vr_preview_verify_1913402 on 4123
+  ·  REDIS_URL          not set
+  ✅ first-screen       0s — 200 at http://localhost:4123/login after 2 redirect(s)
+  ✅ plain-http         0s — no https hop, no HSTS, links http://localhost:4123/mcp
+```
+
+**None of the keys on this checklist are needed for it to pass.** It generates
+`SECRET_KEY_BASE` and `CLOAK_KEY` for a database it drops a minute later, and
+configures nothing else — storage, transcription, LLM, mail and push stay off,
+which is exactly the state the sections above exist to change. It is also where
+"no Redis" stops being a claim: `REDIS_URL` is removed from the environment
+before anything starts.
+
+The flags, and the mode that checks the release image instead of the Mix path,
+are in [README](../README.md#5-verify-the-whole-sequence).

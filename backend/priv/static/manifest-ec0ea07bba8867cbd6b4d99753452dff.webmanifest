@@ -1,0 +1,56 @@
+{
+  "name": "KHALA VOICE",
+  "short_name": "KHALA VOICE",
+  "description": "Record meetings, transcribe them per speaker, and summarize with AI.",
+  "lang": "en",
+  "dir": "ltr",
+  "start_url": "/app/meetings",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#111113",
+  "theme_color": "#111113",
+  "categories": [
+    "productivity",
+    "business",
+    "utilities"
+  ],
+  "icons": [
+    {
+      "src": "/images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/images/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Record a new meeting",
+      "short_name": "Record",
+      "url": "/app/meetings?new=1",
+      "icons": [
+        {
+          "src": "/images/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Search the archive",
+      "short_name": "Archive",
+      "url": "/app/archive"
+    }
+  ]
+}
