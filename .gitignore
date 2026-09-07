@@ -23,6 +23,13 @@ secrets/
 # React build output — generated from apps/web
 /backend/priv/static/app/
 /backend/priv/static/cache_manifest.json
+# mix phx.digest output — digested copies of the tracked sources and their
+# gzip siblings. Rebuilt by `mix assets.deploy` (Dockerfile, and the
+# compile step of scripts/verify-preview.sh), so a checkout must not carry
+# them: cache_manifest.json is ignored, which leaves them unreferenced and
+# free to go stale.
+/backend/priv/static/**/*-????????????????????????????????.*
+/backend/priv/static/**/*.gz
 
 # ── Node ───────────────────────────────────
 node_modules/

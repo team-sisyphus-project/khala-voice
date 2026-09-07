@@ -118,15 +118,31 @@ For local development use `MAIL_PROVIDER=local` — nothing is actually sent; ma
 - In development, missing credentials simply pass through
 - Once M1 replaces this with account-based access (`Account.is_admin`), this item goes away
 
-### 8. The app itself — required to boot
+### 8. The app itself — what boots it, what migrates it, what makes it usable
 
-| Item | `.env` | Notes |
-|---|---|---|
-| `DATABASE_URL` | ✅ | |
-| `SECRET_KEY_BASE` | ✅ | `mix phx.gen.secret` |
-| **`CLOAK_KEY`** | ✅ | `openssl rand -base64 32` — **boot fails without it** |
-| `PHX_HOST` / `APP_BASE_URL` | ✅ | |
-| `PORT` | — | **Optional.** A value injected by the deployment platform wins; empty takes the default, and a malformed value halts boot — [Boot parameter defaults](07-config-admin.md#boot-parameter-defaults) |
+**Three of these must be set for the app to start at all; nothing halts on the
+absence of the rest — they decide whether the started app is usable.**
+`Needed for` is the entry point that actually reads a value — the same split as
+[07](07-config-admin.md#entry-points--what-each-one-actually-requires), which
+carries the full matrix.
+
+| Item | Needed for | `.env` | Notes |
+|---|---|---|---|
+| `DATABASE_URL` | app boot · migrate · seed | ✅ | **Required.** The one value the release migration step reads |
+| `SECRET_KEY_BASE` | app boot | ✅ | **Required.** `mix phx.gen.secret`. Migrations never read it |
+| **`CLOAK_KEY`** | app boot · seed | ✅ | **Required.** `openssl rand -base64 32` — **boot fails without it**, and the seed needs it to write encrypted settings |
+| `PHX_HOST` | preview preparation | ✅ | **Required on a preview and in production** — the public hostname stamped onto the URLs the app generates for itself. Empty means `localhost`, which is right only for local dev |
+| `APP_BASE_URL` | preview preparation | ✅ | **Required on a preview and in production** — the whole public address that share links and account mail carry. `PHX_HOST` does not feed it; they are two separate sources ([07](07-config-admin.md#serving-over-plain-http--the-public-url)) |
+| `PORT` | app boot | — | **Optional.** A value injected by the deployment platform wins; empty takes the default, and a malformed value halts boot — [Boot parameter defaults](07-config-admin.md#boot-parameter-defaults) |
+| `PHX_SCHEME` / `PHX_URL_PORT` | preview preparation | — | **Optional.** Left empty they describe an https origin on the port https omits — the right pair behind a TLS terminator ([Boot parameter defaults](07-config-admin.md#boot-parameter-defaults)). Set `PHX_SCHEME=http` for a preview served over plain HTTP, so generated links point where the app actually answers ([07](07-config-admin.md#serving-over-plain-http--the-public-url)) |
+
+**A preview needs this same list, with `PHX_SCHEME` decided the other way** —
+empty behind a TLS terminator, `http` where nothing terminates TLS for it.
+Nothing here is production-only, and the preview-preparation rows are
+**non-secret**: they belong in the platform's plain environment, not its secret
+store. `SECRET_KEY_BASE` and `CLOAK_KEY` are the two you generate per deployment
+and never commit. The sequence that uses them is
+[README](../README.md#1-what-a-preview-actually-needs).
 
 > If you lose `CLOAK_KEY`, **every key stored in the DB becomes undecryptable.**
 > Keep a separate copy in your deployment environment's secret manager. Rotating the key
@@ -152,13 +168,15 @@ Web push           working
 
 | Tool | Local dev | Production deploy | CI |
 |---|---|---|---|
-| **FFmpeg** | Manual `brew install ffmpeg` | **Automatic** — included in `backend/Dockerfile` | **Automatic** — `apt-get install` in the workflow |
+| **FFmpeg** | Manual `brew install ffmpeg` | **Automatic** — included in `Dockerfile` | **Automatic** — `apt-get install` in the workflow |
 | **gitleaks** | Manual `brew install gitleaks` | Not needed | **Automatic** — `gitleaks-action` |
 | PostgreSQL | Manual (or Docker) | Managed DB | **Automatic** — service container |
 
 ### Why deployment is automatic
 
-The runtime stage of `backend/Dockerfile` installs FFmpeg and **verifies it at build time**.
+The runtime stage of `Dockerfile` (in the repository root — it builds both
+`apps/web` and `backend`, so the build context is the root) installs FFmpeg and
+**verifies it at build time**.
 
 ```dockerfile
 RUN apt-get install -y --no-install-recommends ... ffmpeg
@@ -199,3 +217,32 @@ In production, the admin dashboard (`/_admin`) shows the same information.
 
 Without FFmpeg, splitting and MP3 conversion fail for recordings over 20 minutes.
 Warnings also appear on the admin dashboard and in the app's boot log.
+
+### End-to-end check
+
+**`mix vr.doctor` says what is still missing; `scripts/verify-preview.sh` proves
+the sequence around it still runs** — build, green-field database, migrate,
+seed, start, first screen.
+
+```bash
+DATABASE_URL=ecto://USER:PASS@HOST/postgres scripts/verify-preview.sh
+```
+
+Four of the rows it prints on a pass:
+
+```
+  ✅ preflight          1s — vr_preview_verify_1913402 on 4123
+  ·  REDIS_URL          not set
+  ✅ first-screen       0s — 200 at http://localhost:4123/login after 2 redirect(s)
+  ✅ plain-http         0s — no https hop, no HSTS, links http://localhost:4123/mcp
+```
+
+**None of the keys on this checklist are needed for it to pass.** It generates
+`SECRET_KEY_BASE` and `CLOAK_KEY` for a database it drops a minute later, and
+configures nothing else — storage, transcription, LLM, mail and push stay off,
+which is exactly the state the sections above exist to change. It is also where
+"no Redis" stops being a claim: `REDIS_URL` is removed from the environment
+before anything starts.
+
+The flags, and the mode that checks the release image instead of the Mix path,
+are in [README](../README.md#5-verify-the-whole-sequence).
